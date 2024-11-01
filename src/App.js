@@ -8,6 +8,7 @@ import EditMyProfile from './EditMyProfile';
 import SidebarMenu from './SidebarMenu';
 import UserList from './UserList';
 import ClientList from './ClientList';
+import ProductList from './ProductList';
 import ShowProfile from './ShowProfile';
 import Calendar from './Calendar';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -59,6 +60,7 @@ function App() {
             <Route path="/edit-profile/:id" element={isLoggedIn ? <EditProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
             <Route path="/edit-my-profile/:id" element={isLoggedIn ? <EditMyProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
             <Route path="/users" element={isLoggedIn ? <UserList /> : <Navigate to="/login" />} />
+            <Route path="/products" element={isLoggedIn ? <ProductList /> : <Navigate to="/login" />} />
             <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/show-profile/:id" element={<ShowProfile />} />

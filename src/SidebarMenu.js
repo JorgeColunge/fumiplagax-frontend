@@ -58,6 +58,12 @@ function SidebarMenu({ onLogout, userInfo }) {
           </Link>
         </li>
         <li className="nav-item">
+          <Link to="/products" className="nav-link" title="Productos">
+            <FontAwesomeIcon icon={faClipboardList} />
+            {isOpen && <span>Productos</span>}
+          </Link>
+        </li>
+        <li className="nav-item">
           <Link to="/reports" className="nav-link" title="Informes">
             <FontAwesomeIcon icon={faFileAlt} />
             {isOpen && <span>Informes</span>}
