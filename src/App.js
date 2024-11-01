@@ -13,6 +13,7 @@ import ShowProfile from './ShowProfile';
 import InspectionCalendar from './InspectionCalendar';
 import Calendar from './Calendar';
 import Inspections from './Inspections';
+import ServiceList from './ServiceList'; // Importa ServiceList
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -68,6 +69,7 @@ function App() {
             <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/show-profile/:id" element={<ShowProfile />} />
+            <Route path="/services" element={isLoggedIn ? <ServiceList /> : <Navigate to="/login" />} /> {/* Nueva ruta para ServiceList */}
           </Routes>
         </div>
       </div>
