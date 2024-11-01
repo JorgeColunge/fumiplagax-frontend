@@ -64,9 +64,9 @@ function SidebarMenu({ onLogout, userInfo }) {
           </Link>
         </li>
         <li className="nav-item">
-          <Link to="/reports" className="nav-link" title="Informes">
+          <Link to="/inspections" className="nav-link" title="Informes">
             <FontAwesomeIcon icon={faFileAlt} />
-            {isOpen && <span>Informes</span>}
+            {isOpen && <span>Inspecciones</span>}
           </Link>
         </li>
         <li className="nav-item">
