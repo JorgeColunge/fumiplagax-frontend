@@ -10,6 +10,7 @@ import UserList from './UserList';
 import ClientList from './ClientList';
 import ProductList from './ProductList';
 import ShowProfile from './ShowProfile';
+import InspectionCalendar from './InspectionCalendar';
 import Calendar from './Calendar';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
@@ -61,6 +62,7 @@ function App() {
             <Route path="/edit-my-profile/:id" element={isLoggedIn ? <EditMyProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
             <Route path="/users" element={isLoggedIn ? <UserList /> : <Navigate to="/login" />} />
             <Route path="/products" element={isLoggedIn ? <ProductList /> : <Navigate to="/login" />} />
+            <Route path="/inspection-calendar" element={isLoggedIn ? <InspectionCalendar /> : <Navigate to="/login" />} />
             <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/show-profile/:id" element={<ShowProfile />} />

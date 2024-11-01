@@ -1,0 +1,269 @@
+/* Estilo del título (mes y año) */
+.custom-calendar .fc-toolbar-title {
+    @apply text-xl font-semibold text-gray-800;
+}
+
+/* Estilo de los botones */
+.custom-calendar .fc-button {
+    @apply bg-gray-100 text-gray-600 rounded-lg shadow-sm hover:bg-gray-200;
+}
+
+.custom-calendar .fc-button:hover {
+    @apply bg-gray-300;
+}
+
+.custom-calendar .fc-button-primary {
+    @apply bg-blue-500 text-white rounded-md hover:bg-blue-600;
+}
+
+/* Estilo de los días */
+.custom-calendar .fc-daygrid-day {
+    @apply border-l border-r border-gray-200; /* Solo bordes verticales */
+    border-top: none; /* Quitar bordes superiores */
+    border-bottom: none; /* Quitar bordes inferiores */
+}
+
+/* Resaltar el día actual */
+.custom-calendar .fc-day-today {
+    @apply bg-fuchsia-50;
+    font-weight: bold;
+}
+
+.custom-calendar .fc-day-today .day-number {
+    @apply text-fuchsia-500;
+    font-size: 28px; /* Número más grande para el día actual */
+    font-weight: bold;
+    margin: 0;
+}
+
+/* Estilo del encabezado del día */
+.custom-calendar .day-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+}
+
+/* Estilo para los nombres de los días (LUN, MAR, etc.) */
+.custom-calendar .day-name {
+    font-size: 12px;
+    font-weight: 400;
+    color: #888;
+    text-decoration: none !important;
+}
+
+/* Estilo para los números de los días */
+.custom-calendar .day-number {
+    font-size: 24px; /* Ajustar tamaño del número */
+    font-weight: bold;
+    color: #000;
+    text-decoration: none !important;
+}
+
+
+/* Quitar subrayado por completo */
+.custom-calendar .fc-daygrid-day-top {
+    text-decoration: none;
+    border: none;
+    color: #000;
+    text-decoration: none !important;
+    align-items: center;
+}
+
+.fc-daygrid-day-number{
+    color: #000;
+    text-decoration: none !important;
+    align-items: center;
+}
+
+.fc .fc-daygrid-day.fc-day-today{
+    @apply bg-fuchsia-50;
+}
+
+
+/* Para eventos en la vista semanal */
+.custom-calendar .fc-event {
+    @apply bg-fuchsia-500 text-white  px-2 py-1 flex items-center border-0;
+}
+
+.custom-calendar .fc-event .dot {
+    @apply w-2 h-2 bg-fuchsia-500  inline-block mr-2 border-0;
+}
+
+.fc .fc-daygrid-day-number{
+    text-decoration: none;
+}
+
+/* Quitar subrayado en los encabezados de los días (LUN, MAR, etc.) */
+.custom-calendar .fc .fc-col-header-cell-cushion {
+    text-decoration: none !important;
+    border: none !important; /* También elimina cualquier borde si es necesario */
+    font-weight: 400; /* Ajusta el grosor del texto */
+    color: #888; /* Personaliza el color del texto */
+}
+
+
+/* Estilo para el contenido del evento con altura reducida y sin texto */
+.custom-calendar .event-content {
+    height: 10px; /* Altura reducida para el evento */
+    overflow: hidden; /* Evita que el contenido desborde */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.custom-calendar .fc-event {
+    height: 100%; /* Asegúrate de que el evento mismo también tenga una altura reducida */
+    padding: 0; /* Elimina el relleno para que el evento sea solo un punto o una barra */
+    margin: 0;
+}
+
+.custom-calendar .dot {
+    height: 8px;
+    width: 8px;
+    background-color: #ff00e1; /* Color para el punto que indica el evento de todo el día */
+}
+
+/* Ocultar el texto 'Todo el día' en la vista de semana y día */
+.fc .fc-timegrid-axis-cushion {
+    display: none;
+}
+
+/* Ajustar la altura de los eventos de todo el día */
+.custom-calendar .fc-daygrid-event {
+    height: 17px; /* Ajusta esto según tus necesidades */
+    line-height: 17px; /* Alinea el texto verticalmente */
+}
+
+
+.custom-calendar .fc-daygrid-block-event .fc-event-main {
+    white-space: nowrap;
+}
+
+.fc-daygrid-body {
+    height: 20px;
+}
+
+/* Cambiar el color de toda la columna del día actual en la vista de semana */
+.custom-calendar .fc-col-today {
+    @apply bg-fuchsia-50;
+    opacity: 0.3; /* Ajusta la opacidad para hacer más visible el contenido */
+}
+
+/* Cambiar también el color de la parte horaria si es necesario */
+.custom-calendar .fc-timegrid-col.fc-day-today {
+    @apply bg-fuchsia-50;
+    opacity: 0.3; /* Ajusta la opacidad para hacer más visible el contenido */
+}
+
+/* Opcional: estilo del encabezado del día actual */
+.custom-calendar .fc-day-today .fc-daygrid-day-number,
+.custom-calendar .fc-day-today .fc-daygrid-day-top {
+    color: #000; /* Cambia el color del número del día y el encabezado */
+    font-weight: bold; /* Negrita para resaltar */
+}
+
+/* Estructura de la cabecera personalizada */
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+}
+
+/* Columnas dentro de la cabecera */
+.header-col {
+    display: flex;
+    align-items: center;
+}
+
+/* Botones de navegación en la columna izquierda */
+.header-col.left .control-button {
+    background-color: #f0f0f0;
+    border: none;
+    padding: 8px 12px;
+    margin-right: 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+}
+
+.header-col.left .control-button:hover {
+    background-color: #e0e0e0;
+}
+
+/* Botones de vista y añadir en la columna derecha */
+.header-col.right .view-button,
+.header-col.right .add-button {
+    background-color: #6c63ff;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    margin-right: 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+}
+
+.header-col.right .view-button:hover,
+.header-col.right .add-button:hover {
+    background-color: #5a54e6;
+}
+
+/* Último botón sin margen derecho */
+.header-col.right .add-button {
+    margin-right: 0;
+}
+
+/* Espacio entre botones dentro de la columna */
+.header-col > .view-button, 
+.header-col > .control-button {
+    margin-right: 8px;
+}
+
+.header-col > .view-button:last-child, 
+.header-col > .control-button:last-child {
+    margin-right: 0;
+}
+
+/* Contenido personalizado del calendario */
+.custom-calendar {
+    margin-top: 16px;
+}
+
+.modal-input {
+    width: 100%;
+    padding: 8px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.modal-button {
+    background-color: #6c63ff;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+}
+
+.modal-button.cancel {
+    background-color: #f44336;
+}
+
+.modal-button:hover {
+    background-color: #5a54e6;
+}
+
+.modal-button.cancel:hover {
+    background-color: #e53935;
+}
