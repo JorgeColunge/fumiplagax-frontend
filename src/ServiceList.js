@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import moment from 'moment-timezone';
 import { Card, Col, Row, Collapse, Button, Table, Modal, Form } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -13,11 +14,11 @@ function ServiceList() {
   const [showModal, setShowModal] = useState(false);
   const [newInspection, setNewInspection] = useState({
     date: '',
-    start_time: '',
+    time: '',
     duration: '',
     observations: '',
     service_type: '',
-    end_time: '',
+    exit_time: '',
   });
 
   useEffect(() => {
@@ -40,13 +41,25 @@ function ServiceList() {
   const fetchInspections = async (serviceId) => {
     try {
       const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
-      setInspections(response.data);
+  
+      const formattedInspections = response.data.map(inspection => {
+        console.log("Hora de Inicio sin formatear:", inspection.time);
+        console.log("Hora de Finalización sin formatear:", inspection.exit_time);
+  
+        return {
+          ...inspection,
+          time: inspection.time ? moment(inspection.time, 'HH:mm').format('HH:mm') : 'Hora inválida',
+          exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm').format('HH:mm') : 'Hora inválida',
+          date: moment(inspection.date).format('DD/MM/YYYY')
+        };
+      });
+      setInspections(formattedInspections);
     } catch (error) {
       console.error("Error fetching inspections:", error);
     }
-  };
+  };  
 
-  // Handle service selection
+  // Manejar la selección del servicio
   const handleServiceClick = (service) => {
     if (selectedService?.id === service.id) {
       setSelectedService(null);
@@ -61,11 +74,11 @@ function ServiceList() {
   const handleShowModal = () => {
     setNewInspection({
       date: '',
-      start_time: '',
+      time: '',
       duration: '',
       observations: '',
-      service_type: selectedService?.service_type || '', // Set service type automatically
-      end_time: '',
+      service_type: selectedService?.service_type || '',
+      exit_time: '',
     });
     setShowModal(true);
   };
@@ -74,28 +87,33 @@ function ServiceList() {
     setShowModal(false);
     setNewInspection({
       date: '',
-      start_time: '',
+      time: '',
       duration: '',
       observations: '',
       service_type: '',
-      end_time: '',
+      exit_time: '',
     });
   };
 
-  // Handle input changes for the modal form
+  // Manejar cambios en el formulario modal
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewInspection({ ...newInspection, [name]: value });
   };
 
-  // Save the new inspection
+  // Guardar la nueva inspección
   const handleSaveInspection = async () => {
     try {
       const response = await axios.post(`http://localhost:10000/api/inspections`, {
         ...newInspection,
         service_id: selectedService.id
       });
-      setInspections([...inspections, response.data]);
+      setInspections([...inspections, {
+        ...response.data,
+        time: new Date(response.data.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        exit_time: new Date(response.data.exit_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        date: new Date(response.data.date).toLocaleDateString()
+      }]);
       handleCloseModal();
     } catch (error) {
       console.error("Error saving inspection:", error);
@@ -186,8 +204,8 @@ function ServiceList() {
                           <tr key={inspection.id}>
                             <td>{inspection.id}</td>
                             <td>{inspection.date}</td>
-                            <td>{inspection.start_time}</td>
-                            <td>{inspection.end_time}</td>
+                            <td>{inspection.time}</td>
+                            <td>{inspection.exit_time}</td>
                             <td>{inspection.observations}</td>
                           </tr>
                         ))}
@@ -235,8 +253,8 @@ function ServiceList() {
               <Form.Label>Hora de Inicio</Form.Label>
               <Form.Control
                 type="time"
-                name="start_time"
-                value={newInspection.start_time}
+                name="time"
+                value={newInspection.time}
                 onChange={handleInputChange}
               />
             </Form.Group>
@@ -244,8 +262,8 @@ function ServiceList() {
               <Form.Label>Hora de Finalización</Form.Label>
               <Form.Control
                 type="time"
-                name="end_time"
-                value={newInspection.end_time}
+                name="exit_time"
+                value={newInspection.exit_time}
                 onChange={handleInputChange}
               />
             </Form.Group>
