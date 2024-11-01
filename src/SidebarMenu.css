@@ -1,0 +1,105 @@
+.sidebar {
+  width: 60px; /* Ancho cuando el menú está colapsado */
+  height: 100vh;
+  background-color: #000;
+  color: #fff;
+  position: fixed;
+  top: 0;
+  left: 0;
+  transition: width 0.3s ease;
+  z-index: 1000; /* Asegura que el menú esté sobre el contenido */
+  overflow-y: auto; /* Agrega scroll si el contenido es demasiado largo */
+}
+
+.sidebar.open {
+  width: 240px; /* Ancho cuando el menú está expandido */
+}
+
+.main-content {
+  margin-left: 60px; /* Espacio cuando el menú está colapsado */
+  transition: margin-left 0.3s ease;
+}
+
+.sidebar.open + .main-content {
+  margin-left: 240px; /* Espacio cuando el menú está expandido */
+}
+
+.menu-toggle {
+  font-size: 1.5rem;
+  padding: 10px;
+  cursor: pointer;
+  color: #fff;
+}
+
+.logo-container {
+  text-align: center;
+  padding: 10px 0;
+}
+
+.logo {
+  width: 50px;
+  border-radius: 50%;
+}
+
+.user-info {
+  color: #fff;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.nav {
+  padding-left: 0;
+  width: 100%;
+}
+
+.icon-list {
+  display: flex;
+  flex-direction: column; /* Coloca los elementos en columna */
+  width: 100%;
+  padding: 0;
+}
+
+.icon-list .nav-item {
+  width: 100%;
+}
+
+.icon-list .nav-item a,
+.icon-list .nav-item button {
+  color: #fff;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: start; /* Alinea el icono y el texto al inicio */
+  width: 100%;
+  padding: 15px;
+  transition: background 0.2s ease;
+  border: none;
+  background: none;
+}
+
+.icon-list .nav-item a:hover,
+.icon-list .nav-item button:hover {
+  background-color: #333;
+}
+
+.nav-link span {
+  display: none; /* Oculta el texto cuando la barra está colapsada */
+  margin-left: 10px;
+}
+
+.sidebar.open .nav-link span {
+  display: inline; /* Muestra el texto solo cuando la barra está expandida */
+}
+
+.logout-item {
+  margin-top: auto; /* Posiciona el botón de Cerrar Sesión al final */
+  padding: 10px;
+}
+
+.nav-link {
+  color: #fff;
+}
+
+.nav-link:hover {
+  color: #ccc;
+}
