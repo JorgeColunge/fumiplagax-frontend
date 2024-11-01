@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Button, Modal, Form } from 'react-bootstrap';
+import { Button, Modal, Form, Col, Row } from 'react-bootstrap';
 
 function Inspections() {
   const [inspections, setInspections] = useState([]);
@@ -130,77 +130,56 @@ function Inspections() {
   });
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>Consulta de Inspecciones</h2>
+    <div className="container my-4">
+      <h2 className="text-center mb-5">Consulta de Inspecciones</h2>
       {groupedData.map(client => (
-        <div key={client.id} style={{ marginBottom: '30px' }}>
-          <h3>Empresa: {client.name}</h3>
+        <div key={client.id} className="mb-5">
+          <h3 className="mb-4 border-bottom pb-2">Empresa: {client.name}</h3>
           {client.services.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div>
               {client.services.map(service => (
-                <div
-                  key={service.id}
-                  style={{
-                    width: '100%',
-                    border: '1px solid #ccc',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    marginBottom: '20px',
-                  }}
-                >
-                  <h4>{service.service_type}</h4>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                <div key={service.id} className="mb-4">
+                  <h4 className="mb-3">{service.service_type}</h4>
+                  {/* Se ajusta el Row para no ocupar todo el alto */}
+                  <Row style={{ height: 'auto', alignItems: 'flex-start' }}>
                     {service.inspections.length > 0 ? (
                       service.inspections.map(inspection => (
-                        <div
-                          key={inspection.id}
-                          style={{
-                            border: '1px solid #ddd',
-                            borderRadius: '8px',
-                            padding: '10px',
-                            width: '100%', // Ocupa todo el ancho de la columna del servicio
-                            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-                            marginBottom: '10px'
-                          }}
-                        >
-                          <h5>Inspección #{inspection.id}</h5>
-                          <p><strong>Fecha y Hora:</strong> {formatDateTime(inspection.date, inspection.time)}</p>
-                          <p><strong>Duración:</strong> {inspection.duration?.hours || 0} horas</p>
-                          <p><strong>Observaciones:</strong> {inspection.observations || 'No disponible'}</p>
-                          <Button variant="secondary" size="sm" onClick={() => handleShowModal(inspection)}>
-                            Editar
-                          </Button>
-                        </div>
+                        <Col key={inspection.id} xs={12} sm={6} md={4} lg={3} className="mb-3">
+                          <div className="border p-3 rounded shadow-sm">
+                            <h5 className="mb-3">Inspección #{inspection.id}</h5>
+                            <p><strong>Fecha y Hora:</strong> {formatDateTime(inspection.date, inspection.time)}</p>
+                            <p><strong>Duración:</strong> {inspection.duration?.hours || 0} horas</p>
+                            <p><strong>Observaciones:</strong> {inspection.observations || 'No disponible'}</p>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleShowModal(inspection)}
+                            >
+                              Editar
+                            </Button>
+                          </div>
+                        </Col>
                       ))
                     ) : (
-                      <p>No hay inspecciones para este servicio.</p>
+                      <p className="text-muted">No hay inspecciones para este servicio.</p>
                     )}
-                  </div>
+                  </Row>
                 </div>
               ))}
             </div>
           ) : (
-            <p>No hay servicios para esta empresa.</p>
+            <p className="text-muted">No hay servicios para esta empresa.</p>
           )}
         </div>
       ))}
       
       <Button
         onClick={() => handleShowModal()}
-        style={{
-          marginTop: '20px',
-          padding: '10px 20px',
-          fontSize: '16px',
-          borderRadius: '4px',
-          border: 'none',
-          backgroundColor: '#4CAF50',
-          color: 'white',
-          cursor: 'pointer',
-        }}
+        className="mt-4 btn btn-success"
       >
         Agregar Nueva Inspección
       </Button>
-
+  
       {/* Modal para agregar/editar inspección */}
       <Modal show={showModal} onHide={handleCloseModal}>
         <Modal.Header closeButton>
