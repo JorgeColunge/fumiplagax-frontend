@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Card, Col, Row, Collapse, Button, Table } from 'react-bootstrap';
+import { Card, Col, Row, Collapse, Button, Table, Modal, Form } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function ServiceList() {
@@ -10,6 +10,15 @@ function ServiceList() {
   const [selectedService, setSelectedService] = useState(null);
   const [inspections, setInspections] = useState([]);
   const [open, setOpen] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [newInspection, setNewInspection] = useState({
+    date: '',
+    start_time: '',
+    duration: '',
+    observations: '',
+    service_type: '',
+    end_time: '',
+  });
 
   useEffect(() => {
     const fetchServicesAndClients = async () => {
@@ -37,7 +46,7 @@ function ServiceList() {
     }
   };
 
-  // Manejar la selección del servicio
+  // Handle service selection
   const handleServiceClick = (service) => {
     if (selectedService?.id === service.id) {
       setSelectedService(null);
@@ -45,7 +54,51 @@ function ServiceList() {
     } else {
       setSelectedService(service);
       setOpen(true);
-      fetchInspections(service.id); // Fetch inspections for the selected service
+      fetchInspections(service.id);
+    }
+  };
+
+  const handleShowModal = () => {
+    setNewInspection({
+      date: '',
+      start_time: '',
+      duration: '',
+      observations: '',
+      service_type: selectedService?.service_type || '', // Set service type automatically
+      end_time: '',
+    });
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setNewInspection({
+      date: '',
+      start_time: '',
+      duration: '',
+      observations: '',
+      service_type: '',
+      end_time: '',
+    });
+  };
+
+  // Handle input changes for the modal form
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewInspection({ ...newInspection, [name]: value });
+  };
+
+  // Save the new inspection
+  const handleSaveInspection = async () => {
+    try {
+      const response = await axios.post(`http://localhost:10000/api/inspections`, {
+        ...newInspection,
+        service_id: selectedService.id
+      });
+      setInspections([...inspections, response.data]);
+      handleCloseModal();
+    } catch (error) {
+      console.error("Error saving inspection:", error);
     }
   };
 
@@ -145,7 +198,7 @@ function ServiceList() {
                   )}
 
                   {/* Botón para añadir inspección */}
-                  <Button variant="link" className="text-success">Añadir</Button>
+                  <Button variant="link" className="text-success" onClick={handleShowModal}>Añadir</Button>
 
                   {/* Botones de acción */}
                   <div className="d-flex justify-content-start mt-3">
@@ -161,6 +214,76 @@ function ServiceList() {
           </Collapse>
         </Col>
       </Row>
+
+      {/* Modal para añadir una nueva inspección */}
+      <Modal show={showModal} onHide={handleCloseModal}>
+        <Modal.Header closeButton>
+          <Modal.Title>Añadir Inspección</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group controlId="formDate">
+              <Form.Label>Fecha</Form.Label>
+              <Form.Control
+                type="date"
+                name="date"
+                value={newInspection.date}
+                onChange={handleInputChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formStartTime" className="mt-3">
+              <Form.Label>Hora de Inicio</Form.Label>
+              <Form.Control
+                type="time"
+                name="start_time"
+                value={newInspection.start_time}
+                onChange={handleInputChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formEndTime" className="mt-3">
+              <Form.Label>Hora de Finalización</Form.Label>
+              <Form.Control
+                type="time"
+                name="end_time"
+                value={newInspection.end_time}
+                onChange={handleInputChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formDuration" className="mt-3">
+              <Form.Label>Duración (horas)</Form.Label>
+              <Form.Control
+                type="number"
+                name="duration"
+                value={newInspection.duration}
+                onChange={handleInputChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formObservations" className="mt-3">
+              <Form.Label>Observaciones</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                name="observations"
+                value={newInspection.observations}
+                onChange={handleInputChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formServiceType" className="mt-3">
+              <Form.Label>Servicio</Form.Label>
+              <Form.Control
+                type="text"
+                name="service_type"
+                value={newInspection.service_type}
+                readOnly
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseModal}>Cancelar</Button>
+          <Button variant="primary" onClick={handleSaveInspection}>Guardar cambios</Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }
