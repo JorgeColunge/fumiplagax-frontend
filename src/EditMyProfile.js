@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-function EditProfile() {
+function EditMyProfile() {
   const { id } = useParams(); // Obtén el id del usuario desde la URL
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -59,7 +59,7 @@ function EditProfile() {
         alert("Error al actualizar el perfil");
       }
 
-      navigate(`/show-profile/${id}`); // Redirige de vuelta al perfil
+      navigate(`/profile`); // Redirige de vuelta al perfil
     } catch (error) {
       console.error("Error updating profile:", error);
       alert("Error al actualizar el perfil");
@@ -128,7 +128,7 @@ function EditProfile() {
               </div>
               <div className="text-center">
                 <button type="button" onClick={handleSave} className="btn btn-primary me-2">Guardar cambios</button>
-                <button type="button" onClick={() => navigate(`/show-profile/${id}`)} className="btn btn-secondary">Cancelar</button>
+                <button type="button" onClick={() => navigate(`/profile`)} className="btn btn-secondary">Cancelar</button>
               </div>
             </form>
           </div>
@@ -138,4 +138,4 @@ function EditProfile() {
   );
 }
 
-export default EditProfile;
+export default EditMyProfile;

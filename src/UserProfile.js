@@ -16,7 +16,7 @@ function UserProfile({ userInfo }) {
   }, []);
 
   const handleEditProfile = () => {
-    navigate(`/edit-profile/${userInfo.id_usuario}`);
+    navigate(`/edit-my-profile/${userInfo.id_usuario}`);
   };
 
   if (loading) return <div className="text-center mt-5">Cargando...</div>;

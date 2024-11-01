@@ -4,6 +4,7 @@ import Login from './Login';
 import Register from './Register';
 import UserProfile from './UserProfile';
 import EditProfile from './EditProfile';
+import EditMyProfile from './EditMyProfile';
 import SidebarMenu from './SidebarMenu';
 import UserList from './UserList';
 import ClientList from './ClientList';
@@ -56,6 +57,7 @@ function App() {
             <Route path="/register" element={isLoggedIn ? <Navigate to="/profile" /> : <Register />} />
             <Route path="/profile" element={isLoggedIn ? <UserProfile userInfo={userInfo} /> : <Navigate to="/login" />} />
             <Route path="/edit-profile/:id" element={isLoggedIn ? <EditProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
+            <Route path="/edit-my-profile/:id" element={isLoggedIn ? <EditMyProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
             <Route path="/users" element={isLoggedIn ? <UserList /> : <Navigate to="/login" />} />
             <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
             <Route path="/calendar" element={<Calendar />} />
