@@ -34,7 +34,7 @@ function Login({ onLogin }) {
       <div className="row w-100">
         <div className="col-md-6 bg-light p-5 rounded-start shadow-lg">
           <div className="text-center mb-4">
-            <img src="/images/Logo Vertical.png" alt="Logo" width="150" />
+            <img src="/images/Logo FumiPlagax.png" alt="Logo" width="300" />
           </div>
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
