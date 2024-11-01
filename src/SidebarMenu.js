@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faUsers, faSignOutAlt, faBars, faCalendar, faFileAlt, faChartBar, faClipboardList } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faUsers, faSignOutAlt, faBars, faCalendar, faFileAlt, faChartBar, faClipboardList, faTasks } from '@fortawesome/free-solid-svg-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './SidebarMenu.css';
 
@@ -64,9 +64,15 @@ function SidebarMenu({ onLogout, userInfo }) {
           </Link>
         </li>
         <li className="nav-item">
-          <Link to="/inspections" className="nav-link" title="Informes">
+          <Link to="/inspections" className="nav-link" title="Inspecciones">
             <FontAwesomeIcon icon={faFileAlt} />
             {isOpen && <span>Inspecciones</span>}
+          </Link>
+        </li>
+        <li className="nav-item">
+          <Link to="/services" className="nav-link" title="Servicios">
+            <FontAwesomeIcon icon={faTasks} />
+            {isOpen && <span>Servicios</span>}
           </Link>
         </li>
         <li className="nav-item">

@@ -1,113 +1,51 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Button, Card, Modal, Form } from 'react-bootstrap';
+import { Card, Col, Row, Collapse, Button, Table } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function ServiceList() {
   const [services, setServices] = useState([]);
   const [clients, setClients] = useState([]);
-  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingService, setEditingService] = useState(null);
-  const [newService, setNewService] = useState({
-    service_type: '',
-    description: '',
-    responsible: '',
-    category: '',
-    quantity_per_month: '',
-    client_id: '',
-    value: '',
-    companion: ''
-  });
-
-  const storedUserInfo = JSON.parse(localStorage.getItem("user_info")); // Obteniendo el ID del usuario logueado
+  const [selectedService, setSelectedService] = useState(null);
+  const [inspections, setInspections] = useState([]);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const fetchServicesClientsUsers = async () => {
+    const fetchServicesAndClients = async () => {
       try {
         const servicesResponse = await axios.get('http://localhost:10000/api/services');
         const clientsResponse = await axios.get('http://localhost:10000/api/clients');
-        const usersResponse = await axios.get('http://localhost:10000/api/users'); // Obtiene los usuarios
         setServices(servicesResponse.data);
         setClients(clientsResponse.data);
-        setUsers(usersResponse.data); // Almacena los usuarios
         setLoading(false);
       } catch (error) {
         console.error("Error fetching data:", error);
         setLoading(false);
       }
     };
-    fetchServicesClientsUsers();
+    fetchServicesAndClients();
   }, []);
 
-  const handleShowModal = (service = null) => {
-    setEditingService(service);
-    if (service) {
-      setNewService(service);
-    } else {
-      setNewService({
-        service_type: '',
-        description: '',
-        responsible: '',
-        category: '',
-        quantity_per_month: '',
-        client_id: '',
-        value: '',
-        companion: ''
-      });
-    }
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setEditingService(null);
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewService({ ...newService, [name]: value });
-  };
-
-  const handleCategoryChange = (e) => {
-    const { value } = e.target;
-    setNewService({ ...newService, category: value, quantity_per_month: value === 'Periodico' ? '' : null });
-  };
-
-  const handleAddOrEditService = async () => {
-    const payload = {
-      ...newService,
-      created_by: storedUserInfo.id // Envía el ID del usuario logueado
-    };
-
+  // Fetch inspections for the selected service
+  const fetchInspections = async (serviceId) => {
     try {
-      if (editingService) {
-        await axios.put(`http://localhost:10000/api/services/${editingService.id}`, payload);
-        setServices(services.map((service) => (service.id === editingService.id ? payload : service)));
-        alert("Servicio actualizado exitosamente");
-      } else {
-        const response = await axios.post('http://localhost:10000/api/services', payload);
-        setServices([...services, response.data.service]);
-        alert("Servicio agregado exitosamente");
-      }
-      handleCloseModal();
+      const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
+      setInspections(response.data);
     } catch (error) {
-      console.error("Error al guardar el servicio:", error);
-      alert("Hubo un error al guardar el servicio.");
+      console.error("Error fetching inspections:", error);
     }
   };
 
-  const deleteService = async (id) => {
-    if (window.confirm("¿Estás seguro de que deseas eliminar este servicio?")) {
-      try {
-        await axios.delete(`http://localhost:10000/api/services/${id}`);
-        setServices(services.filter(service => service.id !== id));
-        alert("Servicio eliminado exitosamente.");
-      } catch (error) {
-        console.error("Error al eliminar servicio:", error);
-        alert("Hubo un error al eliminar el servicio.");
-      }
+  // Manejar la selección del servicio
+  const handleServiceClick = (service) => {
+    if (selectedService?.id === service.id) {
+      setSelectedService(null);
+      setOpen(false);
+    } else {
+      setSelectedService(service);
+      setOpen(true);
+      fetchInspections(service.id); // Fetch inspections for the selected service
     }
   };
 
@@ -115,128 +53,114 @@ function ServiceList() {
 
   const groupedServices = clients.map(client => ({
     client,
-    services: services.filter(service => service.client_id === client.id)
+    services: services.filter(service => service.client_id === client.id),
   }));
 
   return (
     <div className="container mt-4">
-      <h2 className="text-primary mb-4">Servicios</h2>
-
-      <Button variant="primary" className="mb-4" onClick={() => handleShowModal()}>
-        Agregar Servicio
-      </Button>
-
-      <div className="row">
-        {groupedServices.map(({ client, services }) => (
-          <div key={client.id} className="col-md-6 mb-4">
-            <h4>{client.name}</h4>
-            {services.length > 0 ? (
-              services.map((service) => (
-                <Card key={service.id} className="mb-3">
-                  <Card.Body>
-                    <Card.Title>{service.service_type}</Card.Title>
-                    <Card.Text>
-                      <strong>Descripción:</strong> {service.description}<br />
-                      <strong>Responsable:</strong> {service.responsible}<br />
-                      <strong>Categoría:</strong> {service.category}<br />
-                      {service.category === 'Periodico' && (
-                        <>
-                          <strong>Cantidad al mes:</strong> {service.quantity_per_month}<br />
-                        </>
-                      )}
-                      <strong>Valor:</strong> ${service.value}<br />
-                      <strong>Acompañante:</strong> {service.companion}
-                    </Card.Text>
-                    <Button variant="success" size="sm" onClick={() => handleShowModal(service)}>
-                      Editar
-                    </Button>
-                    <Button variant="danger" size="sm" className="ms-2" onClick={() => deleteService(service.id)}>
-                      Eliminar
-                    </Button>
-                  </Card.Body>
-                </Card>
-              ))
-            ) : (
-              <p>No hay servicios para este cliente</p>
-            )}
+      <h2 className="text-primary mb-4">Servicios Pendientes</h2>
+      <Row>
+        <Col md={open ? 5 : 12}>
+          <div className="service-list">
+            {groupedServices.map(({ client, services }) => (
+              <div key={client.id} className="mb-4">
+                <h5 className="text-muted">{client.name}</h5>
+                <Row>
+                  {services.length > 0 ? (
+                    services.map(service => (
+                      <Col md={6} key={service.id}>
+                        <Card
+                          className={`mb-3 ${selectedService?.id === service.id ? 'border-success' : ''}`}
+                          onClick={() => handleServiceClick(service)}
+                          style={{ cursor: "pointer", minHeight: "200px" }}
+                        >
+                          <Card.Body>
+                            <Card.Title>{service.service_type}</Card.Title>
+                            <Card.Text>
+                              <strong>Descripción:</strong> {service.description}<br />
+                              <strong>Fecha:</strong> {service.date}<br />
+                              <strong>Hora:</strong> {service.time}
+                            </Card.Text>
+                            <div className="d-flex justify-content-between mt-3">
+                              <Button variant="outline-success" size="sm">Generar Informe</Button>
+                              <Button variant="outline-primary" size="sm">Novedad en Estación</Button>
+                            </div>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                    ))
+                  ) : (
+                    <p>No hay servicios para este cliente</p>
+                  )}
+                </Row>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </Col>
 
-      {/* Modal para agregar/editar servicio */}
-      <Modal show={showModal} onHide={handleCloseModal}>
-        <Modal.Header closeButton>
-          <Modal.Title>{editingService ? "Editar Servicio" : "Agregar Servicio"}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group controlId="formServiceType" className="mb-3">
-              <Form.Label>Tipo de Servicio</Form.Label>
-              <Form.Control as="select" name="service_type" value={newService.service_type} onChange={handleInputChange}>
-                <option value="">Selecciona un tipo</option>
-                <option value="Hogar">Hogar</option>
-                <option value="Empresarial">Empresarial</option>
-                <option value="Propiedad Horizontal">Propiedad Horizontal</option>
-              </Form.Control>
-            </Form.Group>
-            <Form.Group controlId="formDescription" className="mb-3">
-              <Form.Label>Descripción</Form.Label>
-              <Form.Control as="textarea" name="description" value={newService.description} onChange={handleInputChange} />
-            </Form.Group>
-            <Form.Group controlId="formResponsible" className="mb-3">
-              <Form.Label>Responsable</Form.Label>
-              <Form.Control as="select" name="responsible" value={newService.responsible} onChange={handleInputChange}>
-                <option value="">Selecciona un responsable</option>
-                {users.map(user => (
-                  <option key={user.id} value={user.name}>{user.name}</option>
-                ))}
-              </Form.Control>
-            </Form.Group>
-            <Form.Group controlId="formCategory" className="mb-3">
-              <Form.Label>Categoría</Form.Label>
-              <Form.Control as="select" name="category" value={newService.category} onChange={handleCategoryChange}>
-                <option value="">Selecciona una categoría</option>
-                <option value="Puntual">Puntual</option>
-                <option value="Periodico">Periodico</option>
-              </Form.Control>
-            </Form.Group>
-            {newService.category === 'Periodico' && (
-              <Form.Group controlId="formQuantityPerMonth" className="mb-3">
-                <Form.Label>Cantidad al Mes</Form.Label>
-                <Form.Control type="number" name="quantity_per_month" value={newService.quantity_per_month} onChange={handleInputChange} />
-              </Form.Group>
-            )}
-            <Form.Group controlId="formClient" className="mb-3">
-              <Form.Label>Cliente</Form.Label>
-              <Form.Control as="select" name="client_id" value={newService.client_id} onChange={handleInputChange}>
-                <option value="">Selecciona un cliente</option>
-                {clients.map(client => (
-                  <option key={client.id} value={client.id}>{client.name}</option>
-                ))}
-              </Form.Control>
-            </Form.Group>
-            <Form.Group controlId="formValue" className="mb-3">
-              <Form.Label>Valor</Form.Label>
-              <Form.Control type="number" name="value" value={newService.value} onChange={handleInputChange} />
-            </Form.Group>
-            <Form.Group controlId="formCompanion" className="mb-3">
-              <Form.Label>Acompañante</Form.Label>
-              <Form.Control as="select" name="companion" value={newService.companion} onChange={handleInputChange}>
-                <option value="">Selecciona un acompañante</option>
-                {users.map(user => (
-                  <option key={user.id} value={user.name}>{user.name}</option>
-                ))}
-              </Form.Control>
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseModal}>Cancelar</Button>
-          <Button variant="primary" onClick={handleAddOrEditService}>
-            {editingService ? "Guardar Cambios" : "Registrar Servicio"}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+        <Col md={open ? 7 : 0}>
+          <Collapse in={open}>
+            <div>
+              {selectedService ? (
+                <div className="service-details p-3 border">
+                  <h4>Detalles del Servicio</h4>
+                  <p><strong>ID del servicio:</strong> {selectedService.id}</p>
+                  <p><strong>Tipo de Servicio:</strong> {selectedService.service_type}</p>
+                  <p><strong>Descripción:</strong> {selectedService.description}</p>
+                  <p><strong>Responsable:</strong> {selectedService.responsible}</p>
+                  <p><strong>Categoría:</strong> {selectedService.category}</p>
+                  {selectedService.category === 'Periodico' && (
+                    <p><strong>Cantidad al mes:</strong> {selectedService.quantity_per_month}</p>
+                  )}
+                  <p><strong>Valor:</strong> ${selectedService.value}</p>
+                  <p><strong>Acompañante:</strong> {selectedService.companion}</p>
+
+                  {/* Tabla de Inspecciones */}
+                  <h5 className="mt-4">Inspecciones</h5>
+                  {inspections.length > 0 ? (
+                    <Table striped bordered hover size="sm" className="mt-3">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Fecha</th>
+                          <th>Hora de Inicio</th>
+                          <th>Hora de Finalización</th>
+                          <th>Observaciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {inspections.map(inspection => (
+                          <tr key={inspection.id}>
+                            <td>{inspection.id}</td>
+                            <td>{inspection.date}</td>
+                            <td>{inspection.start_time}</td>
+                            <td>{inspection.end_time}</td>
+                            <td>{inspection.observations}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  ) : (
+                    <p>No hay inspecciones registradas para este servicio.</p>
+                  )}
+
+                  {/* Botón para añadir inspección */}
+                  <Button variant="link" className="text-success">Añadir</Button>
+
+                  {/* Botones de acción */}
+                  <div className="d-flex justify-content-start mt-3">
+                    <Button variant="primary" className="me-2">Generar Informe</Button>
+                    <Button variant="secondary" className="me-2">Novedad en Estación</Button>
+                    <Button variant="danger">Eliminar</Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-center mt-4">Seleccione un servicio para ver los detalles</p>
+              )}
+            </div>
+          </Collapse>
+        </Col>
+      </Row>
     </div>
   );
 }

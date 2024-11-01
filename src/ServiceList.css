@@ -1,0 +1,14 @@
+.service-list {
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  .service-details {
+    background-color: #f9f9f9;
+    border-radius: 8px;
+  }
+  
+  .card.border-success {
+    border: 2px solid #28a745;
+  }
+  
