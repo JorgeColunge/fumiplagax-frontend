@@ -17,6 +17,7 @@ function Inspections() {
   });
   const [editing, setEditing] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
+  const [selectedClient, setSelectedClient] = useState('');
 
   useEffect(() => {
     fetchInspections();
@@ -27,6 +28,7 @@ function Inspections() {
   const fetchInspections = async () => {
     try {
       const response = await axios.get('http://localhost:10000/api/inspections');
+      console.log("Inspecciones obtenidas:", response.data); // Log de inspecciones
       setInspections(response.data);
     } catch (error) {
       console.error("Error al obtener inspecciones:", error);
@@ -36,6 +38,7 @@ function Inspections() {
   const fetchServices = async () => {
     try {
       const response = await axios.get('http://localhost:10000/api/services');
+      console.log("Servicios obtenidos:", response.data); // Log de servicios
       setServices(response.data);
     } catch (error) {
       console.error("Error al obtener servicios:", error);
@@ -45,6 +48,7 @@ function Inspections() {
   const fetchClients = async () => {
     try {
       const response = await axios.get('http://localhost:10000/api/clients');
+      console.log("Clientes obtenidos:", response.data); // Log de clientes
       setClients(response.data);
     } catch (error) {
       console.error("Error al obtener clientes:", error);
@@ -65,21 +69,52 @@ function Inspections() {
     return `${formattedDate} - ${formattedTime}`;
   };
 
+  const handleClientChange = (e) => {
+    const selectedClientId = e.target.value;
+    setSelectedClient(selectedClientId);
+    setForm({ ...form, service_id: '' }); // Limpiar el campo de servicio al cambiar la empresa
+    console.log("Empresa seleccionada:", selectedClientId); // Log de empresa seleccionada
+  };
+
   const handleShowModal = (inspection = null) => {
     setEditing(Boolean(inspection));
     setSelectedId(inspection?.id || null);
-
+  
     const durationInHours = inspection?.duration?.hours || '';
-
-    setForm({
-      date: inspection?.date || '',
-      time: inspection?.time || '',
-      duration: durationInHours,
-      observations: inspection?.observations || '',
-      service_id: inspection?.service_id || '',
-      exit_time: inspection?.exit_time || ''
-    });
+  
+    // Encontrar el servicio y la empresa correspondiente al `service_id` de la inspección
+    if (inspection) {
+      const selectedService = services.find(service => service.id === inspection.service_id);
+      const selectedClientId = selectedService ? selectedService.client_id : '';
+  
+      setSelectedClient(selectedClientId); // Establecer empresa seleccionada
+      setForm({
+        date: inspection.date || '',
+        time: inspection.time || '',
+        duration: durationInHours,
+        observations: inspection.observations || '',
+        service_id: inspection.service_id || '', // Establecer el servicio correspondiente
+        exit_time: inspection.exit_time || ''
+      });
+    } else {
+      setForm({
+        date: '',
+        time: '',
+        duration: '',
+        observations: '',
+        service_id: '',
+        exit_time: ''
+      });
+      setSelectedClient(''); // Restablecer la empresa cuando no estamos editando
+    }
+  
     setShowModal(true);
+  };
+  
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
   };
 
   const handleCloseModal = () => {
@@ -92,33 +127,30 @@ function Inspections() {
       service_id: '',
       exit_time: ''
     });
+    setSelectedClient(''); // Restablecer empresa seleccionada
   };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
-  };
-
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     try {
       const payload = {
         ...form,
-        duration: form.duration ? { hours: parseFloat(form.duration) } : { hours: 0 },
+        duration: form.duration ? parseFloat(form.duration) * 3600 : 0, // Convertir horas a segundos
       };
-
+  
       if (editing) {
         await axios.put(`http://localhost:10000/api/inspections/${selectedId}`, payload);
       } else {
         await axios.post('http://localhost:10000/api/inspections', payload);
       }
       fetchInspections();
-      handleCloseModal();
+      handleCloseModal(); // Esto también restablecerá `selectedClient`
     } catch (error) {
       console.error('Error al guardar la inspección:', error);
     }
   };
+  
 
   const groupedData = clients.map(client => {
     const clientServices = services.filter(service => service.client_id === client.id);
@@ -140,7 +172,6 @@ function Inspections() {
               {client.services.map(service => (
                 <div key={service.id} className="mb-4">
                   <h4 className="mb-3">{service.service_type}</h4>
-                  {/* Se ajusta el Row para no ocupar todo el alto */}
                   <Row style={{ height: 'auto', alignItems: 'flex-start' }}>
                     {service.inspections.length > 0 ? (
                       service.inspections.map(inspection => (
@@ -228,20 +259,42 @@ function Inspections() {
                 placeholder="Observaciones"
               />
             </Form.Group>
-            <Form.Group controlId="formServiceId" className="mb-3">
-              <Form.Label>Servicio</Form.Label>
+            <Form.Group controlId="formClient" className="mb-3">
+              <Form.Label>Empresa</Form.Label>
               <Form.Control
                 as="select"
-                name="service_id"
-                value={form.service_id}
-                onChange={handleChange}
+                value={selectedClient}
+                onChange={handleClientChange}
               >
-                <option value="">Selecciona un servicio</option>
-                {services.map((service) => (
-                  <option key={service.id} value={service.id}>{service.service_type}</option>
+                <option value="">Selecciona una empresa</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>{client.name}</option>
                 ))}
               </Form.Control>
             </Form.Group>
+
+            <Form.Group controlId="formServiceId" className="mb-3">
+  <Form.Label>Servicio</Form.Label>
+  <Form.Control
+    as="select"
+    name="service_id"
+    value={form.service_id}
+    onChange={handleChange}
+    disabled={!selectedClient}
+  >
+    <option value="">Selecciona un servicio</option>
+    {services
+      .filter(service => {
+        const match = service.client_id === parseInt(selectedClient);
+        console.log("Servicio filtrado:", service, "Cliente seleccionado:", selectedClient, "Coincidencia:", match);
+        return match;
+      })
+      .map(service => (
+        <option key={service.id} value={service.id}>{service.service_type}</option>
+      ))}
+  </Form.Control>
+</Form.Group>
+
             <Form.Group controlId="formExitTime" className="mb-3">
               <Form.Label>Hora de Salida</Form.Label>
               <Form.Control
