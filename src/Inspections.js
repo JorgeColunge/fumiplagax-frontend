@@ -27,23 +27,31 @@ const Inspections = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+  
+    // Verificación de datos antes de enviar
+    console.log("Datos enviados:", form); // Muestra los datos en la consola
+  
+    // Validación en el frontend
+    if (!form.date || !form.time) {
+      alert("La fecha y la hora son campos obligatorios.");
+      return;
+    }
+  
     try {
       if (editing) {
-        // Si está editando, hace una solicitud PUT
         await axios.put(`/api/inspections/${selectedId}`, form);
       } else {
-        // Si no está editando, hace una solicitud POST
-        const response = await axios.post('/api/inspections', form);
-        setInspections([...inspections, response.data.inspection]); // Agrega la nueva inspección a la lista
+        const response = await axios.post('http://localhost:10000/api/inspections', form);
+        setInspections([...inspections, response.data.inspection]);
       }
-      // Resetea el formulario después de agregar o editar
+  
       setForm({ date: '', time: '', duration: '', observations: '', service_id: '', exit_time: '' });
       setEditing(false);
-      fetchInspections(); // Actualiza la lista de inspecciones
+      fetchInspections();
     } catch (error) {
       console.error('Error saving inspection:', error);
     }
-  };
+  };  
   
 
   const handleEdit = (inspection) => {
