@@ -1,23 +1,97 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { Button, Modal, Form } from 'react-bootstrap';
 
-const Inspections = () => {
+function Inspections() {
   const [inspections, setInspections] = useState([]);
-  const [form, setForm] = useState({ date: '', time: '', duration: '', observations: '', service_id: '', exit_time: '' });
+  const [services, setServices] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState({
+    date: '',
+    time: '',
+    duration: '',
+    observations: '',
+    service_id: '',
+    exit_time: ''
+  });
   const [editing, setEditing] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
 
   useEffect(() => {
     fetchInspections();
+    fetchServices();
+    fetchClients();
   }, []);
 
   const fetchInspections = async () => {
     try {
-        const response = await axios.post('http://localhost:10000/api/inspections', form);
+      const response = await axios.get('http://localhost:10000/api/inspections');
       setInspections(response.data);
     } catch (error) {
-      console.error('Error fetching inspections:', error);
+      console.error("Error al obtener inspecciones:", error);
     }
+  };
+
+  const fetchServices = async () => {
+    try {
+      const response = await axios.get('http://localhost:10000/api/services');
+      setServices(response.data);
+    } catch (error) {
+      console.error("Error al obtener servicios:", error);
+    }
+  };
+
+  const fetchClients = async () => {
+    try {
+      const response = await axios.get('http://localhost:10000/api/clients');
+      setClients(response.data);
+    } catch (error) {
+      console.error("Error al obtener clientes:", error);
+    }
+  };
+
+  const formatDateTime = (dateStr, timeStr) => {
+    const date = new Date(dateStr);
+    const formattedDate = date.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const formattedTime = new Date(`1970-01-01T${timeStr}Z`).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    return `${formattedDate} - ${formattedTime}`;
+  };
+
+  const handleShowModal = (inspection = null) => {
+    setEditing(Boolean(inspection));
+    setSelectedId(inspection?.id || null);
+
+    const durationInHours = inspection?.duration?.hours || '';
+
+    setForm({
+      date: inspection?.date || '',
+      time: inspection?.time || '',
+      duration: durationInHours,
+      observations: inspection?.observations || '',
+      service_id: inspection?.service_id || '',
+      exit_time: inspection?.exit_time || ''
+    });
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setForm({
+      date: '',
+      time: '',
+      duration: '',
+      observations: '',
+      service_id: '',
+      exit_time: ''
+    });
   };
 
   const handleChange = (e) => {
@@ -27,95 +101,185 @@ const Inspections = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
-    // Verificación de datos antes de enviar
-    console.log("Datos enviados:", form); // Muestra los datos en la consola
-  
-    // Validación en el frontend
-    if (!form.date || !form.time) {
-      alert("La fecha y la hora son campos obligatorios.");
-      return;
-    }
-  
+
     try {
+      const payload = {
+        ...form,
+        duration: form.duration ? { hours: parseFloat(form.duration) } : { hours: 0 },
+      };
+
       if (editing) {
-        await axios.put(`/api/inspections/${selectedId}`, form);
+        await axios.put(`http://localhost:10000/api/inspections/${selectedId}`, payload);
       } else {
-        const response = await axios.post('http://localhost:10000/api/inspections', form);
-        setInspections([...inspections, response.data.inspection]);
+        await axios.post('http://localhost:10000/api/inspections', payload);
       }
-  
-      setForm({ date: '', time: '', duration: '', observations: '', service_id: '', exit_time: '' });
-      setEditing(false);
       fetchInspections();
+      handleCloseModal();
     } catch (error) {
-      console.error('Error saving inspection:', error);
-    }
-  };  
-  
-
-  const handleEdit = (inspection) => {
-    setForm(inspection);
-    setEditing(true);
-    setSelectedId(inspection.id);
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      await axios.delete(`/api/inspections/${id}`);
-      fetchInspections();
-    } catch (error) {
-      console.error('Error deleting inspection:', error);
+      console.error('Error al guardar la inspección:', error);
     }
   };
+
+  const groupedData = clients.map(client => {
+    const clientServices = services.filter(service => service.client_id === client.id);
+    const servicesWithInspections = clientServices.map(service => ({
+      ...service,
+      inspections: inspections.filter(inspection => inspection.service_id === service.id)
+    }));
+    return { ...client, services: servicesWithInspections };
+  });
 
   return (
-    <div className="container mt-5">
-      <h2 className="text-center mb-4">{editing ? 'Editar Inspección' : 'Agregar Inspección'}</h2>
-      <form onSubmit={handleSubmit} className="row g-3">
-        <div className="col-md-2">
-          <label htmlFor="date" className="form-label">Fecha</label>
-          <input name="date" type="date" className="form-control" value={form.date} onChange={handleChange} required />
-        </div>
-        <div className="col-md-2">
-          <label htmlFor="time" className="form-label">Hora</label>
-          <input name="time" type="time" className="form-control" value={form.time} onChange={handleChange} required />
-        </div>
-        <div className="col-md-2">
-          <label htmlFor="duration" className="form-label">Duración</label>
-          <input name="duration" type="text" className="form-control" value={form.duration} onChange={handleChange} placeholder="Ej: 3 horas" />
-        </div>
-        <div className="col-md-3">
-          <label htmlFor="observations" className="form-label">Observaciones</label>
-          <textarea name="observations" className="form-control" value={form.observations} onChange={handleChange} placeholder="Observaciones" />
-        </div>
-        <div className="col-md-1">
-          <label htmlFor="service_id" className="form-label">ID Servicio</label>
-          <input name="service_id" type="number" className="form-control" value={form.service_id} onChange={handleChange} placeholder="ID" />
-        </div>
-        <div className="col-md-2">
-          <label htmlFor="exit_time" className="form-label">Hora de Salida</label>
-          <input name="exit_time" type="time" className="form-control" value={form.exit_time} onChange={handleChange} />
-        </div>
-        <div className="col-12 text-center">
-          <button type="submit" className="btn btn-primary">{editing ? 'Actualizar Inspección' : 'Agregar Inspección'}</button>
-        </div>
-      </form>
-
-      <h3 className="text-center mt-5">Lista de Inspecciones</h3>
-      <ul className="list-group mt-3">
-        {inspections.map((inspection) => (
-          <li key={inspection.id} className="list-group-item d-flex justify-content-between align-items-center">
-            <span>{inspection.date} - {inspection.time}</span>
-            <div>
-              <button className="btn btn-secondary btn-sm me-2" onClick={() => handleEdit(inspection)}>Editar</button>
-              <button className="btn btn-danger btn-sm" onClick={() => handleDelete(inspection.id)}>Eliminar</button>
+    <div style={{ padding: '20px' }}>
+      <h2>Consulta de Inspecciones</h2>
+      {groupedData.map(client => (
+        <div key={client.id} style={{ marginBottom: '30px' }}>
+          <h3>Empresa: {client.name}</h3>
+          {client.services.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {client.services.map(service => (
+                <div
+                  key={service.id}
+                  style={{
+                    width: '100%',
+                    border: '1px solid #ccc',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    marginBottom: '20px',
+                  }}
+                >
+                  <h4>{service.service_type}</h4>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                    {service.inspections.length > 0 ? (
+                      service.inspections.map(inspection => (
+                        <div
+                          key={inspection.id}
+                          style={{
+                            border: '1px solid #ddd',
+                            borderRadius: '8px',
+                            padding: '10px',
+                            width: '100%', // Ocupa todo el ancho de la columna del servicio
+                            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                            marginBottom: '10px'
+                          }}
+                        >
+                          <h5>Inspección #{inspection.id}</h5>
+                          <p><strong>Fecha y Hora:</strong> {formatDateTime(inspection.date, inspection.time)}</p>
+                          <p><strong>Duración:</strong> {inspection.duration?.hours || 0} horas</p>
+                          <p><strong>Observaciones:</strong> {inspection.observations || 'No disponible'}</p>
+                          <Button variant="secondary" size="sm" onClick={() => handleShowModal(inspection)}>
+                            Editar
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <p>No hay inspecciones para este servicio.</p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          </li>
-        ))}
-      </ul>
+          ) : (
+            <p>No hay servicios para esta empresa.</p>
+          )}
+        </div>
+      ))}
+      
+      <Button
+        onClick={() => handleShowModal()}
+        style={{
+          marginTop: '20px',
+          padding: '10px 20px',
+          fontSize: '16px',
+          borderRadius: '4px',
+          border: 'none',
+          backgroundColor: '#4CAF50',
+          color: 'white',
+          cursor: 'pointer',
+        }}
+      >
+        Agregar Nueva Inspección
+      </Button>
+
+      {/* Modal para agregar/editar inspección */}
+      <Modal show={showModal} onHide={handleCloseModal}>
+        <Modal.Header closeButton>
+          <Modal.Title>{editing ? 'Editar Inspección' : 'Agregar Inspección'}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form onSubmit={handleSubmit}>
+            <Form.Group controlId="formDate" className="mb-3">
+              <Form.Label>Fecha</Form.Label>
+              <Form.Control
+                type="date"
+                name="date"
+                value={form.date.slice(0, 10)}
+                onChange={handleChange}
+                required
+              />
+            </Form.Group>
+            <Form.Group controlId="formTime" className="mb-3">
+              <Form.Label>Hora</Form.Label>
+              <Form.Control
+                type="time"
+                name="time"
+                value={form.time}
+                onChange={handleChange}
+                required
+              />
+            </Form.Group>
+            <Form.Group controlId="formDuration" className="mb-3">
+              <Form.Label>Duración (horas)</Form.Label>
+              <Form.Control
+                type="number"
+                name="duration"
+                step="0.1"
+                value={form.duration}
+                onChange={handleChange}
+                placeholder="Duración en horas"
+              />
+            </Form.Group>
+            <Form.Group controlId="formObservations" className="mb-3">
+              <Form.Label>Observaciones</Form.Label>
+              <Form.Control
+                as="textarea"
+                name="observations"
+                value={form.observations}
+                onChange={handleChange}
+                placeholder="Observaciones"
+              />
+            </Form.Group>
+            <Form.Group controlId="formServiceId" className="mb-3">
+              <Form.Label>Servicio</Form.Label>
+              <Form.Control
+                as="select"
+                name="service_id"
+                value={form.service_id}
+                onChange={handleChange}
+              >
+                <option value="">Selecciona un servicio</option>
+                {services.map((service) => (
+                  <option key={service.id} value={service.id}>{service.service_type}</option>
+                ))}
+              </Form.Control>
+            </Form.Group>
+            <Form.Group controlId="formExitTime" className="mb-3">
+              <Form.Label>Hora de Salida</Form.Label>
+              <Form.Control
+                type="time"
+                name="exit_time"
+                value={form.exit_time}
+                onChange={handleChange}
+              />
+            </Form.Group>
+            <Button variant="primary" type="submit">
+              {editing ? 'Guardar Cambios' : 'Agregar Inspección'}
+            </Button>
+          </Form>
+        </Modal.Body>
+      </Modal>
     </div>
   );
-};
+}
 
 export default Inspections;
