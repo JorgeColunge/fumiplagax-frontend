@@ -43,16 +43,16 @@ function ServiceList() {
       const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
   
       const formattedInspections = response.data.map(inspection => {
-        console.log("Hora de Inicio sin formatear:", inspection.time);
-        console.log("Hora de Finalización sin formatear:", inspection.exit_time);
-  
+        console.log("Raw inspection data:", inspection);
         return {
           ...inspection,
           time: inspection.time ? moment(inspection.time, 'HH:mm').format('HH:mm') : 'Hora inválida',
           exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm').format('HH:mm') : 'Hora inválida',
-          date: moment(inspection.date).format('DD/MM/YYYY')
+          date: moment(inspection.date).format('DD/MM/YYYY'),
+          observations: inspection.observations || 'Sin observaciones'
         };
       });
+      console.log("Formatted inspections data:", formattedInspections);
       setInspections(formattedInspections);
     } catch (error) {
       console.error("Error fetching inspections:", error);
@@ -104,16 +104,24 @@ function ServiceList() {
   // Guardar la nueva inspección
   const handleSaveInspection = async () => {
     try {
+      console.log("New inspection data before saving:", newInspection);
       const response = await axios.post(`http://localhost:10000/api/inspections`, {
         ...newInspection,
         service_id: selectedService.id
       });
-      setInspections([...inspections, {
+      console.log("Saved inspection response:", response.data);
+
+      const newInspectionFormatted = {
         ...response.data,
-        time: new Date(response.data.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        exit_time: new Date(response.data.exit_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        date: new Date(response.data.date).toLocaleDateString()
-      }]);
+        time: response.data.time ? moment(response.data.time, 'HH:mm').format('HH:mm') : 'Hora inválida',
+        exit_time: response.data.exit_time ? moment(response.data.exit_time, 'HH:mm').format('HH:mm') : 'Hora inválida',
+        date: moment(response.data.date).format('DD/MM/YYYY'),
+        observations: response.data.observations || 'Sin observaciones'
+      };
+      
+      console.log("Formatted new inspection after saving:", newInspectionFormatted);
+
+      setInspections([...inspections, newInspectionFormatted]);
       handleCloseModal();
     } catch (error) {
       console.error("Error saving inspection:", error);
