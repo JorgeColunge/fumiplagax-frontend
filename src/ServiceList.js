@@ -37,22 +37,20 @@ function ServiceList() {
     fetchServicesAndClients();
   }, []);
 
-  // Fetch inspections for the selected service
+  // Fetch inspections for the selected service and order by date and time in descending order
   const fetchInspections = async (serviceId) => {
     try {
       const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
-  
-      const formattedInspections = response.data.map(inspection => {
-        console.log("Raw inspection data:", inspection);
-        return {
+      const formattedInspections = response.data
+        .map(inspection => ({
           ...inspection,
           time: inspection.time ? moment(inspection.time, 'HH:mm').format('HH:mm') : 'Hora inválida',
           exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm').format('HH:mm') : 'Hora inválida',
           date: moment(inspection.date).format('DD/MM/YYYY'),
+          datetime: moment(`${inspection.date} ${inspection.time}`, 'YYYY-MM-DD HH:mm'), // Fecha y hora combinadas para ordenar
           observations: inspection.observations || 'Sin observaciones'
-        };
-      });
-      console.log("Formatted inspections data:", formattedInspections);
+        }))
+        .sort((a, b) => b.datetime - a.datetime); // Orden descendente basado en datetime
       setInspections(formattedInspections);
     } catch (error) {
       console.error("Error fetching inspections:", error);
@@ -104,25 +102,32 @@ function ServiceList() {
   // Guardar la nueva inspección
   const handleSaveInspection = async () => {
     try {
-      console.log("New inspection data before saving:", newInspection);
       const response = await axios.post(`http://localhost:10000/api/inspections`, {
         ...newInspection,
-        service_id: selectedService.id
+        service_id: selectedService.id,
       });
-      console.log("Saved inspection response:", response.data);
 
-      const newInspectionFormatted = {
-        ...response.data,
-        time: response.data.time ? moment(response.data.time, 'HH:mm').format('HH:mm') : 'Hora inválida',
-        exit_time: response.data.exit_time ? moment(response.data.exit_time, 'HH:mm').format('HH:mm') : 'Hora inválida',
-        date: moment(response.data.date).format('DD/MM/YYYY'),
-        observations: response.data.observations || 'Sin observaciones'
-      };
-      
-      console.log("Formatted new inspection after saving:", newInspectionFormatted);
+      if (response.data.success) {
+        const savedInspection = response.data.inspection;
+        
+        const newInspectionFormatted = {
+          id: savedInspection.id,
+          date: moment(savedInspection.date).format('DD/MM/YYYY'),
+          time: savedInspection.time ? moment(savedInspection.time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
+          exit_time: savedInspection.exit_time ? moment(savedInspection.exit_time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
+          observations: savedInspection.observations || 'Sin observaciones',
+          datetime: moment(`${savedInspection.date} ${savedInspection.time}`, 'YYYY-MM-DD HH:mm') // Agregar datetime para ordenar
+        };
 
-      setInspections([...inspections, newInspectionFormatted]);
-      handleCloseModal();
+        // Añadir la nueva inspección en la lista y ordenar en forma descendente
+        setInspections(prevInspections => 
+          [newInspectionFormatted, ...prevInspections].sort((a, b) => b.datetime - a.datetime)
+        );
+
+        handleCloseModal();
+      } else {
+        console.error("Error: No se pudo guardar la inspección correctamente.", response.data.message);
+      }
     } catch (error) {
       console.error("Error saving inspection:", error);
     }
