@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faUsers, faSignOutAlt, faBars, faCalendar, faFileAlt, faChartBar, faClipboardList, faTasks } from '@fortawesome/free-solid-svg-icons';
+import { List, Person, People, Calendar3, Clipboard, FileText, BarChart, ClipboardCheck, BoxArrowRight, Search, Megaphone, CurrencyDollar, Gear } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './SidebarMenu.css';
 
@@ -21,10 +20,10 @@ function SidebarMenu({ onLogout, userInfo }) {
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="menu-toggle" onClick={toggleMenu}>
-        <FontAwesomeIcon icon={faBars} size="lg" />
+        <List size={30} />
       </div>
-      <div className="logo-container mt-3 mb-3">
-        <img src="/path/to/your-logo.png" alt="Logo" className="logo" />
+      <div className="logo-container">
+        <img src={userInfo?.photo || "/default-avatar.png"} alt="User" className="logo" />
         {isOpen && (
           <div className="user-info">
             <h5>{userInfo?.name || 'Usuario'}</h5>
@@ -35,56 +34,49 @@ function SidebarMenu({ onLogout, userInfo }) {
       <ul className="nav flex-column icon-list">
         <li className="nav-item">
           <Link to="/profile" className="nav-link" title="Perfil">
-            <FontAwesomeIcon icon={faUser} />
+            <Person size={20} />
             {isOpen && <span>Perfil</span>}
           </Link>
         </li>
         <li className="nav-item">
           <Link to="/users" className="nav-link" title="Usuarios">
-            <FontAwesomeIcon icon={faUsers} />
+            <People size={20} />
             {isOpen && <span>Usuarios</span>}
           </Link>
         </li>
         <li className="nav-item">
           <Link to="/calendar" className="nav-link" title="Calendario">
-            <FontAwesomeIcon icon={faCalendar} />
+            <Calendar3 size={20} />
             {isOpen && <span>Calendario</span>}
           </Link>
         </li>
         <li className="nav-item">
           <Link to="/clients" className="nav-link" title="Clientes">
-            <FontAwesomeIcon icon={faClipboardList} />
+            <Clipboard size={20} />
             {isOpen && <span>Clientes</span>}
           </Link>
         </li>
         <li className="nav-item">
-          <Link to="/products" className="nav-link" title="Productos">
-            <FontAwesomeIcon icon={faClipboardList} />
-            {isOpen && <span>Productos</span>}
-          </Link>
-        </li>
-        <li className="nav-item">
           <Link to="/inspections" className="nav-link" title="Inspecciones">
-            <FontAwesomeIcon icon={faFileAlt} />
+            <FileText size={20} />
             {isOpen && <span>Inspecciones</span>}
           </Link>
         </li>
         <li className="nav-item">
           <Link to="/services" className="nav-link" title="Servicios">
-            <FontAwesomeIcon icon={faTasks} />
+            <ClipboardCheck size={20} />
             {isOpen && <span>Servicios</span>}
           </Link>
         </li>
         <li className="nav-item">
-          <Link to="/statistics" className="nav-link" title="Estadísticas">
-            <FontAwesomeIcon icon={faChartBar} />
-            {isOpen && <span>Estadísticas</span>}
+          <Link to="/consumption" className="nav-link" title="Consumo">
+            <CurrencyDollar size={20} />
+            {isOpen && <span>Consumo</span>}
           </Link>
         </li>
-        {/* Botón de Cerrar Sesión */}
         <li className="nav-item logout-item">
           <button className="nav-link btn btn-link" onClick={handleLogout} title="Cerrar Sesión">
-            <FontAwesomeIcon icon={faSignOutAlt} />
+            <BoxArrowRight size={20} />
             {isOpen && <span>Cerrar Sesión</span>}
           </button>
         </li>
