@@ -28,18 +28,32 @@ const InspectionCalendar = () => {
     useEffect(() => {
         const fetchInspections = async () => {
             try {
+                console.log('Fetching inspections...');
                 const response = await fetch(`http://localhost:10000/api/inspections`);
                 if (!response.ok) throw new Error('Failed to fetch inspections');
                 
                 const inspections = await response.json();
-                const formattedEvents = inspections.map((inspection) => ({
-                    id: inspection.id,
-                    title: `Servicio ${inspection.service_id}`,
-                    start: `${inspection.date}T${inspection.time}`,
-                    end: inspection.exit_time ? `${inspection.date}T${inspection.exit_time}` : null,
-                    allDay: false
-                }));
+                console.log('Inspections data received:', inspections); // Verifica los datos obtenidos
+                
+                const formattedEvents = inspections.map((inspection) => {
+                    const start = moment.tz(`${inspection.date.split('T')[0]}T${inspection.time}`, userTimeZone).format();
+                    const end = inspection.exit_time 
+                        ? moment.tz(`${inspection.date.split('T')[0]}T${inspection.exit_time}`, userTimeZone).format() 
+                        : null;
+                    
+                    const formattedEvent = {
+                        id: inspection.id,
+                        title: `Servicio ${inspection.service_id}`,
+                        start,
+                        end,
+                        allDay: false
+                    };
+                    console.log('Formatted event:', formattedEvent); // Verifica el formato de cada evento
+                    return formattedEvent;
+                });
+
                 setEvents(formattedEvents);
+                console.log('Events set in state:', formattedEvents); // Verifica que los eventos se guarden correctamente
             } catch (error) {
                 console.error('Error loading inspections:', error);
             }
@@ -103,6 +117,7 @@ const InspectionCalendar = () => {
                 ...prevEvents, 
                 { ...newEvent, id: Math.random().toString() } // Temporal ID
             ]);
+            console.log('New event created and added to state:', newEvent); // Verifica el evento recién creado
             handleModalClose();
         } catch (error) {
             console.error('Error creating event:', error);

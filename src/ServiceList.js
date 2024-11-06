@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
-import { Card, Col, Row, Collapse, Button, Table, Modal, Form } from 'react-bootstrap';
+import { Card, Col, Row, Collapse, Button, Table, Modal, Form, Spinner } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function ServiceList() {
@@ -37,6 +37,16 @@ function ServiceList() {
     service_type: '',
     exit_time: '',
   });
+  const [newService, setNewService] = useState({
+    service_type: '',
+    description: '',
+    plaga_a_controlar: '',
+    areas_a_intervenir: '',
+    categoria: '',
+    cantidad_al_mes: '',
+    cliente: '',
+    value: '',
+  });
 
   useEffect(() => {
     const fetchServicesAndClients = async () => {
@@ -54,7 +64,6 @@ function ServiceList() {
     fetchServicesAndClients();
   }, []);
 
-  // Fetch inspections for the selected service and order by date and time in descending order
   const fetchInspections = async (serviceId) => {
     try {
       const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
@@ -65,16 +74,18 @@ function ServiceList() {
           exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm').format('HH:mm') : 'Hora inválida',
           date: moment(inspection.date).format('DD/MM/YYYY'),
           datetime: moment(`${inspection.date} ${inspection.time}`, 'YYYY-MM-DD HH:mm'),
+          datetime: moment(`${inspection.date} ${inspection.time}`, 'YYYY-MM-DD HH:mm'),
           observations: inspection.observations || 'Sin observaciones'
         }))
+        .sort((a, b) => b.datetime - a.datetime);
         .sort((a, b) => b.datetime - a.datetime);
       setInspections(formattedInspections);
     } catch (error) {
       console.error("Error fetching inspections:", error);
     }
   };
+  };
 
-  // Manejar la selección del servicio
   const handleServiceClick = (service) => {
     if (selectedService?.id === service.id) {
       setSelectedService(null);
@@ -110,13 +121,11 @@ function ServiceList() {
     });
   };
 
-  // Manejar cambios en el formulario modal
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewInspection({ ...newInspection, [name]: value });
   };
 
-  // Guardar la nueva inspección
   const handleSaveInspection = async () => {
     try {
       const response = await axios.post('http://localhost:10000/api/inspections', {
@@ -126,13 +135,13 @@ function ServiceList() {
       
       if (response.data.success) {
         const savedInspection = response.data.inspection;
-        
         const newInspectionFormatted = {
           id: savedInspection.id,
           date: moment(savedInspection.date).format('DD/MM/YYYY'),
           time: savedInspection.time ? moment(savedInspection.time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
           exit_time: savedInspection.exit_time ? moment(savedInspection.exit_time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
           observations: savedInspection.observations || 'Sin observaciones',
+          datetime: moment(`${savedInspection.date} ${savedInspection.time}`, 'YYYY-MM-DD HH:mm')
           datetime: moment(`${savedInspection.date} ${savedInspection.time}`, 'YYYY-MM-DD HH:mm')
         };
       
@@ -242,15 +251,12 @@ function ServiceList() {
                   <p><strong>ID del servicio:</strong> {selectedService.id}</p>
                   <p><strong>Tipo de Servicio:</strong> {selectedService.service_type}</p>
                   <p><strong>Descripción:</strong> {selectedService.description}</p>
-                  <p><strong>Responsable:</strong> {selectedService.responsible}</p>
-                  <p><strong>Categoría:</strong> {selectedService.category}</p>
-                  {selectedService.category === 'Periodico' && (
-                    <p><strong>Cantidad al mes:</strong> {selectedService.quantity_per_month}</p>
+                  <p><strong>Categoría:</strong> {selectedService.categoria}</p>
+                  {selectedService.categoria === 'Periodico' && (
+                    <p><strong>Cantidad al mes:</strong> {selectedService.cantidad_al_mes}</p>
                   )}
                   <p><strong>Valor:</strong> ${selectedService.value}</p>
-                  <p><strong>Acompañante:</strong> {selectedService.companion}</p>
 
-                  {/* Tabla de Inspecciones */}
                   <h5 className="mt-4">Inspecciones</h5>
                   {inspections.length > 0 ? (
                     <Table striped bordered hover size="sm" className="mt-3">
@@ -278,16 +284,7 @@ function ServiceList() {
                   ) : (
                     <p>No hay inspecciones registradas para este servicio.</p>
                   )}
-
-                  {/* Botón para añadir inspección */}
-                  <Button variant="link" className="text-success" onClick={handleShowModal}>Añadir</Button>
-
-                  {/* Botones de acción */}
-                  <div className="d-flex justify-content-start mt-3">
-                    <Button variant="primary" className="me-2">Generar Informe</Button>
-                    <Button variant="secondary" className="me-2">Novedad en Estación</Button>
-                    <Button variant="danger">Eliminar</Button>
-                  </div>
+                  <Button variant="link" className="text-success" onClick={handleShowModal}>Añadir Inspección</Button>
                 </div>
               ) : (
                 <p className="text-center mt-4">Seleccione un servicio para ver los detalles</p>
