@@ -37,16 +37,6 @@ function ServiceList() {
     service_type: '',
     exit_time: '',
   });
-  const [newService, setNewService] = useState({
-    service_type: '',
-    description: '',
-    plaga_a_controlar: '',
-    areas_a_intervenir: '',
-    categoria: '',
-    cantidad_al_mes: '',
-    cliente: '',
-    value: '',
-  });
 
   useEffect(() => {
     const fetchServicesAndClients = async () => {
@@ -84,7 +74,6 @@ function ServiceList() {
       console.error("Error fetching inspections:", error);
     }
   };
-  };
 
   const handleServiceClick = (service) => {
     if (selectedService?.id === service.id) {
@@ -121,10 +110,6 @@ function ServiceList() {
     });
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewInspection({ ...newInspection, [name]: value });
-  };
 
   const handleSaveInspection = async () => {
     try {
@@ -141,7 +126,6 @@ function ServiceList() {
           time: savedInspection.time ? moment(savedInspection.time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
           exit_time: savedInspection.exit_time ? moment(savedInspection.exit_time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
           observations: savedInspection.observations || 'Sin observaciones',
-          datetime: moment(`${savedInspection.date} ${savedInspection.time}`, 'YYYY-MM-DD HH:mm')
           datetime: moment(`${savedInspection.date} ${savedInspection.time}`, 'YYYY-MM-DD HH:mm')
         };
       
@@ -537,5 +521,4 @@ function ServiceList() {
     </div>
   );
 }
-
 export default ServiceList;
