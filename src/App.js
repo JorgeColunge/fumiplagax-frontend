@@ -11,7 +11,6 @@ import ClientList from './ClientList';
 import ProductList from './ProductList';
 import ShowProfile from './ShowProfile';
 import InspectionCalendar from './InspectionCalendar';
-import Calendar from './Calendar';
 import Inspections from './Inspections';
 import ServiceList from './ServiceList'; // Importa ServiceList
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -67,7 +66,6 @@ function App() {
             <Route path="/products" element={isLoggedIn ? <ProductList /> : <Navigate to="/login" />} />
             <Route path="/inspection-calendar" element={isLoggedIn ? <InspectionCalendar /> : <Navigate to="/login" />} />
             <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
-            <Route path="/calendar" element={<Calendar />} />
             <Route path="/show-profile/:id" element={<ShowProfile />} />
             <Route path="/services" element={isLoggedIn ? <ServiceList /> : <Navigate to="/login" />} /> {/* Nueva ruta para ServiceList */}
           </Routes>

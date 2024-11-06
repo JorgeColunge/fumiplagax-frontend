@@ -45,15 +45,15 @@ function SidebarMenu({ onLogout, userInfo }) {
           </Link>
         </li>
         <li className="nav-item">
-          <Link to="/calendar" className="nav-link" title="Calendario">
-            <Calendar3 size={20} />
-            {isOpen && <span>Calendario</span>}
-          </Link>
-        </li>
-        <li className="nav-item">
           <Link to="/clients" className="nav-link" title="Clientes">
             <Clipboard size={20} />
             {isOpen && <span>Clientes</span>}
+          </Link>
+        </li>
+        <li className="nav-item">
+          <Link to="/inspection-calendar" className="nav-link" title="Calendario">
+            <Calendar3 size={20} />
+            {isOpen && <span>Calendario</span>}
           </Link>
         </li>
         <li className="nav-item">
@@ -66,6 +66,12 @@ function SidebarMenu({ onLogout, userInfo }) {
           <Link to="/services" className="nav-link" title="Servicios">
             <ClipboardCheck size={20} />
             {isOpen && <span>Servicios</span>}
+          </Link>
+        </li>
+        <li className="nav-item">
+          <Link to="/products" className="nav-link" title="Produtos">
+            <CurrencyDollar size={20} />
+            {isOpen && <span>Productos</span>}
           </Link>
         </li>
         <li className="nav-item">

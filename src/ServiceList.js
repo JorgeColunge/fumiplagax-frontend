@@ -12,6 +12,23 @@ function ServiceList() {
   const [inspections, setInspections] = useState([]);
   const [open, setOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showAddServiceModal, setShowAddServiceModal] = useState(false); // Estado para el modal de añadir servicio
+  const [newService, setNewService] = useState({
+    service_type: '',
+    description: '',
+    pest_to_control:'',
+    intervention_areas:'',
+    responsible:'',
+    category:'',
+    quantity_per_month:'',
+    date: '',
+    time: '',
+    client_id: '', // Id del cliente al que pertenece el servicio
+    value:'',
+    companion:'',
+    created_by:'',
+    created_at:'',
+  });
   const [newInspection, setNewInspection] = useState({
     date: '',
     time: '',
@@ -47,15 +64,15 @@ function ServiceList() {
           time: inspection.time ? moment(inspection.time, 'HH:mm').format('HH:mm') : 'Hora inválida',
           exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm').format('HH:mm') : 'Hora inválida',
           date: moment(inspection.date).format('DD/MM/YYYY'),
-          datetime: moment(`${inspection.date} ${inspection.time}`, 'YYYY-MM-DD HH:mm'), // Fecha y hora combinadas para ordenar
+          datetime: moment(`${inspection.date} ${inspection.time}`, 'YYYY-MM-DD HH:mm'),
           observations: inspection.observations || 'Sin observaciones'
         }))
-        .sort((a, b) => b.datetime - a.datetime); // Orden descendente basado en datetime
+        .sort((a, b) => b.datetime - a.datetime);
       setInspections(formattedInspections);
     } catch (error) {
       console.error("Error fetching inspections:", error);
     }
-  };  
+  };
 
   // Manejar la selección del servicio
   const handleServiceClick = (service) => {
@@ -102,11 +119,11 @@ function ServiceList() {
   // Guardar la nueva inspección
   const handleSaveInspection = async () => {
     try {
-      const response = await axios.post(`http://localhost:10000/api/inspections`, {
+      const response = await axios.post('http://localhost:10000/api/inspections', {
         ...newInspection,
         service_id: selectedService.id,
       });
-
+      
       if (response.data.success) {
         const savedInspection = response.data.inspection;
         
@@ -116,20 +133,50 @@ function ServiceList() {
           time: savedInspection.time ? moment(savedInspection.time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
           exit_time: savedInspection.exit_time ? moment(savedInspection.exit_time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
           observations: savedInspection.observations || 'Sin observaciones',
-          datetime: moment(`${savedInspection.date} ${savedInspection.time}`, 'YYYY-MM-DD HH:mm') // Agregar datetime para ordenar
+          datetime: moment(`${savedInspection.date} ${savedInspection.time}`, 'YYYY-MM-DD HH:mm')
         };
-
-        // Añadir la nueva inspección en la lista y ordenar en forma descendente
+      
         setInspections(prevInspections => 
           [newInspectionFormatted, ...prevInspections].sort((a, b) => b.datetime - a.datetime)
         );
-
+      
         handleCloseModal();
       } else {
         console.error("Error: No se pudo guardar la inspección correctamente.", response.data.message);
-      }
+      }      
     } catch (error) {
       console.error("Error saving inspection:", error);
+    }
+  };
+  
+
+  const handleShowAddServiceModal = () => {
+    setNewService({
+      ...newService,
+      created_at: moment().format('DD-MM-YYYY'), // Establece la fecha actual
+    });
+    setShowAddServiceModal(true);
+  };
+
+  const handleCloseAddServiceModal = () => setShowAddServiceModal(false);
+
+  const handleNewServiceChange = (e) => {
+    const { name, value } = e.target;
+    setNewService({ ...newService, [name]: value });
+  };
+
+  const handleSaveNewService = async () => {
+    try {
+      const response = await axios.post('http://localhost:10000/api/services', newService);
+
+      if (response.data.success) {
+        setServices([...services, response.data.service]); // Agregar nuevo servicio a la lista
+        handleCloseAddServiceModal();
+      } else {
+        console.error("Error: No se pudo guardar el servicio.", response.data.message);
+      }
+    } catch (error) {
+      console.error("Error saving new service:", error);
     }
   };
 
@@ -143,6 +190,10 @@ function ServiceList() {
   return (
     <div className="container mt-4">
       <h2 className="text-primary mb-4">Servicios Pendientes</h2>
+      <Button variant="primary" onClick={handleShowAddServiceModal} className="mb-4">
+        Añadir Servicio
+      </Button>
+
       <Row>
         <Col md={open ? 5 : 12}>
           <div className="service-list">
@@ -246,73 +297,244 @@ function ServiceList() {
         </Col>
       </Row>
 
-      {/* Modal para añadir una nueva inspección */}
-      <Modal show={showModal} onHide={handleCloseModal}>
+      <Modal show={showAddServiceModal} onHide={handleCloseAddServiceModal}>
         <Modal.Header closeButton>
-          <Modal.Title>Añadir Inspección</Modal.Title>
+          <Modal.Title>Añadir Servicio</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
-            <Form.Group controlId="formDate">
+            <Form.Group controlId="formServiceType">
+              <Form.Label>Tipo de Servicio</Form.Label>
+              <Form.Control
+                type="text"
+                name="service_type"
+                value={newService.service_type}
+                onChange={handleNewServiceChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formDescription" className="mt-3">
+              <Form.Label>Descripción</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                name="description"
+                value={newService.description}
+                onChange={handleNewServiceChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formDate" className="mt-3">
               <Form.Label>Fecha</Form.Label>
               <Form.Control
                 type="date"
                 name="date"
-                value={newInspection.date}
-                onChange={handleInputChange}
+                value={newService.date}
+                onChange={handleNewServiceChange}
               />
             </Form.Group>
-            <Form.Group controlId="formStartTime" className="mt-3">
-              <Form.Label>Hora de Inicio</Form.Label>
+            <Form.Group controlId="formTime" className="mt-3">
+              <Form.Label>Hora</Form.Label>
               <Form.Control
                 type="time"
                 name="time"
-                value={newInspection.time}
-                onChange={handleInputChange}
+                value={newService.time}
+                onChange={handleNewServiceChange}
               />
             </Form.Group>
-            <Form.Group controlId="formEndTime" className="mt-3">
-              <Form.Label>Hora de Finalización</Form.Label>
+            <Form.Group controlId="formClientId" className="mt-3">
+              <Form.Label>Cliente</Form.Label>
               <Form.Control
-                type="time"
-                name="exit_time"
-                value={newInspection.exit_time}
-                onChange={handleInputChange}
-              />
+                as="select"
+                name="client_id"
+                value={newService.client_id}
+                onChange={handleNewServiceChange}
+              >
+                <option value="">Seleccione un cliente</option>
+                {clients.map(client => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </Form.Control>
             </Form.Group>
-            <Form.Group controlId="formDuration" className="mt-3">
-              <Form.Label>Duración (horas)</Form.Label>
+          </Form>
+        </Modal.Body>
+      </Modal>
+
+      {/* Modal para añadir un nuevo servicio */}
+      <Modal show={showAddServiceModal} onHide={handleCloseAddServiceModal}>
+        <Modal.Header closeButton>
+          <Modal.Title>Añadir Servicio</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group controlId="formServiceType">
+              <Form.Label>Tipo de Servicio</Form.Label>
               <Form.Control
-                type="number"
-                name="duration"
-                value={newInspection.duration}
-                onChange={handleInputChange}
-              />
+                as="select"
+                name="service_type"
+                value={newService.service_type}
+                onChange={handleNewServiceChange}
+                multiple
+              >
+                <option value="">Seleccione un tipo de servicio</option>
+                <option value="Desinsectación">Desinsectación</option>
+                <option value="Desratización">Desratización</option>
+                <option value="Desinfección">Desinfección</option>
+                <option value="Roceria">Roceria</option>
+                <option value="Limpieza y aseo de archivos">Limpieza y aseo de archivos</option>
+                <option value="Lavado shut basura">Lavado shut basura</option>
+                <option value="Encarpado">Encarpado</option>
+                <option value="Lavado de tanque">Lavado de tanque</option>
+                <option value="Inspección">Inspección</option>
+                <option value="Diagnostico">Diagnostico</option>
+              </Form.Control>
             </Form.Group>
-            <Form.Group controlId="formObservations" className="mt-3">
-              <Form.Label>Observaciones</Form.Label>
+            <Form.Group controlId="formDescription" className="mt-3">
+              <Form.Label>Descripción</Form.Label>
               <Form.Control
                 as="textarea"
                 rows={3}
-                name="observations"
-                value={newInspection.observations}
-                onChange={handleInputChange}
+                name="description"
+                value={newService.description}
+                onChange={handleNewServiceChange}
               />
             </Form.Group>
-            <Form.Group controlId="formServiceType" className="mt-3">
-              <Form.Label>Servicio</Form.Label>
+            <Form.Group controlId="formPestToControl">
+              <Form.Label>Plaga a Controlar</Form.Label>
+              <Form.Control
+                as="select"
+                name="pest_to_control"
+                value={newService.pest_to_control}
+                onChange={handleNewServiceChange}
+              >
+                <option value="">Seleccione un tipo de Plaga</option>
+                <option value="Moscas">Moscas</option>
+                <option value="Zancudos">Zancudos</option>
+                <option value="Cucarachas">Cucarachas</option>
+                <option value="Hormigas">Hormigas</option>
+                <option value="Pulgas">Pulgas</option>
+                <option value="Rata de alcantarilla">Rata de alcantarilla</option>
+                <option value="Rata de techo">Rata de techo</option>
+                <option value="Rata de campo">Rata de campo</option>
+                <option value="Virus">Virus</option>
+                <option value="Hongos">Hongos</option>
+                <option value="Bacterias">Bacterias</option>
+                <option value="Gorgojos">Gorgojos</option>
+                <option value="Escarabajos">Escarabajos</option>
+              </Form.Control>
+            </Form.Group>
+
+            <Form.Group controlId="formInterventionAreas" className="mt-3">
+              <Form.Label>Áreas de Intervención</Form.Label>
               <Form.Control
                 type="text"
-                name="service_type"
-                value={newInspection.service_type}
+                name="intervention_areas"
+                value={newService.intervention_areas}
+                onChange={handleNewServiceChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formResponsible" className="mt-3">
+              <Form.Label>Responsable</Form.Label>
+              <Form.Control
+                type="text"
+                name="responsible"
+                value={newService.responsible}
+                onChange={handleNewServiceChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formCategory" className="mt-3">
+              <Form.Label>Categoría</Form.Label>
+              <Form.Control
+                type="text"
+                name="category"
+                value={newService.category}
+                onChange={handleNewServiceChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formQuantityPerMonth" className="mt-3">
+              <Form.Label>Cantidad al Mes</Form.Label>
+              <Form.Control
+                type="number"
+                name="quantity_per_month"
+                value={newService.quantity_per_month}
+                onChange={handleNewServiceChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formDate" className="mt-3">
+              <Form.Label>Fecha</Form.Label>
+              <Form.Control
+                type="date"
+                name="date"
+                value={newService.date}
+                onChange={handleNewServiceChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formTime" className="mt-3">
+              <Form.Label>Hora</Form.Label>
+              <Form.Control
+                type="time"
+                name="time"
+                value={newService.time}
+                onChange={handleNewServiceChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formClientId" className="mt-3">
+              <Form.Label>Cliente</Form.Label>
+              <Form.Control
+                as="select"
+                name="client_id"
+                value={newService.client_id}
+                onChange={handleNewServiceChange}
+              >
+                <option value="">Seleccione un cliente</option>
+                {clients.map(client => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </Form.Control>
+            </Form.Group>
+            <Form.Group controlId="formValue" className="mt-3">
+              <Form.Label>Valor</Form.Label>
+              <Form.Control
+                type="number"
+                name="value"
+                value={newService.value}
+                onChange={handleNewServiceChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formCompanion" className="mt-3">
+              <Form.Label>Acompañante</Form.Label>
+              <Form.Control
+                type="text"
+                name="companion"
+                value={newService.companion}
+                onChange={handleNewServiceChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formCreatedBy" className="mt-3">
+              <Form.Label>Creado Por</Form.Label>
+              <Form.Control
+                type="text"
+                name="created_by"
+                value={newService.created_by}
+                onChange={handleNewServiceChange}
+              />
+            </Form.Group>
+            <Form.Group controlId="formCreatedAt" className="mt-3">
+              <Form.Label>Fecha de Creación</Form.Label>
+              <Form.Control
+                type="text"
+                name="created_at"
+                value={newService.created_at}
                 readOnly
               />
             </Form.Group>
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseModal}>Cancelar</Button>
-          <Button variant="primary" onClick={handleSaveInspection}>Guardar cambios</Button>
+          <Button variant="secondary" onClick={handleCloseAddServiceModal}>Cancelar</Button>
+          <Button variant="primary" onClick={handleSaveNewService}>Guardar Servicio</Button>
         </Modal.Footer>
       </Modal>
     </div>
