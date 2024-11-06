@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
-import { Card, Col, Row, Collapse, Button, Table, Modal, Form } from 'react-bootstrap';
+import { Card, Col, Row, Collapse, Button, Table, Modal, Form, Dropdown, DropdownButton} from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-
-
-function ServiceList() {
+function ServiceList() { 
   const [services, setServices] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +13,13 @@ function ServiceList() {
   const [open, setOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
+
+  // Recupera la información del usuario logueado desde localStorage
+  const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
+  const userId = storedUserInfo?.id || ''; // Usa el ID del usuario logueado o una cadena vacía si no existe
+
+  console.log("User ID:", userId); // Agrega este log para verificar el ID del usuario logueado
+ 
   const [newService, setNewService] = useState({
     service_type: [],
     description: '',
@@ -28,8 +33,8 @@ function ServiceList() {
     client_id: '',
     value: '',
     companion: '',
-    created_by: '',
-    created_at: '',
+    created_by: userId,
+    created_at: moment().format('DD-MM-YYYY'), // Establece la fecha actual al abrir el modal
   });
 
   const serviceOptions = [
@@ -48,7 +53,7 @@ function ServiceList() {
     // Estado para las opciones visibles de "Plaga a Controlar"
     const [visiblePestOptions, setVisiblePestOptions] = useState([]);
 
-    // Opciones de plagas para cada tipo de servicio
+  // Opciones de plagas para cada tipo de servicio
   const pestOptions = {
   "Desinsectación": ["Moscas", "Zancudos", "Cucarachas", "Hormigas", "Pulgas", "Gorgojos", "Escarabajos"],
   "Desratización": ["Rata de alcantarilla", "Rata de techo", "Rata de campo"],
@@ -62,6 +67,51 @@ function ServiceList() {
   "Inspección": [],
   "Diagnostico": []
   };
+
+// Estado para controlar si el dropdown está abierto o cerrado
+const [showDropdown, setShowDropdown] = useState(false);
+
+  // Opciones de Áreas de Intervención ordenadas alfabéticamente
+const interventionAreaOptions = [
+  "Área caja",
+  "Área de lavado",
+  "Baños",
+  "Bodega",
+  "Cajas eléctricas",
+  "Cocina",
+  "Comedor",
+  "Cubierta",
+  "Cuartos de residuos",
+  "Entretechos",
+  "Equipos",
+  "Exteriores",
+  "Lokers",
+  "Muebles",
+  "Necera",
+  "Oficinas",
+  "Producción",
+  "Servicio al cliente",
+  "Shot de basuras"
+];
+
+const handleInterventionAreasChange = (e) => {
+  const { value, checked } = e.target;
+  setNewService((prevService) => ({
+    ...prevService,
+    intervention_areas: checked
+      ? [...prevService.intervention_areas, value]
+      : prevService.intervention_areas.filter((area) => area !== value),
+  }));
+};
+
+const handleDropdownToggle = (isOpen, event) => {
+  // Verificar si el evento es un clic en un checkbox
+  if (event && event.target && event.target.tagName === 'INPUT') {
+    return; // No cerrar el dropdown si se hace clic en un checkbox
+  }
+  // Cambiar el estado para abrir/cerrar el dropdown solo si no es un checkbox
+  setShowDropdown(isOpen);
+};
 
   const handleServiceTypeChange = (e) => {
     const { value, checked } = e.target;
@@ -87,6 +137,15 @@ function ServiceList() {
     });
   };
 
+  const [technicians, setTechnicians] = useState([]);
+  const fetchTechnicians = async () => {
+    try {
+      const response = await axios.get('http://localhost:10000/api/users?role=Technician');
+      setTechnicians(response.data);
+    } catch (error) {
+      console.error("Error fetching technicians:", error);
+    }
+  };  
 
   const [newInspection, setNewInspection] = useState({
     date: '',
@@ -111,7 +170,8 @@ function ServiceList() {
       }
     };
     fetchServicesAndClients();
-  }, []);
+    fetchTechnicians(); // Llama a fetchTechnicians aquí
+  }, []);  
 
 
   if (loading) return <div>Cargando servicios...</div>;
@@ -200,12 +260,19 @@ function ServiceList() {
   
 
   const handleShowAddServiceModal = () => {
-    setNewService({
-      ...newService,
+    setNewService((prevService) => ({
+      ...prevService,
+      created_by: userId, // Asigna el ID del usuario logueado
       created_at: moment().format('DD-MM-YYYY'), // Establece la fecha actual
-    });
+    }));
     setShowAddServiceModal(true);
-  };
+  }
+
+// Filtrar técnicos excluyendo el seleccionado como responsable
+const filteredTechniciansForCompanion = technicians.filter(
+  (technician) => technician.id !== newService.responsible
+);
+
 
   const handleCloseAddServiceModal = () => setShowAddServiceModal(false);
 
@@ -215,11 +282,17 @@ function ServiceList() {
   };
 
   const handleSaveNewService = async () => {
+    const serviceData = {
+      ...newService,
+      quantity_per_month: newService.quantity_per_month || null,
+      client_id: newService.client_id || null,
+      value: newService.value || null,
+    };
+  
     try {
-      const response = await axios.post('http://localhost:10000/api/services', newService);
-
+      const response = await axios.post('http://localhost:10000/api/services', serviceData);
       if (response.data.success) {
-        setServices([...services, response.data.service]); // Agregar nuevo servicio a la lista
+        setServices([...services, response.data.service]);
         handleCloseAddServiceModal();
       } else {
         console.error("Error: No se pudo guardar el servicio.", response.data.message);
@@ -228,6 +301,7 @@ function ServiceList() {
       console.error("Error saving new service:", error);
     }
   };
+  
 
   const handlePestToControlChange = (e) => {
     const { value, checked } = e.target;
@@ -387,31 +461,35 @@ function ServiceList() {
         </Modal.Header>
         <Modal.Body>
           <Form>
-          <Form.Group controlId="formServiceType">
+          <Form.Group className="mt-3">
   <Form.Label>Tipo de Servicio</Form.Label>
   <div>
-    {serviceOptions.map((option) => (
+    {serviceOptions.map((option, index) => (
       <Form.Check
         key={option}
         type="checkbox"
         label={option}
         value={option}
+        id={`service_option_${index}`} // ID único basado en el índice
         checked={newService.service_type.includes(option)}
         onChange={(e) => handleServiceTypeChange(e)}
       />
     ))}
   </div>
 </Form.Group>
-            <Form.Group controlId="formDescription" className="mt-3">
-              <Form.Label>Descripción</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                name="description"
-                value={newService.description}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
+
+<Form.Group className="mt-3">
+  <Form.Label htmlFor="description">Descripción</Form.Label>
+  <Form.Control
+    as="textarea"
+    rows={3}
+    name="description"
+    id="description" // Usar un id único aquí
+    value={newService.description}
+    onChange={handleNewServiceChange}
+  />
+</Form.Group>
+
             {/* Selección de Plaga a Controlar */}
             {visiblePestOptions.length > 0 && (
               <Form.Group controlId="formPestToControl" className="mt-3">
@@ -430,42 +508,80 @@ function ServiceList() {
                 </div>
               </Form.Group>
             )}
-            <Form.Group controlId="formInterventionAreas" className="mt-3">
-              <Form.Label>Áreas de Intervención</Form.Label>
-              <Form.Control
-                type="text"
-                name="intervention_areas"
-                value={newService.intervention_areas}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
-            <Form.Group controlId="formResponsible" className="mt-3">
-              <Form.Label>Responsable</Form.Label>
-              <Form.Control
-                type="text"
-                name="responsible"
-                value={newService.responsible}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
-            <Form.Group controlId="formCategory" className="mt-3">
-              <Form.Label>Categoría</Form.Label>
-              <Form.Control
-                type="text"
-                name="category"
-                value={newService.category}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
-            <Form.Group controlId="formQuantityPerMonth" className="mt-3">
-              <Form.Label>Cantidad al Mes</Form.Label>
-              <Form.Control
-                type="number"
-                name="quantity_per_month"
-                value={newService.quantity_per_month}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
+<Form.Group className="mt-3">
+  <Form.Label>Áreas de Intervención</Form.Label>
+  <DropdownButton
+    id="dropdown-intervention-areas"
+    title="Seleccionar áreas"
+    show={showDropdown}
+    onClick={() => setShowDropdown((prev) => !prev)} // Alterna el estado solo desde el botón
+  >
+    {interventionAreaOptions.map((area, index) => (
+      <Dropdown.Item
+        key={area}
+        as="div"
+        onClick={(e) => e.preventDefault()} // Evita que el menú se cierre
+      >
+        <Form.Check
+          type="checkbox"
+          label={area}
+          value={area}
+          id={`intervention_area_${index}`} // ID único basado en el índice
+          checked={newService.intervention_areas.includes(area)}
+          onChange={handleInterventionAreasChange}
+        />
+      </Dropdown.Item>
+    ))}
+  </DropdownButton>
+</Form.Group>
+
+<Form.Group className="mt-3">
+  <Form.Label>Responsable</Form.Label>
+  <Form.Control
+    as="select"
+    name="responsible"
+    value={newService.responsible}
+    onChange={handleNewServiceChange}
+  >
+    <option value="">Seleccione un técnico</option>
+    {technicians.map((technician) => (
+      <option key={technician.id} value={technician.id}>
+        {technician.name}
+      </option>
+    ))}
+  </Form.Control>
+</Form.Group>
+
+
+<Form.Group className="mt-3">
+  <Form.Label>Categoría</Form.Label>
+  <Form.Control
+    as="select"
+    name="category"
+    value={newService.category}
+    onChange={(e) => {
+      handleNewServiceChange(e);
+      setNewService({ ...newService, category: e.target.value });
+    }}
+  >
+    <option value="">Seleccione una categoría</option>
+    <option value="Puntual">Puntual</option>
+    <option value="Periódico">Periódico</option>
+  </Form.Control>
+</Form.Group>
+
+{newService.category === 'Periódico' && (
+  <Form.Group controlId="formQuantityPerMonth" className="mt-3">
+    <Form.Label>Cantidad al Mes</Form.Label>
+    <Form.Control
+      type="number"
+      name="quantity_per_month"
+      value={newService.quantity_per_month}
+      onChange={handleNewServiceChange}
+    />
+  </Form.Group>
+)}
+
             <Form.Group controlId="formDate" className="mt-3">
               <Form.Label>Fecha</Form.Label>
               <Form.Control
@@ -509,24 +625,32 @@ function ServiceList() {
                 onChange={handleNewServiceChange}
               />
             </Form.Group>
-            <Form.Group controlId="formCompanion" className="mt-3">
-              <Form.Label>Acompañante</Form.Label>
-              <Form.Control
-                type="text"
-                name="companion"
-                value={newService.companion}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
-            <Form.Group controlId="formCreatedBy" className="mt-3">
-              <Form.Label>Creado Por</Form.Label>
-              <Form.Control
-                type="text"
-                name="created_by"
-                value={newService.created_by}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
+            <Form.Group className="mt-3">
+  <Form.Label>Acompañante</Form.Label>
+  <Form.Control
+    as="select"
+    name="companion"
+    value={newService.companion}
+    onChange={handleNewServiceChange}
+  >
+    <option value="">Seleccione un acompañante</option>
+    {filteredTechniciansForCompanion.map((technician) => (
+      <option key={technician.id} value={technician.id}>
+        {technician.name}
+      </option>
+    ))}
+  </Form.Control>
+</Form.Group>
+
+<Form.Group controlId="formCreatedBy" className="mt-3">
+      <Form.Label>Creado Por</Form.Label>
+      <Form.Control
+        type="text"
+        name="created_by"
+        value={newService.created_by}
+        readOnly // Hace que el campo sea de solo lectura
+      />
+    </Form.Group>
             <Form.Group controlId="formCreatedAt" className="mt-3">
               <Form.Label>Fecha de Creación</Form.Label>
               <Form.Control
