@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
-import { Card, Col, Row, Collapse, Button, Table, Modal, Form, Spinner } from 'react-bootstrap';
+import { Card, Col, Row, Collapse, Button, Table, Modal, Form } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
+
+
 
 function ServiceList() {
   const [services, setServices] = useState([]);
@@ -12,23 +14,80 @@ function ServiceList() {
   const [inspections, setInspections] = useState([]);
   const [open, setOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [showAddServiceModal, setShowAddServiceModal] = useState(false); // Estado para el modal de añadir servicio
+  const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [newService, setNewService] = useState({
-    service_type: '',
+    service_type: [],
     description: '',
-    pest_to_control:'',
-    intervention_areas:'',
-    responsible:'',
-    category:'',
-    quantity_per_month:'',
+    pest_to_control: '',
+    intervention_areas: '',
+    responsible: '',
+    category: '',
+    quantity_per_month: '',
     date: '',
     time: '',
-    client_id: '', // Id del cliente al que pertenece el servicio
-    value:'',
-    companion:'',
-    created_by:'',
-    created_at:'',
+    client_id: '',
+    value: '',
+    companion: '',
+    created_by: '',
+    created_at: '',
   });
+
+  const serviceOptions = [
+    "Desinsectación",
+    "Desratización",
+    "Desinfección",
+    "Roceria",
+    "Limpieza y aseo de archivos",
+    "Lavado shut basura",
+    "Encarpado",
+    "Lavado de tanque",
+    "Inspección",
+    "Diagnostico"
+  ];
+
+    // Estado para las opciones visibles de "Plaga a Controlar"
+    const [visiblePestOptions, setVisiblePestOptions] = useState([]);
+
+    // Opciones de plagas para cada tipo de servicio
+  const pestOptions = {
+  "Desinsectación": ["Moscas", "Zancudos", "Cucarachas", "Hormigas", "Pulgas", "Gorgojos", "Escarabajos"],
+  "Desratización": ["Rata de alcantarilla", "Rata de techo", "Rata de campo"],
+  "Desinfección": ["Virus", "Hongos", "Bacterias"],
+  // Los siguientes tipos no mostrarán opciones de plagas
+  "Roceria": [],
+  "Limpieza y aseo de archivos": [],
+  "Lavado shut basura": [],
+  "Encarpado": [],
+  "Lavado de tanque": [],
+  "Inspección": [],
+  "Diagnostico": []
+  };
+
+  const handleServiceTypeChange = (e) => {
+    const { value, checked } = e.target;
+    setNewService((prevService) => {
+      const updatedServiceType = checked
+        ? [...prevService.service_type, value]
+        : prevService.service_type.filter((type) => type !== value);
+  
+      // Combina las plagas de todos los tipos de servicio seleccionados
+      const combinedPestOptions = Array.from(
+        new Set(
+          updatedServiceType.flatMap((type) => pestOptions[type] || [])
+        )
+      );
+  
+      setVisiblePestOptions(combinedPestOptions);
+  
+      return {
+        ...prevService,
+        service_type: updatedServiceType,
+        pest_to_control: [], // Limpia las plagas seleccionadas al cambiar el tipo de servicio
+      };
+    });
+  };
+
+
   const [newInspection, setNewInspection] = useState({
     date: '',
     time: '',
@@ -54,21 +113,13 @@ function ServiceList() {
     fetchServicesAndClients();
   }, []);
 
+
+  if (loading) return <div>Cargando servicios...</div>;
+
   const fetchInspections = async (serviceId) => {
     try {
       const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
-      const formattedInspections = response.data
-        .map(inspection => ({
-          ...inspection,
-          time: inspection.time ? moment(inspection.time, 'HH:mm').format('HH:mm') : 'Hora inválida',
-          exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm').format('HH:mm') : 'Hora inválida',
-          date: moment(inspection.date).format('DD/MM/YYYY'),
-          datetime: moment(`${inspection.date} ${inspection.time}`, 'YYYY-MM-DD HH:mm'),
-          datetime: moment(`${inspection.date} ${inspection.time}`, 'YYYY-MM-DD HH:mm'),
-          observations: inspection.observations || 'Sin observaciones'
-        }))
-        .sort((a, b) => b.datetime - a.datetime);
-        .sort((a, b) => b.datetime - a.datetime);
+      const formattedInspections = response.data.sort((a, b) => b.datetime - a.datetime);
       setInspections(formattedInspections);
     } catch (error) {
       console.error("Error fetching inspections:", error);
@@ -108,6 +159,11 @@ function ServiceList() {
       service_type: '',
       exit_time: '',
     });
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewInspection({ ...newInspection, [name]: value });
   };
 
 
@@ -173,6 +229,17 @@ function ServiceList() {
     }
   };
 
+  const handlePestToControlChange = (e) => {
+    const { value, checked } = e.target;
+    setNewService((prevService) => ({
+      ...prevService,
+      pest_to_control: checked
+        ? [...prevService.pest_to_control, value]
+        : prevService.pest_to_control.filter((pest) => pest !== value),
+    }));
+  };
+  
+
   if (loading) return <div>Cargando servicios...</div>;
 
   const groupedServices = clients.map(client => ({
@@ -196,26 +263,27 @@ function ServiceList() {
                 <Row>
                   {services.length > 0 ? (
                     services.map(service => (
-                      <Col md={6} key={service.id}>
-                        <Card
-                          className={`mb-3 ${selectedService?.id === service.id ? 'border-success' : ''}`}
-                          onClick={() => handleServiceClick(service)}
-                          style={{ cursor: "pointer", minHeight: "200px" }}
-                        >
-                          <Card.Body>
-                            <Card.Title>{service.service_type}</Card.Title>
-                            <Card.Text>
-                              <strong>Descripción:</strong> {service.description}<br />
-                              <strong>Fecha:</strong> {service.date}<br />
-                              <strong>Hora:</strong> {service.time}
-                            </Card.Text>
-                            <div className="d-flex justify-content-between mt-3">
-                              <Button variant="outline-success" size="sm">Generar Informe</Button>
-                              <Button variant="outline-primary" size="sm">Novedad en Estación</Button>
-                            </div>
-                          </Card.Body>
-                        </Card>
-                      </Col>
+                    <Col md={6} key={service.id}>
+                      <Card
+                        className={`mb-3 ${selectedService?.id === service.id ? 'border-success' : ''}`}
+                        onClick={() => handleServiceClick(service)}
+                        style={{ cursor: "pointer", minHeight: "200px" }}
+                      >
+                        <Card.Body>
+                          <Card.Title>{service.service_type}</Card.Title>
+                          <Card.Text>
+                            <strong>Descripción:</strong> {service.description}<br />
+                            <strong>Fecha:</strong> {service.date}<br />
+                            <strong>Hora:</strong> {service.time}
+                          </Card.Text>
+                          <div className="d-flex justify-content-between mt-3">
+                            <Button variant="outline-success" size="sm">Generar Informe</Button>
+                            <Button variant="outline-primary" size="sm">Novedad en Estación</Button>
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    </Col>
+
                     ))
                   ) : (
                     <p>No hay servicios para este cliente</p>
@@ -277,68 +345,39 @@ function ServiceList() {
           </Collapse>
         </Col>
       </Row>
-
-      <Modal show={showAddServiceModal} onHide={handleCloseAddServiceModal}>
+{/* Modal para añadir una nueva inspección */}
+<Modal show={showModal} onHide={handleCloseModal}>
         <Modal.Header closeButton>
-          <Modal.Title>Añadir Servicio</Modal.Title>
+          <Modal.Title>Añadir Inspección</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
-            <Form.Group controlId="formServiceType">
-              <Form.Label>Tipo de Servicio</Form.Label>
-              <Form.Control
-                type="text"
-                name="service_type"
-                value={newService.service_type}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
-            <Form.Group controlId="formDescription" className="mt-3">
-              <Form.Label>Descripción</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                name="description"
-                value={newService.description}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
-            <Form.Group controlId="formDate" className="mt-3">
+            <Form.Group controlId="formDate">
               <Form.Label>Fecha</Form.Label>
-              <Form.Control
-                type="date"
-                name="date"
-                value={newService.date}
-                onChange={handleNewServiceChange}
-              />
+              <Form.Control type="date" name="date" value={newInspection.date} onChange={handleInputChange} />
             </Form.Group>
-            <Form.Group controlId="formTime" className="mt-3">
-              <Form.Label>Hora</Form.Label>
-              <Form.Control
-                type="time"
-                name="time"
-                value={newService.time}
-                onChange={handleNewServiceChange}
-              />
+            <Form.Group controlId="formStartTime" className="mt-3">
+              <Form.Label>Hora de Inicio</Form.Label>
+              <Form.Control type="time" name="time" value={newInspection.time} onChange={handleInputChange} />
             </Form.Group>
-            <Form.Group controlId="formClientId" className="mt-3">
-              <Form.Label>Cliente</Form.Label>
-              <Form.Control
-                as="select"
-                name="client_id"
-                value={newService.client_id}
-                onChange={handleNewServiceChange}
-              >
-                <option value="">Seleccione un cliente</option>
-                {clients.map(client => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
-                  </option>
-                ))}
-              </Form.Control>
+            <Form.Group controlId="formEndTime" className="mt-3">
+              <Form.Label>Hora de Finalización</Form.Label>
+              <Form.Control type="time" name="exit_time" value={newInspection.exit_time} onChange={handleInputChange} />
+            </Form.Group>
+            <Form.Group controlId="formDuration" className="mt-3">
+              <Form.Label>Duración (horas)</Form.Label>
+              <Form.Control type="number" name="duration" value={newInspection.duration} onChange={handleInputChange} />
+            </Form.Group>
+            <Form.Group controlId="formObservations" className="mt-3">
+              <Form.Label>Observaciones</Form.Label>
+              <Form.Control as="textarea" rows={3} name="observations" value={newInspection.observations} onChange={handleInputChange} />
             </Form.Group>
           </Form>
         </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseModal}>Cancelar</Button>
+          <Button variant="primary" onClick={handleSaveInspection}>Guardar cambios</Button>
+        </Modal.Footer>
       </Modal>
 
       {/* Modal para añadir un nuevo servicio */}
@@ -348,28 +387,21 @@ function ServiceList() {
         </Modal.Header>
         <Modal.Body>
           <Form>
-            <Form.Group controlId="formServiceType">
-              <Form.Label>Tipo de Servicio</Form.Label>
-              <Form.Control
-                as="select"
-                name="service_type"
-                value={newService.service_type}
-                onChange={handleNewServiceChange}
-                multiple
-              >
-                <option value="">Seleccione un tipo de servicio</option>
-                <option value="Desinsectación">Desinsectación</option>
-                <option value="Desratización">Desratización</option>
-                <option value="Desinfección">Desinfección</option>
-                <option value="Roceria">Roceria</option>
-                <option value="Limpieza y aseo de archivos">Limpieza y aseo de archivos</option>
-                <option value="Lavado shut basura">Lavado shut basura</option>
-                <option value="Encarpado">Encarpado</option>
-                <option value="Lavado de tanque">Lavado de tanque</option>
-                <option value="Inspección">Inspección</option>
-                <option value="Diagnostico">Diagnostico</option>
-              </Form.Control>
-            </Form.Group>
+          <Form.Group controlId="formServiceType">
+  <Form.Label>Tipo de Servicio</Form.Label>
+  <div>
+    {serviceOptions.map((option) => (
+      <Form.Check
+        key={option}
+        type="checkbox"
+        label={option}
+        value={option}
+        checked={newService.service_type.includes(option)}
+        onChange={(e) => handleServiceTypeChange(e)}
+      />
+    ))}
+  </div>
+</Form.Group>
             <Form.Group controlId="formDescription" className="mt-3">
               <Form.Label>Descripción</Form.Label>
               <Form.Control
@@ -380,31 +412,24 @@ function ServiceList() {
                 onChange={handleNewServiceChange}
               />
             </Form.Group>
-            <Form.Group controlId="formPestToControl">
-              <Form.Label>Plaga a Controlar</Form.Label>
-              <Form.Control
-                as="select"
-                name="pest_to_control"
-                value={newService.pest_to_control}
-                onChange={handleNewServiceChange}
-              >
-                <option value="">Seleccione un tipo de Plaga</option>
-                <option value="Moscas">Moscas</option>
-                <option value="Zancudos">Zancudos</option>
-                <option value="Cucarachas">Cucarachas</option>
-                <option value="Hormigas">Hormigas</option>
-                <option value="Pulgas">Pulgas</option>
-                <option value="Rata de alcantarilla">Rata de alcantarilla</option>
-                <option value="Rata de techo">Rata de techo</option>
-                <option value="Rata de campo">Rata de campo</option>
-                <option value="Virus">Virus</option>
-                <option value="Hongos">Hongos</option>
-                <option value="Bacterias">Bacterias</option>
-                <option value="Gorgojos">Gorgojos</option>
-                <option value="Escarabajos">Escarabajos</option>
-              </Form.Control>
-            </Form.Group>
-
+            {/* Selección de Plaga a Controlar */}
+            {visiblePestOptions.length > 0 && (
+              <Form.Group controlId="formPestToControl" className="mt-3">
+                <Form.Label>Plaga a Controlar</Form.Label>
+                <div>
+                  {visiblePestOptions.map((pest) => (
+                    <Form.Check
+                      key={pest}
+                      type="checkbox"
+                      label={pest}
+                      value={pest}
+                      checked={newService.pest_to_control.includes(pest)}
+                      onChange={handlePestToControlChange}
+                    />
+                  ))}
+                </div>
+              </Form.Group>
+            )}
             <Form.Group controlId="formInterventionAreas" className="mt-3">
               <Form.Label>Áreas de Intervención</Form.Label>
               <Form.Control
@@ -514,8 +539,12 @@ function ServiceList() {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseAddServiceModal}>Cancelar</Button>
-          <Button variant="primary" onClick={handleSaveNewService}>Guardar Servicio</Button>
+          <Button variant="secondary" onClick={() => setShowAddServiceModal(false)}>
+            Cancelar
+          </Button>
+          <Button variant="primary" onClick={() => handleSaveNewService()}>
+            Guardar Servicio
+          </Button>
         </Modal.Footer>
       </Modal>
     </div>
