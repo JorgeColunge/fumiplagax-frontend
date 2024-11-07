@@ -225,6 +225,26 @@ const handleDropdownToggle = (isOpen, event) => {
 
   if (loading) return <div>Cargando servicios...</div>;
 
+  const handleServiceSearchChange = (e) => {
+    const input = e.target.value;
+    setSearchServiceText(input);
+    let filtered = services;
+  
+    if (input) {
+      filtered = filtered.filter(
+        (service) =>
+          service.description.toLowerCase().includes(input.toLowerCase()) ||
+          service.service_type.toLowerCase().includes(input.toLowerCase())
+      );
+    }
+  
+    if (selectedUser) {
+      filtered = filtered.filter((service) => service.responsible === selectedUser);
+    }
+  
+    setFilteredServices(filtered);
+  };  
+
   const fetchInspections = async (serviceId) => {
     try {
       const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
@@ -357,6 +377,8 @@ const filteredTechniciansForCompanion = technicians.filter(
       quantity_per_month: newService.quantity_per_month || null,
       client_id: newService.client_id || null,
       value: newService.value || null,
+      responsible: newService.responsible || null, // Asegúrate de incluir responsible
+      companion: newService.companion || [],       // Asegúrate de incluir companion
     };
   
     try {
@@ -390,6 +412,13 @@ const filteredTechniciansForCompanion = technicians.filter(
     client,
     services: services.filter(service => service.client_id === client.id),
   }));
+
+  const toggleGroupCollapse = (clientId) => {
+    setCollapsedGroups((prevState) => ({
+      ...prevState,
+      [clientId]: !prevState[clientId],
+    }));
+  };
 
   const handleCompanionChange = (e) => {
     const { value, checked } = e.target;
