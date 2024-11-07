@@ -14,7 +14,6 @@ function ServiceList() {
   const [showModal, setShowModal] = useState(false);
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
 
-  // Recupera la información del usuario logueado desde localStorage
   const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
   const userId = storedUserInfo?.id || ''; // Usa el ID del usuario logueado o una cadena vacía si no existe
 
