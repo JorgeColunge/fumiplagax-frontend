@@ -17,6 +17,9 @@ function ServiceList() {
   console.log("Stored User Info:", storedUserInfo); // Verifica el contenido completo
   const userId = storedUserInfo?.id_usuario || '';
   console.log("User ID:", userId); // Debería mostrar el ID real ahora
+  const [selectedUser, setSelectedUser] = useState('');
+
+  const [showServiceType, setShowServiceType] = useState(false);
 
   const [showCompanionOptions, setShowCompanionOptions] = useState(false);
 
@@ -24,7 +27,11 @@ function ServiceList() {
   const [filteredClients, setFilteredClients] = useState([]); // Clientes filtrados para la búsqueda
   const [showSuggestions, setShowSuggestions] = useState(false); // Controla si se muestran las sugerencias
 
- 
+  const [searchServiceText, setSearchServiceText] = useState(''); // Estado para el texto de búsqueda en servicios
+  const [filteredServices, setFilteredServices] = useState([]); // Estado para los servicios filtrados
+  
+  const [collapsedGroups, setCollapsedGroups] = useState({})
+
   const [newService, setNewService] = useState({
     service_type: [],
     description: '',
@@ -165,16 +172,19 @@ const handleDropdownToggle = (isOpen, event) => {
   });
 
   useEffect(() => {
-     setNewService((prevService) => ({
+    // Configura el nuevo servicio inicial con el ID del usuario logueado
+    setNewService((prevService) => ({
       ...prevService,
       created_by: userId, // Asigna el ID del usuario logueado
     }));
   
+    // Función para obtener servicios y clientes
     const fetchServicesAndClients = async () => {
       try {
         const servicesResponse = await axios.get('http://localhost:10000/api/services');
         const clientsResponse = await axios.get('http://localhost:10000/api/clients');
         setServices(servicesResponse.data);
+        setFilteredServices(servicesResponse.data); // Inicialmente, muestra todos los servicios
         setClients(clientsResponse.data);
         setLoading(false);
       } catch (error) {
@@ -182,9 +192,34 @@ const handleDropdownToggle = (isOpen, event) => {
         setLoading(false);
       }
     };
+  
+    // Llama a la función de carga de servicios y clientes una sola vez
     fetchServicesAndClients();
     fetchTechnicians(); // Llama a fetchTechnicians aquí
-  }, [], [clients]);  
+  }, []); // Este bloque solo se ejecuta una vez al montar el componente, sin necesidad de `clients` como dependencia.
+  
+  // Nuevo useEffect para gestionar el filtrado dinámico de servicios basado en `selectedUser` y `searchServiceText`
+  useEffect(() => {
+    let filtered = services;
+  
+    // Filtra servicios por texto de búsqueda si `searchServiceText` tiene algún valor
+    if (searchServiceText) {
+      filtered = filtered.filter(
+        (service) =>
+          service.description.toLowerCase().includes(searchServiceText.toLowerCase()) ||
+          service.service_type.toLowerCase().includes(searchServiceText.toLowerCase())
+      );
+    }
+  
+    // Filtra servicios por usuario responsable seleccionado si `selectedUser` tiene algún valor
+    if (selectedUser) {
+      filtered = filtered.filter((service) => service.responsible === selectedUser);
+    }
+  
+    // Actualiza los servicios filtrados con los resultados del filtro aplicado
+    setFilteredServices(filtered);
+  }, [selectedUser, searchServiceText, services]); // Se ejecuta cada vez que cambian estos valores para actualizar el filtrado de servicios
+  
 
   console.log("User ID:", newService.created_by); // Verifica que el ID del usuario logueado se esté configurando correctamente
 
@@ -364,109 +399,145 @@ const filteredTechniciansForCompanion = technicians.filter(
         ? [...prevService.companion, value] // Agrega el ID si está seleccionado
         : prevService.companion.filter((companionId) => companionId !== value) // Elimina el ID si se deselecciona
     }));
-  };
-  
+  };  
 
   return (
     <div className="container mt-4">
       <h2 className="text-primary mb-4">Servicios Pendientes</h2>
+      <Form.Group controlId="formServiceSearch" className="mb-4">
+  <Form.Control
+    type="text"
+    placeholder="Buscar servicios..."
+    value={searchServiceText}
+    onChange={handleServiceSearchChange}
+  />
+</Form.Group>
+
+<Form.Group controlId="userFilter" className="mb-4">
+  <Form.Label>Filtrar por Usuario</Form.Label>
+  <Form.Control as="select" value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
+    <option value="">Todos los usuarios</option>
+    {technicians.map((technician) => (
+      <option key={technician.id} value={technician.id}>
+        {technician.name}
+      </option>
+    ))}
+  </Form.Control>
+</Form.Group>
+
+
       <Button variant="primary" onClick={handleShowAddServiceModal} className="mb-4">
         Añadir Servicio
       </Button>
 
       <Row>
-        <Col md={open ? 5 : 12}>
-          <div className="service-list">
-            {groupedServices.map(({ client, services }) => (
-              <div key={client.id} className="mb-4">
-                <h5 className="text-muted">{client.name}</h5>
-                <Row>
-                  {services.length > 0 ? (
-                    services.map(service => (
-                    <Col md={6} key={service.id}>
-                      <Card
-                        className={`mb-3 ${selectedService?.id === service.id ? 'border-success' : ''}`}
-                        onClick={() => handleServiceClick(service)}
-                        style={{ cursor: "pointer", minHeight: "200px" }}
-                      >
-                        <Card.Body>
-                          <Card.Title>{service.service_type}</Card.Title>
-                          <Card.Text>
-                            <strong>Descripción:</strong> {service.description}<br />
-                            <strong>Fecha:</strong> {service.date}<br />
-                            <strong>Hora:</strong> {service.time}
-                          </Card.Text>
-                          <div className="d-flex justify-content-between mt-3">
-                            <Button variant="outline-success" size="sm">Generar Informe</Button>
-                            <Button variant="outline-primary" size="sm">Novedad en Estación</Button>
-                          </div>
+  <Col md={open ? 5 : 12}>
+    <div className="service-list">
+      {groupedServices.map(({ client, services }) => (
+        <div key={client.id} className="mb-4">
+        <h5
+          className="text-muted"
+          onClick={() => toggleGroupCollapse(client.id)}
+          style={{ cursor: 'pointer' }}
+        >
+          {client.name} {collapsedGroups[client.id] ? '▲' : '▼'}
+        </h5>
+        <Collapse in={collapsedGroups[client.id]}>
+          <div>
+            <Row>
+              {filteredServices
+                .filter(service => service.client_id === client.id) // Filtra servicios para este cliente
+                .map(service => (
+                  <Col md={6} key={service.id}>
+                    <Card
+                      className={`mb-3 ${selectedService?.id === service.id ? 'border-success' : ''}`}
+                      onClick={() => handleServiceClick(service)}
+                      style={{ cursor: "pointer", minHeight: "200px" }}
+                    >
+                      <Card.Body>
+                        <Card.Title>
+                          {service.service_type.replace(/[{}"]/g, '').split(',').join(', ')}
+                        </Card.Title>
+                        <Card.Text>
+                          <strong>Descripción:</strong> {service.description}<br />
+                          <strong>Fecha:</strong> {service.date}<br />
+                          <strong>Hora:</strong> {service.time}
+                        </Card.Text>
+                        <div className="d-flex justify-content-between mt-3">
+                          <Button variant="outline-success" size="sm">Generar Informe</Button>
+                          <Button variant="outline-primary" size="sm">Novedad en Estación</Button>
+                        </div>
                         </Card.Body>
                       </Card>
                     </Col>
-
-                    ))
-                  ) : (
-                    <p>No hay servicios para este cliente</p>
-                  )}
-                </Row>
-              </div>
-            ))}
-          </div>
-        </Col>
-
-        <Col md={open ? 7 : 0}>
-          <Collapse in={open}>
-            <div>
-              {selectedService ? (
-                <div className="service-details p-3 border">
-                  <h4>Detalles del Servicio</h4>
-                  <p><strong>ID del servicio:</strong> {selectedService.id}</p>
-                  <p><strong>Tipo de Servicio:</strong> {selectedService.service_type}</p>
-                  <p><strong>Descripción:</strong> {selectedService.description}</p>
-                  <p><strong>Categoría:</strong> {selectedService.categoria}</p>
-                  {selectedService.categoria === 'Periodico' && (
-                    <p><strong>Cantidad al mes:</strong> {selectedService.cantidad_al_mes}</p>
-                  )}
-                  <p><strong>Valor:</strong> ${selectedService.value}</p>
-
-                  <h5 className="mt-4">Inspecciones</h5>
-                  {inspections.length > 0 ? (
-                    <Table striped bordered hover size="sm" className="mt-3">
-                      <thead>
-                        <tr>
-                          <th>ID</th>
-                          <th>Fecha</th>
-                          <th>Hora de Inicio</th>
-                          <th>Hora de Finalización</th>
-                          <th>Observaciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {inspections.map(inspection => (
-                          <tr key={inspection.id}>
-                            <td>{inspection.id}</td>
-                            <td>{inspection.date}</td>
-                            <td>{inspection.time}</td>
-                            <td>{inspection.exit_time}</td>
-                            <td>{inspection.observations}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  ) : (
-                    <p>No hay inspecciones registradas para este servicio.</p>
-                  )}
-                  <Button variant="link" className="text-success" onClick={handleShowModal}>Añadir Inspección</Button>
-                </div>
-              ) : (
-                <p className="text-center mt-4">Seleccione un servicio para ver los detalles</p>
+                  ))
+                }
+              </Row>
+              {services.length === 0 && (
+                <p>No hay servicios para este cliente</p>
               )}
             </div>
           </Collapse>
-        </Col>
-      </Row>
-{/* Modal para añadir una nueva inspección */}
-<Modal show={showModal} onHide={handleCloseModal}>
+          <br />
+        </div>
+      ))}
+    </div>
+  </Col>
+
+  <Col md={open ? 7 : 0}>
+    <Collapse in={open}>
+      <div>
+        {selectedService ? (
+          <div className="service-details p-3 border">
+            <h4>Detalles del Servicio</h4>
+            <p><strong>ID del servicio:</strong> {selectedService.id}</p>
+            <p><strong>Tipo de Servicio:</strong> {selectedService.service_type}</p>
+            <p><strong>Descripción:</strong> {selectedService.description}</p>
+            <p><strong>Categoría:</strong> {selectedService.categoria}</p>
+            {selectedService.categoria === 'Periodico' && (
+              <p><strong>Cantidad al mes:</strong> {selectedService.cantidad_al_mes}</p>
+            )}
+            <p><strong>Valor:</strong> ${selectedService.value}</p>
+
+            <h5 className="mt-4">Inspecciones</h5>
+            {inspections.length > 0 ? (
+              <Table striped bordered hover size="sm" className="mt-3">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Fecha</th>
+                    <th>Hora de Inicio</th>
+                    <th>Hora de Finalización</th>
+                    <th>Observaciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inspections.map(inspection => (
+                    <tr key={inspection.id}>
+                      <td>{inspection.id}</td>
+                      <td>{inspection.date}</td>
+                      <td>{inspection.time}</td>
+                      <td>{inspection.exit_time}</td>
+                      <td>{inspection.observations}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            ) : (
+              <p>No hay inspecciones registradas para este servicio.</p>
+            )}
+            <Button variant="link" className="text-success" onClick={handleShowModal}>Añadir Inspección</Button>
+          </div>
+        ) : (
+          <p className="text-center mt-4">Seleccione un servicio para ver los detalles</p>
+        )}
+      </div>
+    </Collapse>
+  </Col>
+</Row>
+
+  {/* Modal para añadir una nueva inspección */}
+  <Modal show={showModal} onHide={handleCloseModal}>
         <Modal.Header closeButton>
           <Modal.Title>Añadir Inspección</Modal.Title>
         </Modal.Header>
