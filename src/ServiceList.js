@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
-import { Card, Col, Row, Collapse, Button, Table, Modal, Form } from 'react-bootstrap';
+import { Card, Col, Row, Collapse, Button, Table, Modal, Form} from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-
-
-function ServiceList() {
+function ServiceList() { 
   const [services, setServices] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +13,23 @@ function ServiceList() {
   const [open, setOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
+
+  const [showServiceType, setShowServiceType] = useState(false);
+
+  const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
+  console.log("Stored User Info:", storedUserInfo); // Verifica el contenido completo
+  const userId = storedUserInfo?.id_usuario || '';
+  console.log("User ID:", userId); // Debería mostrar el ID real ahora
+
+  console.log("User ID:", userId); // Agrega este log para verificar el ID del usuario logueado
+
+  const [showCompanionOptions, setShowCompanionOptions] = useState(false);
+
+  const [searchText, setSearchText] = useState(''); // Estado para la búsqueda
+  const [filteredClients, setFilteredClients] = useState([]); // Clientes filtrados para la búsqueda
+  const [showSuggestions, setShowSuggestions] = useState(false); // Controla si se muestran las sugerencias
+
+ 
   const [newService, setNewService] = useState({
     service_type: [],
     description: '',
@@ -27,9 +42,9 @@ function ServiceList() {
     time: '',
     client_id: '',
     value: '',
-    companion: '',
-    created_by: '',
-    created_at: '',
+    companion: [],
+    created_by: userId,
+    created_at: moment().format('DD-MM-YYYY'), // Establece la fecha actual al abrir el modal
   });
 
   const serviceOptions = [
@@ -48,7 +63,7 @@ function ServiceList() {
     // Estado para las opciones visibles de "Plaga a Controlar"
     const [visiblePestOptions, setVisiblePestOptions] = useState([]);
 
-    // Opciones de plagas para cada tipo de servicio
+  // Opciones de plagas para cada tipo de servicio
   const pestOptions = {
   "Desinsectación": ["Moscas", "Zancudos", "Cucarachas", "Hormigas", "Pulgas", "Gorgojos", "Escarabajos"],
   "Desratización": ["Rata de alcantarilla", "Rata de techo", "Rata de campo"],
@@ -62,6 +77,54 @@ function ServiceList() {
   "Inspección": [],
   "Diagnostico": []
   };
+
+  const [showInterventionAreas, setShowInterventionAreas] = useState(false);
+
+// Estado para controlar si el dropdown está abierto o cerrado
+const [showDropdown, setShowDropdown] = useState(false);
+
+  // Opciones de Áreas de Intervención ordenadas alfabéticamente
+const interventionAreaOptions = [
+  "Área caja",
+  "Área de lavado",
+  "Baños",
+  "Bodega",
+  "Cajas eléctricas",
+  "Cocina",
+  "Comedor",
+  "Cubierta",
+  "Cuartos de residuos",
+  "Entretechos",
+  "Equipos",
+  "Exteriores",
+  "Lokers",
+  "Muebles",
+  "Necera",
+  "Oficinas",
+  "Producción",
+  "Servicio al cliente",
+  "Shot de basuras"
+];
+
+
+const handleInterventionAreasChange = (e) => {
+  const { value, checked } = e.target;
+  setNewService((prevService) => ({
+    ...prevService,
+    intervention_areas: checked
+      ? [...prevService.intervention_areas, value]
+      : prevService.intervention_areas.filter((area) => area !== value),
+  }));
+};
+
+const handleDropdownToggle = (isOpen, event) => {
+  // Verificar si el evento es un clic en un checkbox
+  if (event && event.target && event.target.tagName === 'INPUT') {
+    return; // No cerrar el dropdown si se hace clic en un checkbox
+  }
+  // Cambiar el estado para abrir/cerrar el dropdown solo si no es un checkbox
+  setShowDropdown(isOpen);
+};
 
   const handleServiceTypeChange = (e) => {
     const { value, checked } = e.target;
@@ -87,6 +150,15 @@ function ServiceList() {
     });
   };
 
+  const [technicians, setTechnicians] = useState([]);
+  const fetchTechnicians = async () => {
+    try {
+      const response = await axios.get('http://localhost:10000/api/users?role=Technician');
+      setTechnicians(response.data);
+    } catch (error) {
+      console.error("Error fetching technicians:", error);
+    }
+  };  
 
   const [newInspection, setNewInspection] = useState({
     date: '',
@@ -98,7 +170,13 @@ function ServiceList() {
   });
 
   useEffect(() => {
+     setNewService((prevService) => ({
+      ...prevService,
+      created_by: userId, // Asigna el ID del usuario logueado
+    }));
+  
     const fetchServicesAndClients = async () => {
+      setFilteredClients(clients); // Inicia la lista completa de clientes
       try {
         const servicesResponse = await axios.get('http://localhost:10000/api/services');
         const clientsResponse = await axios.get('http://localhost:10000/api/clients');
@@ -111,8 +189,10 @@ function ServiceList() {
       }
     };
     fetchServicesAndClients();
-  }, []);
+    fetchTechnicians(); // Llama a fetchTechnicians aquí
+  }, [], [clients]);  
 
+  console.log("User ID:", newService.created_by); // Verifica que el ID del usuario logueado se esté configurando correctamente
 
   if (loading) return <div>Cargando servicios...</div>;
 
@@ -123,6 +203,21 @@ function ServiceList() {
       setInspections(formattedInspections);
     } catch (error) {
       console.error("Error fetching inspections:", error);
+    }
+  };
+
+  const handleSearchChange = (e) => {
+    const input = e.target.value;
+    setSearchText(input); // Actualiza el texto de búsqueda
+    if (input) {
+      // Filtra clientes según el texto ingresado
+      const filtered = clients.filter((client) =>
+        client.name.toLowerCase().includes(input.toLowerCase())
+      );
+      setFilteredClients(filtered);
+      setShowSuggestions(true); // Muestra sugerencias cuando hay texto
+    } else {
+      setShowSuggestions(false); // Oculta sugerencias si no hay texto
     }
   };
 
@@ -147,6 +242,12 @@ function ServiceList() {
       exit_time: '',
     });
     setShowModal(true);
+  };
+
+  const handleClientSelect = (client) => {
+    setSearchText(client.name); // Establece el nombre en el campo de búsqueda
+    setNewService({ ...newService, client_id: client.id }); // Asigna el ID del cliente seleccionado
+    setShowSuggestions(false); // Oculta la lista de sugerencias
   };
 
   const handleCloseModal = () => {
@@ -200,12 +301,19 @@ function ServiceList() {
   
 
   const handleShowAddServiceModal = () => {
-    setNewService({
-      ...newService,
+    setNewService((prevService) => ({
+      ...prevService,
+      created_by: userId, // Asigna el ID del usuario logueado
       created_at: moment().format('DD-MM-YYYY'), // Establece la fecha actual
-    });
+    }));
     setShowAddServiceModal(true);
   };
+
+// Filtrar técnicos excluyendo el seleccionado como responsable
+const filteredTechniciansForCompanion = technicians.filter(
+  (technician) => technician.id !== newService.responsible
+);
+
 
   const handleCloseAddServiceModal = () => setShowAddServiceModal(false);
 
@@ -215,11 +323,17 @@ function ServiceList() {
   };
 
   const handleSaveNewService = async () => {
+    const serviceData = {
+      ...newService,
+      quantity_per_month: newService.quantity_per_month || null,
+      client_id: newService.client_id || null,
+      value: newService.value || null,
+    };
+  
     try {
-      const response = await axios.post('http://localhost:10000/api/services', newService);
-
+      const response = await axios.post('http://localhost:10000/api/services', serviceData);
       if (response.data.success) {
-        setServices([...services, response.data.service]); // Agregar nuevo servicio a la lista
+        setServices([...services, response.data.service]);
         handleCloseAddServiceModal();
       } else {
         console.error("Error: No se pudo guardar el servicio.", response.data.message);
@@ -228,6 +342,7 @@ function ServiceList() {
       console.error("Error saving new service:", error);
     }
   };
+  
 
   const handlePestToControlChange = (e) => {
     const { value, checked } = e.target;
@@ -246,6 +361,17 @@ function ServiceList() {
     client,
     services: services.filter(service => service.client_id === client.id),
   }));
+
+  const handleCompanionChange = (e) => {
+    const { value, checked } = e.target;
+    setNewService((prevService) => ({
+      ...prevService,
+      companion: checked
+        ? [...prevService.companion, value] // Agrega el ID si está seleccionado
+        : prevService.companion.filter((companionId) => companionId !== value) // Elimina el ID si se deselecciona
+    }));
+  };
+  
 
   return (
     <div className="container mt-4">
@@ -381,37 +507,48 @@ function ServiceList() {
       </Modal>
 
       {/* Modal para añadir un nuevo servicio */}
-      <Modal show={showAddServiceModal} onHide={handleCloseAddServiceModal}>
+      <Modal show={showAddServiceModal} onHide={() => setShowAddServiceModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Añadir Servicio</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
-          <Form.Group controlId="formServiceType">
-  <Form.Label>Tipo de Servicio</Form.Label>
-  <div>
-    {serviceOptions.map((option) => (
-      <Form.Check
-        key={option}
-        type="checkbox"
-        label={option}
-        value={option}
-        checked={newService.service_type.includes(option)}
-        onChange={(e) => handleServiceTypeChange(e)}
-      />
-    ))}
-  </div>
+          <Form.Group className="mt-3">
+  <Form.Label
+    onClick={() => setShowServiceType((prev) => !prev)}
+    style={{ cursor: "pointer", fontWeight: "bold", display: "block" }}
+  >
+    Tipo de Servicio
+  </Form.Label>
+  <Collapse in={showServiceType}>
+    <div>
+      {serviceOptions.map((option, index) => (
+        <Form.Check
+          key={option}
+          type="checkbox"
+          label={option}
+          value={option}
+          id={`service_option_${index}`}
+          checked={newService.service_type.includes(option)}
+          onChange={(e) => handleServiceTypeChange(e)}
+        />
+      ))}
+    </div>
+  </Collapse>
 </Form.Group>
-            <Form.Group controlId="formDescription" className="mt-3">
-              <Form.Label>Descripción</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                name="description"
-                value={newService.description}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
+
+<Form.Group className="mt-3">
+  <Form.Label htmlFor="description">Descripción</Form.Label>
+  <Form.Control
+    as="textarea"
+    rows={3}
+    name="description"
+    id="description" // Usar un id único aquí
+    value={newService.description}
+    onChange={handleNewServiceChange}
+  />
+</Form.Group>
+
             {/* Selección de Plaga a Controlar */}
             {visiblePestOptions.length > 0 && (
               <Form.Group controlId="formPestToControl" className="mt-3">
@@ -430,42 +567,79 @@ function ServiceList() {
                 </div>
               </Form.Group>
             )}
-            <Form.Group controlId="formInterventionAreas" className="mt-3">
-              <Form.Label>Áreas de Intervención</Form.Label>
-              <Form.Control
-                type="text"
-                name="intervention_areas"
-                value={newService.intervention_areas}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
-            <Form.Group controlId="formResponsible" className="mt-3">
-              <Form.Label>Responsable</Form.Label>
-              <Form.Control
-                type="text"
-                name="responsible"
-                value={newService.responsible}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
-            <Form.Group controlId="formCategory" className="mt-3">
-              <Form.Label>Categoría</Form.Label>
-              <Form.Control
-                type="text"
-                name="category"
-                value={newService.category}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
-            <Form.Group controlId="formQuantityPerMonth" className="mt-3">
-              <Form.Label>Cantidad al Mes</Form.Label>
-              <Form.Control
-                type="number"
-                name="quantity_per_month"
-                value={newService.quantity_per_month}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
+
+<Form.Group className="mt-3">
+  <Form.Label
+    onClick={() => setShowInterventionAreas((prev) => !prev)}
+    style={{ cursor: "pointer", fontWeight: "bold", display: "block" }}
+  >
+    Áreas de Intervención
+  </Form.Label>
+  <Collapse in={showInterventionAreas}>
+    <div>
+      {interventionAreaOptions.map((area, index) => (
+        <Form.Check
+          key={area}
+          type="checkbox"
+          label={area}
+          value={area}
+          id={`intervention_area_${index}`}
+          checked={newService.intervention_areas.includes(area)}
+          onChange={handleInterventionAreasChange}
+        />
+      ))}
+    </div>
+  </Collapse>
+</Form.Group>
+
+
+<Form.Group className="mt-3">
+  <Form.Label>Responsable</Form.Label>
+  <Form.Control
+    as="select"
+    name="responsible"
+    value={newService.responsible}
+    onChange={handleNewServiceChange}
+  >
+    <option value="">Seleccione un técnico</option>
+    {technicians.map((technician) => (
+      <option key={technician.id} value={technician.id}>
+        {technician.name}
+      </option>
+    ))}
+  </Form.Control>
+</Form.Group>
+
+
+<Form.Group className="mt-3">
+  <Form.Label>Categoría</Form.Label>
+  <Form.Control
+    as="select"
+    name="category"
+    value={newService.category}
+    onChange={(e) => {
+      handleNewServiceChange(e);
+      setNewService({ ...newService, category: e.target.value });
+    }}
+  >
+    <option value="">Seleccione una categoría</option>
+    <option value="Puntual">Puntual</option>
+    <option value="Periódico">Periódico</option>
+  </Form.Control>
+</Form.Group>
+
+{newService.category === 'Periódico' && (
+  <Form.Group controlId="formQuantityPerMonth" className="mt-3">
+    <Form.Label>Cantidad al Mes</Form.Label>
+    <Form.Control
+      type="number"
+      name="quantity_per_month"
+      value={newService.quantity_per_month}
+      onChange={handleNewServiceChange}
+    />
+  </Form.Group>
+)}
+
             <Form.Group controlId="formDate" className="mt-3">
               <Form.Label>Fecha</Form.Label>
               <Form.Control
@@ -484,22 +658,35 @@ function ServiceList() {
                 onChange={handleNewServiceChange}
               />
             </Form.Group>
+            
+            {/* Campo de búsqueda para seleccionar cliente con autocompletado */}
             <Form.Group controlId="formClientId" className="mt-3">
               <Form.Label>Cliente</Form.Label>
               <Form.Control
-                as="select"
-                name="client_id"
-                value={newService.client_id}
-                onChange={handleNewServiceChange}
-              >
-                <option value="">Seleccione un cliente</option>
-                {clients.map(client => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
-                  </option>
-                ))}
-              </Form.Control>
+                type="text"
+                placeholder="Buscar cliente..."
+                value={searchText}
+                onChange={handleSearchChange} // Llama al manejador de búsqueda
+                onFocus={() => setShowSuggestions(true)} // Muestra sugerencias al enfocar
+              />
+              {showSuggestions && (
+                <div className="suggestions-list" style={{ border: '1px solid #ddd', borderRadius: '4px', maxHeight: '150px', overflowY: 'auto', position: 'absolute', zIndex: '10', backgroundColor: '#fff', width: '100%' }}>
+                  {filteredClients.map((client) => (
+                    <div
+                      key={client.id}
+                      onClick={() => handleClientSelect(client)}
+                      style={{ padding: '8px', cursor: 'pointer' }}
+                    >
+                      {client.name}
+                    </div>
+                  ))}
+                  {filteredClients.length === 0 && (
+                    <div style={{ padding: '8px', color: '#999' }}>Sin coincidencias</div>
+                  )}
+                </div>
+              )}
             </Form.Group>
+
             <Form.Group controlId="formValue" className="mt-3">
               <Form.Label>Valor</Form.Label>
               <Form.Control
@@ -509,24 +696,39 @@ function ServiceList() {
                 onChange={handleNewServiceChange}
               />
             </Form.Group>
-            <Form.Group controlId="formCompanion" className="mt-3">
-              <Form.Label>Acompañante</Form.Label>
-              <Form.Control
-                type="text"
-                name="companion"
-                value={newService.companion}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
+            <Form.Group className="mt-3">
+  <Form.Label
+    onClick={() => setShowCompanionOptions((prev) => !prev)}
+    style={{ cursor: "pointer", fontWeight: "bold", display: "block" }}
+  >
+    Acompañante
+  </Form.Label>
+  <Collapse in={showCompanionOptions}>
+    <div>
+      {filteredTechniciansForCompanion.map((technician) => (
+        <Form.Check
+          key={technician.id}
+          type="checkbox"
+          label={technician.name}
+          value={technician.id}
+          checked={newService.companion.includes(technician.id)}
+          onChange={handleCompanionChange}
+        />
+      ))}
+    </div>
+  </Collapse>
+</Form.Group>
+
             <Form.Group controlId="formCreatedBy" className="mt-3">
               <Form.Label>Creado Por</Form.Label>
               <Form.Control
                 type="text"
                 name="created_by"
                 value={newService.created_by}
-                onChange={handleNewServiceChange}
+                readOnly // Hace que el campo sea de solo lectura
               />
             </Form.Group>
+
             <Form.Group controlId="formCreatedAt" className="mt-3">
               <Form.Label>Fecha de Creación</Form.Label>
               <Form.Control
