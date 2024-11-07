@@ -14,6 +14,7 @@ import InspectionCalendar from './InspectionCalendar';
 import MyServicesCalendar from './myServicesCalendar';
 import Inspections from './Inspections';
 import ServiceList from './ServiceList'; // Importa ServiceList
+import MyServices from './MyServices';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -70,6 +71,7 @@ function App() {
             <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
             <Route path="/show-profile/:id" element={<ShowProfile />} />
             <Route path="/services" element={isLoggedIn ? <ServiceList /> : <Navigate to="/login" />} /> {/* Nueva ruta para ServiceList */}
+            <Route path="/myservices" element={isLoggedIn ? <MyServices /> : <Navigate to="/login" />} /> {/* Nueva ruta para ServiceList */}
           </Routes>
         </div>
       </div>
