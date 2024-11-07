@@ -60,9 +60,17 @@ function UserList() {
     return true;
   };
 
+  function hexToRgb(hex) {
+    const bigint = parseInt(hex.replace("#", ""), 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
   const handleAddUser = async () => {
     if (!validateUserData()) return;
-  
+
     const formData = new FormData();
     formData.append('id', newUser.id);
     formData.append('name', newUser.name);
@@ -71,9 +79,10 @@ function UserList() {
     formData.append('rol', newUser.rol);
     formData.append('password', newUser.password);
     formData.append('email', newUser.email);
-  
+    formData.append('color', newUser.color); // Añade el color en formato RGB
+
     if (newUser.image) formData.append('image', newUser.image);
-  
+
     try {
       const response = await axios.post('http://localhost:10000/api/register', formData, {
         headers: {
@@ -81,21 +90,20 @@ function UserList() {
           'user_id': localStorage.getItem("user_id"),
         }
       });
-  
-      // Usa la URL de imagen retornada por el backend
+
       const newUserWithImage = {
         ...newUser,
-        image: response.data.profilePicURL // Usa la URL correcta de la respuesta
+        image: response.data.profilePicURL
       };
-  
+
       alert("Usuario agregado exitosamente");
       handleCloseModal();
-      setUsers([...users, newUserWithImage]); // Actualiza el estado con la URL correcta
+      setUsers([...users, newUserWithImage]);
     } catch (error) {
       console.error("Error al agregar usuario:", error);
       alert(error.response?.data?.message || "Hubo un error al agregar el usuario.");
     }
-  };  
+  };
   
 
   // Función para eliminar el usuario
@@ -228,6 +236,24 @@ function UserList() {
               <Form.Label>Foto de perfil</Form.Label>
               <Form.Control type="file" onChange={handleFileChange} />
             </Form.Group>
+            <Form.Group controlId="formUserColor" className="mb-3 w-100">
+            <Form.Label>Color</Form.Label>
+            <Form.Control
+              type="color"
+              name="color"
+              value={newUser.hexColor || "#ffffff"} // Usa el color hexadecimal para el cuadro
+              onChange={(e) => {
+                const hexColor = e.target.value; // Obtener el color en formato hexadecimal
+                const rgbColor = hexToRgb(hexColor); // Convertir el color a formato RGB
+                setNewUser((prevUser) => ({
+                  ...prevUser,
+                  hexColor, // Almacenar el hexadecimal
+                  color: rgbColor, // Almacenar el RGB
+                }));
+              }}
+            />
+            <Form.Text muted>Color seleccionado: {newUser.color || "rgb(255, 255, 255)"}</Form.Text>
+          </Form.Group>
           </Form>
         </Modal.Body>
         <Modal.Footer>

@@ -267,3 +267,78 @@
 .modal-button.cancel:hover {
     background-color: #e53935;
 }
+
+.tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 5px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+/* Contenedor de eventos */
+.event-container {
+    font-family: 'Roboto', sans-serif; /* Fuente similar a Google Calendar */
+    font-size: 14px; /* Tamaño del texto */
+    
+}
+
+/* Estilo del ID del evento */
+.event-id {
+    font-weight: bold; /* Negrita para el ID */
+}
+
+/* Estilo de las horas */
+.event-time {
+    font-size: 12px; /* Tamaño más pequeño para las horas */
+}
+
+/* Para bordes más suaves de todos los eventos */
+.fc-event {
+    border-radius: 10px;
+    overflow: hidden; /* Asegura que el contenido respete el radio */
+    padding-left: 8px; /* Espaciado interno */
+    border-radius: 10px; /* Bordes redondeados */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); /* Sombra suave */
+}
+
+.user-list {
+    overflow-y: auto;
+    max-height: 70vh;
+    width: 100%;
+}
+
+.user-item,
+.user-item-all{
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    
+}
+
+.user-item,
+.user-item-all {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: #ffffff;
+    border: 1px solid #e9ecef;
+    margin-bottom: 5px;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.user-item.selected,
+.user-item-all.selected {
+    background-color: #145e013f;
+    color: #ffffff;
+    border-color: #1871015d;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.user-item:hover,
+.user-item-all:hover {
+    background-color: #1c820252;
+    cursor: pointer;
+}
+

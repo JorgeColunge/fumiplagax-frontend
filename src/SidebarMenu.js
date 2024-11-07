@@ -51,9 +51,15 @@ function SidebarMenu({ onLogout, userInfo }) {
           </Link>
         </li>
         <li className="nav-item">
-          <Link to="/inspection-calendar" className="nav-link" title="Calendario">
+          <Link to="/services-calendar" className="nav-link" title="Calendario">
             <Calendar3 size={20} />
             {isOpen && <span>Calendario</span>}
+          </Link>
+        </li>
+        <li className="nav-item">
+          <Link to="/myservices-calendar" className="nav-link" title="Calendario">
+            <Calendar3 size={20} />
+            {isOpen && <span>Mi Calendario</span>}
           </Link>
         </li>
         <li className="nav-item">

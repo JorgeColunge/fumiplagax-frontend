@@ -11,8 +11,10 @@ import ClientList from './ClientList';
 import ProductList from './ProductList';
 import ShowProfile from './ShowProfile';
 import InspectionCalendar from './InspectionCalendar';
+import MyServicesCalendar from './myServicesCalendar';
 import Inspections from './Inspections';
 import ServiceList from './ServiceList'; // Importa ServiceList
+import MyServices from './MyServices';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -64,10 +66,12 @@ function App() {
             <Route path="/users" element={isLoggedIn ? <UserList /> : <Navigate to="/login" />} />
             <Route path="/inspections" element={isLoggedIn ? <Inspections /> : <Navigate to="/login" />} />
             <Route path="/products" element={isLoggedIn ? <ProductList /> : <Navigate to="/login" />} />
-            <Route path="/inspection-calendar" element={isLoggedIn ? <InspectionCalendar /> : <Navigate to="/login" />} />
+            <Route path="/services-calendar" element={isLoggedIn ? <InspectionCalendar /> : <Navigate to="/login" />} />
+            <Route path="/myservices-calendar" element={isLoggedIn ? <MyServicesCalendar /> : <Navigate to="/login" />} />
             <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
             <Route path="/show-profile/:id" element={<ShowProfile />} />
             <Route path="/services" element={isLoggedIn ? <ServiceList /> : <Navigate to="/login" />} /> {/* Nueva ruta para ServiceList */}
+            <Route path="/myservices" element={isLoggedIn ? <MyServices /> : <Navigate to="/login" />} /> {/* Nueva ruta para ServiceList */}
           </Routes>
         </div>
       </div>
