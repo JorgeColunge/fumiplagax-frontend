@@ -13,15 +13,10 @@ function ServiceList() {
   const [open, setOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
-
-  const [showServiceType, setShowServiceType] = useState(false);
-
   const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
   console.log("Stored User Info:", storedUserInfo); // Verifica el contenido completo
   const userId = storedUserInfo?.id_usuario || '';
   console.log("User ID:", userId); // Debería mostrar el ID real ahora
-
-  console.log("User ID:", userId); // Agrega este log para verificar el ID del usuario logueado
 
   const [showCompanionOptions, setShowCompanionOptions] = useState(false);
 
@@ -176,7 +171,6 @@ const handleDropdownToggle = (isOpen, event) => {
     }));
   
     const fetchServicesAndClients = async () => {
-      setFilteredClients(clients); // Inicia la lista completa de clientes
       try {
         const servicesResponse = await axios.get('http://localhost:10000/api/services');
         const clientsResponse = await axios.get('http://localhost:10000/api/clients');
@@ -610,7 +604,6 @@ const filteredTechniciansForCompanion = technicians.filter(
   </Form.Control>
 </Form.Group>
 
-
 <Form.Group className="mt-3">
   <Form.Label>Categoría</Form.Label>
   <Form.Control
@@ -639,25 +632,6 @@ const filteredTechniciansForCompanion = technicians.filter(
     />
   </Form.Group>
 )}
-
-            <Form.Group controlId="formDate" className="mt-3">
-              <Form.Label>Fecha</Form.Label>
-              <Form.Control
-                type="date"
-                name="date"
-                value={newService.date}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
-            <Form.Group controlId="formTime" className="mt-3">
-              <Form.Label>Hora</Form.Label>
-              <Form.Control
-                type="time"
-                name="time"
-                value={newService.time}
-                onChange={handleNewServiceChange}
-              />
-            </Form.Group>
             
             {/* Campo de búsqueda para seleccionar cliente con autocompletado */}
             <Form.Group controlId="formClientId" className="mt-3">
