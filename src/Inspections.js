@@ -23,6 +23,7 @@ function Inspections() {
 
   useEffect(() => {
     fetchInspections();
+    fetchServices();
     fetchClients();
   }, []);
 
@@ -145,6 +146,15 @@ function Inspections() {
       console.error('Error al guardar la inspección:', error);
     }
   };
+
+  const groupedData = clients.map(client => {
+    const clientServices = services.filter(service => service.client_id === client.id);
+    const servicesWithInspections = clientServices.map(service => ({
+      ...service,
+      inspections: inspections.filter(inspection => inspection.service_id === service.id)
+    }));
+    return { ...client, services: servicesWithInspections };
+  });
 
   return (
     <div className="container my-4">
