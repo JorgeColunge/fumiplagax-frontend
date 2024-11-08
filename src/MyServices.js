@@ -180,16 +180,17 @@ function MyServices() {
     try {
       const parsed = JSON.parse(field.replace(/'/g, '"')); // Reemplazar comillas simples por dobles para JSON válido
       if (Array.isArray(parsed)) {
-        return parsed.join(", ");
+        return parsed.join(", "); // Agregar un espacio después de la coma
       } else if (typeof parsed === "string") {
         return parsed;
       } else {
-        return Object.values(parsed).join(", ");
+        return Object.values(parsed).join(", "); // Agregar un espacio después de la coma
       }
     } catch (error) {
-      return field.replace(/[\{\}"]/g, ""); // Eliminar llaves y comillas si no es JSON
+      return field.replace(/[\{\}"]/g, "").split(",").join(", "); // Agregar un espacio después de la coma
     }
   };
+  
   
 
   if (loading) return <div>Cargando servicios...</div>;
@@ -202,7 +203,7 @@ function MyServices() {
           {Object.keys(groupedServicesByDate).map(dateKey => (
             <div key={dateKey} className="mb-4">
               <h4>{formatDate(dateKey)}</h4>
-              <Row>
+              <Row style={{ minHeight: 0, height: 'auto' }}>
                 {groupedServicesByDate[dateKey].map((service, index) => (
                     <Col md={4} key={`${service.id}-${index}`} className="mb-3">
                     <Card

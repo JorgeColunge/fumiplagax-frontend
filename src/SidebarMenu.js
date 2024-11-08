@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { List, Person, People, Calendar3, Clipboard, FileText, BarChart, ClipboardCheck, BoxArrowRight, Search, Megaphone, CurrencyDollar, Gear } from 'react-bootstrap-icons';
+import { List, Person, People, Calendar3, Clipboard, FileText, BarChart, ClipboardCheck, BoxArrowRight, Search, Megaphone, CurrencyDollar, Gear, CalendarDate } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './SidebarMenu.css';
 
@@ -58,7 +58,7 @@ function SidebarMenu({ onLogout, userInfo }) {
         </li>
         <li className="nav-item">
           <Link to="/myservices-calendar" className="nav-link" title="Calendario">
-            <Calendar3 size={20} />
+            <CalendarDate size={20} />
             {isOpen && <span>Mi Calendario</span>}
           </Link>
         </li>
