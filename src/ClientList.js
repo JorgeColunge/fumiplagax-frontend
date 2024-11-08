@@ -41,22 +41,18 @@ function ClientList() {
 
   const handleShowModal = (client = null) => {
     setEditingClient(client);
-    if (client) {
-      setNewClient(client); // Si editamos, llenamos los datos del cliente seleccionado
-    } else {
-      setNewClient({
-        name: '',
-        address: '',
-        phone: '',
-        email: '',
-        representative: '',
-        document_type: '',
-        document_number: '',
-        contact_name: '',
-        contact_phone: '',
-        rut: '',
-      });
-    }
+    setNewClient(client || {
+      name: '',
+      address: '',
+      phone: '',
+      email: '',
+      representative: '',
+      document_type: '',
+      document_number: '',
+      contact_name: '',
+      contact_phone: '',
+      rut: '',
+    });
     setShowModal(true);
   };
 
@@ -73,12 +69,10 @@ function ClientList() {
   const handleAddOrEditClient = async () => {
     try {
       if (editingClient) {
-        // Editar cliente existente
         await axios.put(`http://localhost:10000/api/clients/${editingClient.id}`, newClient);
         setClients(clients.map((client) => (client.id === editingClient.id ? newClient : client)));
         alert("Cliente actualizado exitosamente");
       } else {
-        // Crear nuevo cliente
         const response = await axios.post('http://localhost:10000/api/clients', newClient);
         setClients([...clients, response.data.client]);
         alert("Cliente agregado exitosamente");
@@ -219,5 +213,4 @@ function ClientList() {
     </div>
   );
 }
-
 export default ClientList;
