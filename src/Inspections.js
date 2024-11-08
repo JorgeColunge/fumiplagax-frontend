@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Button, Modal, Form, Col, Row, Collapse } from 'react-bootstrap';
+import { Button, Modal, Form, Col, Row, Collapse, Card } from 'react-bootstrap';
+import './Inspections.css'; // Importa el archivo CSS aquí
 
 function Inspections() {
   const [inspections, setInspections] = useState([]);
   const [services, setServices] = useState([]);
   const [clients, setClients] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedInspection, setSelectedInspection] = useState(null);
+
   const [form, setForm] = useState({
     date: '',
     time: '',
@@ -74,6 +78,17 @@ function Inspections() {
     setForm({ ...form, service_id: '' });
   };
 
+  const handleShowDetails = (inspection) => {
+    // Encuentra el servicio asociado a la inspección
+    const service = services.find(service => service.id === inspection.service_id);
+    // Encuentra el cliente asociado al servicio
+    const client = clients.find(client => client.id === service?.client_id);
+    
+    // Almacena la inspección seleccionada junto con el nombre del cliente
+    setSelectedInspection({ ...inspection, clientName: client ? client.name : 'Cliente desconocido' });
+    setShowDetailsModal(true);
+  };  
+  
   const handleShowModal = (inspection = null) => {
     setEditing(Boolean(inspection));
     setSelectedId(inspection?.id || null);
@@ -150,46 +165,33 @@ function Inspections() {
   return (
     <div className="container my-4">
       <h2 className="text-center mb-5">Consulta de Inspecciones</h2>
-      {groupedData.map(client => (
-        <div key={client.id} className="mb-5">
-          <h3 
-            onClick={() => setOpenClient(openClient === client.id ? null : client.id)}
-            className="mb-4 border-bottom pb-2"
-            style={{ cursor: 'pointer' }}
-          >
-            Empresa: {client.name}
-          </h3>
-          <Collapse in={openClient === client.id} style={{ minHeight: 0, height: 'auto' }}>
-            <div>
-              {client.services.length > 0 ? (
-                <div>
-                  {client.services.map(service => (
-                    <div key={service.id} className="mb-4">
-                      <h4 
-                        onClick={() => setOpenService(openService === service.id ? null : service.id)}
-                        className="mb-3"
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {service.service_type}
-                      </h4>
-                      <Collapse in={openService === service.id} style={{ minHeight: 0, height: 'auto' }}>
-                        <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-                          <Row className="w-100" style={{ height: 'auto', alignItems: 'flex-start' }}>
-                            {service.inspections.length > 0 ? (
-                              service.inspections.map(inspection => (
-                                <Col key={inspection.id} xs={12} sm={6} md={4} lg={3} className="mb-3">
-                                  <div className="border p-3 rounded shadow-sm">
-                                    <h5>Inspección #{inspection.id}</h5>
-                                    <p><strong>Fecha y Hora:</strong> {formatDateTime(inspection.date, inspection.time)}</p>
-                                    <p><strong>Duración:</strong> {inspection.duration?.hours || 0} horas</p>
-                                    <p><strong>Observaciones:</strong> {inspection.observations || 'No disponible'}</p>
-                                    <Button variant="secondary" size="sm" onClick={() => handleShowModal(inspection)}>
-                                      Editar
-                                    </Button>
-                                  </div>
-                                </Col>
-                              ))
-                            ) : (
+
+      <Row className="w-100" style={{ height: 'auto', alignItems: 'flex-start' }}>
+  {inspections.length > 0 ? (
+    inspections.map(inspection => (
+      <Col key={inspection.id} xs={12} sm={6} md={4} lg={3} className="mb-3">
+        <Card className="shadow-sm h-100" onClick={() => handleShowDetails(inspection)} style={{ cursor: 'pointer' }}>
+          <Card.Body>
+            <Card.Title as="h6" className="mb-2">
+              <strong>{`I-${inspection.id}`}</strong>
+            </Card.Title>
+            <Card.Text className="mb-1">
+              {inspection.observations || 'No hay observaciones'}
+            </Card.Text>
+            <p>
+              <strong>Servicio ID:</strong> {inspection.service_id || 'Desconocido'}
+            </p>
+            <p>{formatDateTime(inspection.date, inspection.time)}</p>
+            <div className="d-flex justify-content-between mt-3">
+            <Button variant="link" className="text-success" onClick={(e) => { e.stopPropagation(); /* Acciones aquí */ }}>Generar Informe</Button>
+            <Button variant="link" className="text-success" onClick={(e) => { e.stopPropagation(); /* Acciones aquí */ }}>Novedad en Estación</Button>
+
+            </div>
+          </Card.Body>
+        </Card>
+      </Col>
+    ))
+  ) : (
     <p className="text-muted">No hay inspecciones registradas.</p>
   )}
 </Row>
@@ -295,6 +297,27 @@ function Inspections() {
           </Form>
         </Modal.Body>
       </Modal>
+      <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)}>
+  <Modal.Header closeButton>
+    <Modal.Title>Detalles de Inspección</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+  {selectedInspection && (
+    <div>
+      <p><strong>ID:</strong> {`I-${selectedInspection.id}`}</p>
+      <p><strong>Cliente:</strong> {selectedInspection.clientName}</p> {/* Mostrar el nombre del cliente */}
+      <p><strong>Observaciones:</strong> {selectedInspection.observations || 'No hay observaciones'}</p>
+      <p><strong>Servicio ID:</strong> {selectedInspection.service_id || 'Desconocido'}</p>
+      <p><strong>Fecha y Hora:</strong> {formatDateTime(selectedInspection.date, selectedInspection.time)}</p>
+      <p><strong>Duración:</strong> {selectedInspection.duration ? `${selectedInspection.duration / 3600} horas` : 'No especificada'}</p>
+      <p><strong>Hora de Salida:</strong> {selectedInspection.exit_time || 'No especificada'}</p>
+    </div>
+  )}
+</Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>Cerrar</Button>
+  </Modal.Footer>
+</Modal>
     </div>
   );
 }
