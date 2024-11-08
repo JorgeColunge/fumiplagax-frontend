@@ -147,15 +147,6 @@ function Inspections() {
     }
   };
 
-  const groupedData = clients.map(client => {
-    const clientServices = services.filter(service => service.client_id === client.id);
-    const servicesWithInspections = clientServices.map(service => ({
-      ...service,
-      inspections: inspections.filter(inspection => inspection.service_id === service.id)
-    }));
-    return { ...client, services: servicesWithInspections };
-  });
-
   return (
     <div className="container my-4">
       <h2 className="text-center mb-5">Consulta de Inspecciones</h2>
@@ -199,21 +190,9 @@ function Inspections() {
                                 </Col>
                               ))
                             ) : (
-                              <p className="text-muted">No hay inspecciones para este servicio.</p>
-                            )}
-                          </Row>
-                        </div>
-                      </Collapse>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted">No hay servicios para esta empresa.</p>
-              )}
-            </div>
-          </Collapse>
-        </div>
-      ))}
+    <p className="text-muted">No hay inspecciones registradas.</p>
+  )}
+</Row>
       
       <Button
         onClick={() => handleShowModal()}
