@@ -13,8 +13,11 @@ import ShowProfile from './ShowProfile';
 import InspectionCalendar from './InspectionCalendar';
 import MyServicesCalendar from './myServicesCalendar';
 import Inspections from './Inspections';
-import ServiceList from './ServiceList'; // Importa ServiceList
+import ServiceList from './ServiceList';
+import Inspection from './Inspection';
 import MyServices from './MyServices';
+import CompanyStations from './CompanyStations';
+import { syncRequests } from './offlineHandler';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -22,6 +25,19 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('Conexión restaurada. Iniciando sincronización...');
+      syncRequests();
+    };
+
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
 
   useEffect(() => {
     const storedUserInfo = localStorage.getItem("user_info");
@@ -65,6 +81,7 @@ function App() {
             <Route path="/edit-my-profile/:id" element={isLoggedIn ? <EditMyProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
             <Route path="/users" element={isLoggedIn ? <UserList /> : <Navigate to="/login" />} />
             <Route path="/inspections" element={isLoggedIn ? <Inspections /> : <Navigate to="/login" />} />
+            <Route path="/inspection/:inspectionId" element={isLoggedIn ? <Inspection /> : <Navigate to="/login" />} />
             <Route path="/products" element={isLoggedIn ? <ProductList /> : <Navigate to="/login" />} />
             <Route path="/services-calendar" element={isLoggedIn ? <InspectionCalendar /> : <Navigate to="/login" />} />
             <Route path="/myservices-calendar" element={isLoggedIn ? <MyServicesCalendar /> : <Navigate to="/login" />} />
@@ -72,6 +89,7 @@ function App() {
             <Route path="/show-profile/:id" element={<ShowProfile />} />
             <Route path="/services" element={isLoggedIn ? <ServiceList /> : <Navigate to="/login" />} /> {/* Nueva ruta para ServiceList */}
             <Route path="/myservices" element={isLoggedIn ? <MyServices /> : <Navigate to="/login" />} /> {/* Nueva ruta para ServiceList */}
+            <Route path="/stations/client/:client_id" element={isLoggedIn ? <CompanyStations /> : <Navigate to="/login" />} /> {/* Nueva ruta para ServiceList */}
           </Routes>
         </div>
       </div>

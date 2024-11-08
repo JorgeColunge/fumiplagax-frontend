@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from './Api';
+import { saveRequest, isOffline } from './offlineHandler';
 import { Button, Table, InputGroup, FormControl, Modal, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -28,7 +29,7 @@ function UserList() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await axios.get('http://localhost:10000/api/users');
+        const response = await api.get('/users');
         setUsers(response.data);
         setLoading(false);
       } catch (error) {
@@ -84,7 +85,7 @@ function UserList() {
     if (newUser.image) formData.append('image', newUser.image);
 
     try {
-      const response = await axios.post('http://localhost:10000/api/register', formData, {
+      const response = await api.post('/register', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'user_id': localStorage.getItem("user_id"),
@@ -110,7 +111,7 @@ function UserList() {
   const deleteUser = async (id) => {
     if (window.confirm("¿Estás seguro de que deseas eliminar este usuario?")) {
       try {
-        await axios.delete(`http://localhost:10000/api/users/${id}`);
+        await api.delete(`/users/${id}`);
         setUsers(users.filter(user => user.id !== id)); // Actualiza la lista de usuarios localmente
         alert("Usuario eliminado exitosamente.");
       } catch (error) {

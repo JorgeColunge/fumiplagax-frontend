@@ -3,6 +3,7 @@ import axios from 'axios';
 import moment from 'moment-timezone';
 import { Card, Col, Row, Button, Table, Modal, Form } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { useNavigate } from 'react-router-dom';
 
 function MyServices() {
   const [services, setServices] = useState([]);
@@ -19,13 +20,16 @@ function MyServices() {
   const userId = storedUserInfo?.id_usuario || '';
 
   const [newInspection, setNewInspection] = useState({
-    date: '',
-    time: '',
-    duration: '',
-    observations: '',
-    service_type: '',
-    exit_time: '',
+    inspection_type: [],
+    inspection_sub_type: "",
+    date: "",
+    time: "",
+    duration: "",
+    observations: "",
+    service_type: "",
+    exit_time: "",
   });
+   
 
   useEffect(() => {
     const fetchMyServices = async () => {
@@ -148,24 +152,52 @@ function MyServices() {
     setNewInspection({ ...newInspection, [name]: value });
   };
 
-  const handleSaveInspection = async () => {
-    try {
-      const response = await axios.post('http://localhost:10000/api/inspections', {
-        ...newInspection,
-        service_id: selectedService.id,
-      });
+  const navigate = useNavigate();
 
-      if (response.data.success) {
+    const handleSaveInspection = async () => {
+    if (!Array.isArray(newInspection.inspection_type) || newInspection.inspection_type.length === 0) {
+        alert("Debe seleccionar al menos un tipo de inspección.");
+        return;
+    }
+
+    if (
+        newInspection.inspection_type.includes("Desratización") &&
+        !newInspection.inspection_sub_type
+    ) {
+        alert("Debe seleccionar un Sub tipo para Desratización.");
+        return;
+    }
+
+    const inspectionData = {
+        inspection_type: newInspection.inspection_type,
+        inspection_sub_type: newInspection.inspection_type.includes("Desratización")
+        ? newInspection.inspection_sub_type
+        : null, // Enviar null si no aplica
+        service_id: selectedService.id,
+        date: moment().format("YYYY-MM-DD"), // Fecha actual
+        time: moment().format("HH:mm:ss"), // Hora actual
+    };
+
+    try {
+        const response = await axios.post("http://localhost:10000/api/inspections", inspectionData);
+
+        if (response.data.success) {
         alert("Inspección guardada con éxito");
         fetchInspections(selectedService.id);
         handleCloseAddInspectionModal();
-      } else {
-        console.error("Error: No se pudo guardar la inspección correctamente.", response.data.message);
-      }
+
+        // Redirigir al componente de inspección con el ID
+        navigate(`/inspection/${response.data.inspection.id}`);
+        } else {
+        console.error(
+            "Error: No se pudo guardar la inspección correctamente.",
+            response.data.message
+        );
+        }
     } catch (error) {
-      console.error("Error saving inspection:", error);
+        console.error("Error saving inspection:", error);
     }
-  };
+    }; 
 
   const parseServiceType = (serviceType) => {
     if (!serviceType) return [];
@@ -334,37 +366,66 @@ function MyServices() {
       {/* Modal para añadir una nueva inspección */}
       <Modal show={showAddInspectionModal} onHide={handleCloseAddInspectionModal}>
         <Modal.Header closeButton>
-          <Modal.Title>Añadir Inspección</Modal.Title>
+            <Modal.Title>Añadir Inspección</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form>
-            <Form.Group controlId="formDate">
-              <Form.Label>Fecha</Form.Label>
-              <Form.Control type="date" name="date" value={newInspection.date} onChange={handleInputChange} />
+            <Form>
+            {/* Selección de Tipo de Inspección */}
+            <Form.Group controlId="formInspectionType" className="mt-3">
+                <Form.Label>Tipo de Inspección</Form.Label>
+                <div>
+                {parseServiceType(selectedService?.service_type || "").map((type, idx) => (
+                    <Form.Check
+                    key={idx}
+                    type="checkbox"
+                    label={type.replace(/"/g, "")} // Elimina comillas en el texto
+                    value={type.replace(/"/g, "")} // Elimina comillas en el valor
+                    onChange={(e) => {
+                        const { value, checked } = e.target;
+                        setNewInspection((prevInspection) => ({
+                        ...prevInspection,
+                        inspection_type: checked
+                            ? [...(prevInspection.inspection_type || []), value]
+                            : prevInspection.inspection_type.filter((t) => t !== value),
+                        }));
+                    }}
+                    />
+                ))}
+                </div>
             </Form.Group>
-            <Form.Group controlId="formStartTime" className="mt-3">
-              <Form.Label>Hora de Inicio</Form.Label>
-              <Form.Control type="time" name="time" value={newInspection.time} onChange={handleInputChange} />
-            </Form.Group>
-            <Form.Group controlId="formEndTime" className="mt-3">
-              <Form.Label>Hora de Finalización</Form.Label>
-              <Form.Control type="time" name="exit_time" value={newInspection.exit_time} onChange={handleInputChange} />
-            </Form.Group>
-            <Form.Group controlId="formDuration" className="mt-3">
-              <Form.Label>Duración (horas)</Form.Label>
-              <Form.Control type="number" name="duration" value={newInspection.duration} onChange={handleInputChange} />
-            </Form.Group>
-            <Form.Group controlId="formObservations" className="mt-3">
-              <Form.Label>Observaciones</Form.Label>
-              <Form.Control as="textarea" rows={3} name="observations" value={newInspection.observations} onChange={handleInputChange} />
-            </Form.Group>
-          </Form>
+
+            {/* Sub tipo de inspección */}
+            {Array.isArray(newInspection.inspection_type) &&
+            newInspection.inspection_type.includes("Desratización") && (
+                <Form.Group controlId="formInspectionSubType" className="mt-3">
+                <Form.Label>Sub tipo</Form.Label>
+                <Form.Control
+                    as="select"
+                    value={newInspection.inspection_sub_type}
+                    onChange={(e) =>
+                    setNewInspection((prevInspection) => ({
+                        ...prevInspection,
+                        inspection_sub_type: e.target.value,
+                    }))
+                    }
+                >
+                    <option value="">Seleccione una opción</option>
+                    <option value="Control">Control</option>
+                    <option value="Seguimiento">Seguimiento</option>
+                </Form.Control>
+                </Form.Group>
+            )}
+            </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseAddInspectionModal}>Cancelar</Button>
-          <Button variant="primary" onClick={handleSaveInspection}>Guardar cambios</Button>
+            <Button variant="secondary" onClick={handleCloseAddInspectionModal}>
+            Cancelar
+            </Button>
+            <Button variant="primary" onClick={handleSaveInspection}>
+            Guardar Inspección
+            </Button>
         </Modal.Footer>
-      </Modal>
+        </Modal>
     </div>
   );
 }
