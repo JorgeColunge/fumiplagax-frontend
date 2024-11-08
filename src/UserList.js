@@ -124,7 +124,7 @@ function UserList() {
 
   return (
     <div className="container mt-4">
-      <h2 className="text-primary mb-4">Listado de Usuarios del Sistema</h2>
+      <h2 className="mb-4" style={{ color: 'black' }}>Listado de Usuarios del Sistema</h2>
 
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
@@ -169,16 +169,26 @@ function UserList() {
               <td>{user.rol}</td>
               <td>{user.lastLogin || "N/A"}</td>
               <td>
-                <Button variant="info" size="sm" className="me-2" onClick={() => navigate(`/show-profile/${user.id}`)}>
-                  <i className="fas fa-eye"></i>
-                </Button>
-                <Button variant="success" size="sm" className="me-2" onClick={() => navigate(`/edit-profile/${user.id}`)}>
-                  <i className="fas fa-edit"></i>
-                </Button>
-                <Button variant="danger" size="sm" onClick={() => deleteUser(user.id)}>
-                  <i className="fas fa-trash"></i>
-                </Button>
-              </td>
+  <i 
+    className="fas fa-eye text-primary me-3" 
+    onClick={() => navigate(`/show-profile/${user.id}`)} 
+    style={{ cursor: 'pointer' }}
+    title="Ver Perfil"
+  ></i>
+  <i 
+    className="fas fa-edit text-success me-3" 
+    onClick={() => navigate(`/edit-profile/${user.id}`)} 
+    style={{ cursor: 'pointer' }}
+    title="Editar"
+  ></i>
+  <i 
+    className="fas fa-trash text-danger" 
+    onClick={() => deleteUser(user.id)} 
+    style={{ cursor: 'pointer' }}
+    title="Eliminar"
+  ></i>
+</td>
+
             </tr>
           ))}
         </tbody>
@@ -186,7 +196,7 @@ function UserList() {
 
       {canAddUser && (
         <div className="d-flex justify-content-end mt-3">
-          <Button variant="primary" onClick={handleShowModal}>
+          <Button variant="success" onClick={handleShowModal}>
             Agregar Usuario
           </Button>
         </div>

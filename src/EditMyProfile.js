@@ -3,8 +3,8 @@ import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-function EditMyProfile() {
-  const { id } = useParams(); // Obtén el id del usuario desde la URL
+function EditMyProfile({ userInfo }) { // Asegúrate de recibir `userInfo` con el rol del usuario
+  const { id } = useParams();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [lastname, setLastname] = useState('');
@@ -14,7 +14,6 @@ function EditMyProfile() {
   const [profilePic, setProfilePic] = useState('/images/default-profile.png');
 
   useEffect(() => {
-    // Llama al backend para obtener la información del usuario por su id
     const fetchUserInfo = async () => {
       try {
         const response = await axios.get(`http://localhost:10000/api/users/${id}`);
@@ -43,14 +42,13 @@ function EditMyProfile() {
     formData.append('lastname', lastname);
     formData.append('email', email);
     formData.append('phone', phone);
-    formData.append('userId', id); // Usa el ID del usuario de los parámetros de la URL
+    formData.append('userId', id);
     if (selectedFile) {
-      formData.append('image', selectedFile); // Agrega el archivo de imagen si se seleccionó uno
+      formData.append('image', selectedFile);
     }
 
     try {
       const response = await axios.post('http://localhost:10000/api/updateProfile', formData);
-
       if (response.status === 200) {
         console.log("Perfil actualizado exitosamente:", response.data);
         alert("Perfil actualizado exitosamente!");
@@ -58,13 +56,14 @@ function EditMyProfile() {
         console.warn("Error al actualizar el perfil:", response);
         alert("Error al actualizar el perfil");
       }
-
-      navigate(`/profile`); // Redirige de vuelta al perfil
+      navigate(`/profile`);
     } catch (error) {
       console.error("Error updating profile:", error);
       alert("Error al actualizar el perfil");
     }
   };
+
+  const isEditable = userInfo?.rol === 'Administrador' || userInfo?.rol === 'Superadministrador';
 
   return (
     <div className="container mt-5">
@@ -89,6 +88,7 @@ function EditMyProfile() {
                   className="form-control"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  disabled={!isEditable}
                 />
               </div>
               <div className="mb-3">
@@ -98,6 +98,7 @@ function EditMyProfile() {
                   className="form-control"
                   value={lastname}
                   onChange={(e) => setLastname(e.target.value)}
+                  disabled={!isEditable}
                 />
               </div>
               <div className="mb-3">
@@ -127,7 +128,7 @@ function EditMyProfile() {
                 />
               </div>
               <div className="text-center">
-                <button type="button" onClick={handleSave} className="btn btn-primary me-2">Guardar cambios</button>
+                <button type="button" onClick={handleSave} className="btn btn-success me-2">Guardar cambios</button>
                 <button type="button" onClick={() => navigate(`/profile`)} className="btn btn-secondary">Cancelar</button>
               </div>
             </form>

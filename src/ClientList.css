@@ -1,0 +1,41 @@
+/* ClientList.css */
+.card-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+  }
+  
+  .client-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  
+  .client-card .map-placeholder {
+    background-color: #f5f5f5;
+    height: 100px;
+    margin-bottom: 8px;
+  }
+  
+  .client-card h5 {
+    font-size: 1.1em;
+    margin: 0;
+  }
+  
+  .client-card p {
+    font-size: 0.9em;
+    color: #555;
+  }
+  
+  .client-card .actions {
+    display: flex;
+    justify-content: flex-end; /* Cambia para alinear los iconos a la derecha */
+    gap: 10px; /* Agrega espacio entre los iconos */
+    margin-top: 10px;
+  }
+  
+  

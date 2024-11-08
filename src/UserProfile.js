@@ -41,7 +41,7 @@ function UserProfile({ userInfo }) {
           <li className="list-group-item"><strong>Email:</strong> {userInfo.email}</li>
           <li className="list-group-item"><strong>Teléfono:</strong> {userInfo.phone}</li>
         </ul>
-        <button onClick={handleEditProfile} className="btn btn-secondary mt-3">Editar</button>
+        <button onClick={handleEditProfile} className="btn btn-success mt-3">Editar</button>
       </div>
     </div>
   );
