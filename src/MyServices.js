@@ -12,6 +12,8 @@ function MyServices() {
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [showAddInspectionModal, setShowAddInspectionModal] = useState(false);
   const [scheduledEvents, setScheduledEvents] = useState([]);
+  const [clientNames, setClientNames] = useState({});
+
 
   const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
   const userId = storedUserInfo?.id_usuario || '';
@@ -30,6 +32,22 @@ function MyServices() {
       try {
         const response = await axios.get(`http://localhost:10000/api/services`);
         const userServices = response.data.filter(service => service.responsible === userId);
+  
+        console.log("Servicios filtrados para el usuario:", userServices);
+  
+        // Obtener nombres de los clientes
+        const clientData = {};
+        for (const service of userServices) {
+          if (service.client_id && !clientData[service.client_id]) {
+            try {
+              const clientResponse = await axios.get(`http://localhost:10000/api/clients/${service.client_id}`);
+              clientData[service.client_id] = clientResponse.data.name;
+            } catch (error) {
+              console.error(`Error fetching client ${service.client_id}:`, error);
+            }
+          }
+        }
+        setClientNames(clientData); // Guarda los nombres de los clientes
         setServices(userServices);
         setLoading(false);
       } catch (error) {
@@ -38,7 +56,7 @@ function MyServices() {
       }
     };
     fetchMyServices();
-  }, [userId]);
+  }, [userId]);  
 
   useEffect(() => {
     const fetchScheduledEvents = async () => {
@@ -149,39 +167,111 @@ function MyServices() {
     }
   };
 
+  const parseServiceType = (serviceType) => {
+    if (!serviceType) return [];
+    return serviceType
+      .replace(/[\{\}]/g, '') // Elimina las llaves { y }
+      .split(',') // Divide por comas
+      .map(type => type.trim()); // Elimina espacios en blanco
+  };
+
+  const parseField = (field) => {
+    if (!field) return "No especificado";
+    try {
+      const parsed = JSON.parse(field.replace(/'/g, '"')); // Reemplazar comillas simples por dobles para JSON válido
+      if (Array.isArray(parsed)) {
+        return parsed.join(", ");
+      } else if (typeof parsed === "string") {
+        return parsed;
+      } else {
+        return Object.values(parsed).join(", ");
+      }
+    } catch (error) {
+      return field.replace(/[\{\}"]/g, ""); // Eliminar llaves y comillas si no es JSON
+    }
+  };
+  
+
   if (loading) return <div>Cargando servicios...</div>;
 
   return (
-    <div className="container mt-4" style={{ minHeight: 0, height: 'auto' }}>
+    <div className="container mt-4">
       <h2 className="text-primary mb-4">Mis Servicios Agendados (Próximos 7 días)</h2>
-      <Row style={{ minHeight: 0, height: 'auto' }}>
-        <Col md={12} style={{ minHeight: 0, height: 'auto' }}>
+      <Row>
+        <Col md={12}>
           {Object.keys(groupedServicesByDate).map(dateKey => (
-            <div key={dateKey} className="mb-4" style={{ minHeight: 0, height: 'auto' }}>
+            <div key={dateKey} className="mb-4">
               <h4>{formatDate(dateKey)}</h4>
-              <Row style={{ minHeight: 0, height: 'auto' }}>
+              <Row>
                 {groupedServicesByDate[dateKey].map((service, index) => (
-                  <Col md={4} key={`${service.id}-${index}`} className="mb-3" style={{ minHeight: 0, height: 'auto' }}>
+                    <Col md={4} key={`${service.id}-${index}`} className="mb-3">
                     <Card
-                      className="mb-3"
-                      onClick={() => handleServiceClick(service)}
-                      style={{ cursor: "pointer", minHeight: "200px" }}
+                        className="mb-3 border"
+                        style={{ cursor: "pointer", minHeight: "250px" }}
+                        onClick={() => handleServiceClick(service)}
                     >
-                      <Card.Body>
-                        <Card.Title>{service.service_type}</Card.Title>
-                        <Card.Text>
-                          <strong>Descripción:</strong> {service.description}<br />
-                          <strong>Hora:</strong> {service.time}
-                        </Card.Text>
-                        <Button variant="outline-success" size="sm" onClick={(e) => {
-                          e.stopPropagation();
-                          handleShowAddInspectionModal();
-                        }}>Añadir Inspección</Button>
-                      </Card.Body>
+                        <Card.Body>
+                        {/* Encabezado con ID y Tipos de Servicio */}
+                        <div className="d-flex align-items-center justify-content-between">
+                            <div>
+                            <span className="fw-bold text-primary">🛠 S{service.id}</span>
+                            <span className="text-muted mx-2">|</span>
+                            <span className="text-dark">{parseField(service.service_type)}</span>
+                            </div>
+                        </div>
+                        <hr />
+
+                        {/* Plagas a Controlar */}
+                        <div>
+                            <span className="text-muted small">Plagas: </span>
+                            <span className="text-dark">{parseField(service.pest_to_control)}</span>
+                        </div>
+
+                        {/* Áreas de Intervención */}
+                        <div className="mt-2">
+                            <span className="text-muted small">Áreas: </span>
+                            <span className="text-dark">
+                            {Array.isArray(service.intervention_areas)
+                                ? service.intervention_areas.join(", ")
+                                : typeof service.intervention_areas === "string"
+                                ? service.intervention_areas.replace(/[\{\}]/g, "").split(",").join(", ")
+                                : "No especificadas"}
+                            </span>
+                        </div>
+
+                        {/* Nombre del Cliente */}
+                        <div className="mt-3">
+                            <h5 className="text-primary">
+                                {clientNames[service.client_id] || "Cliente Desconocido"}
+                            </h5>
+                        </div>
+
+
+                        {/* Descripción del Servicio */}
+                        <div className="mt-2">
+                            <p className="text-muted small">
+                            {service.description || "Sin descripción"}
+                            </p>
+                        </div>
+
+                        {/* Acciones (Eliminar o Editar) */}
+                        <div className="d-flex justify-content-end mt-3">
+                            <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                console.log("Eliminar servicio", service.id);
+                            }}
+                            >
+                            🗑
+                            </Button>
+                        </div>
+                        </Card.Body>
                     </Card>
-                  </Col>
+                    </Col>
                 ))}
-              </Row>
+                </Row>
             </div>
           ))}
         </Col>
@@ -200,6 +290,12 @@ function MyServices() {
               <p><strong>Descripción:</strong> {selectedService.description}</p>
               <p><strong>Fecha:</strong> {selectedService.date}</p>
               <p><strong>Hora:</strong> {selectedService.time}</p>
+              <h5>Tipos de Servicio:</h5>
+              <ul>
+                {parseServiceType(selectedService.service_type).map((type, idx) => (
+                  <li key={idx}>{type}</li>
+                ))}
+              </ul>
 
               <h5 className="mt-4">Inspecciones</h5>
               {inspections.length > 0 ? (
