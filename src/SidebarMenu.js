@@ -4,7 +4,7 @@ import { List, Person, People, Calendar3, Clipboard, FileText, BarChart, Clipboa
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './SidebarMenu.css';
 
-function SidebarMenu({ onLogout, userInfo }) {
+function SidebarMenu({ onLogout, userInfo, onToggle }) {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -15,6 +15,7 @@ function SidebarMenu({ onLogout, userInfo }) {
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
+    onToggle(!isOpen); // Llama a la función pasada como prop
   };
 
   console.log(userInfo);
