@@ -81,7 +81,6 @@
   display: inline;
 }
 
-/* Tamaño de los iconos cuando el menú está expandido */
 .sidebar.open .nav-link svg {
   width: 20px;
   height: 20px;
