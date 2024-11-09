@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, Table, InputGroup, FormControl, Modal, Form } from 'react-bootstrap';
-import axios from 'axios';
+import api from './Api'; // Usa el archivo de API con lógica offline integrada
+import { saveRequest, isOffline } from './offlineHandler';
+import { initDB, initUsersDB, saveUsers, getUsers } from './indexedDBHandler';
 
 function Inspection() {
   const { inspectionId } = useParams();
@@ -43,117 +45,173 @@ function Inspection() {
 
   useEffect(() => {
     const fetchInspectionData = async () => {
-        try {
-          const response = await axios.get(`http://localhost:10000/api/inspections/${inspectionId}`);
-          setInspectionData(response.data);
-          setGeneralObservations(response.data.observations || '');
-      
-          const initialFindings = {};
-          const initialProducts = {};
-          const inspectionTypes = response.data.inspection_type
-            ? response.data.inspection_type.split(",").map((type) => type.trim())
-            : [];
-      
-          inspectionTypes.forEach((type) => {
-            initialFindings[type] = [{ place: '', description: '', photo: null }];
-            initialProducts[type] = { product: '', dosage: '' }; // Un registro por defecto para cada tipo
-          });
-      
-          setFindingsByType(initialFindings);
-          setProductsByType(initialProducts);
-      
-          // Obtener el client_id basado en el service_id
-          if (response.data.service_id) {
-            console.log("Obteniendo servicio con service_id:", response.data.service_id);
-      
-            const serviceResponse = await axios.get(
-              `http://localhost:10000/api/services/${response.data.service_id}`
-            );
-      
-            const clientId = serviceResponse.data.client_id;
-            console.log("client_id obtenido del servicio:", clientId);
-      
-            if (clientId) {
-              console.log("Consultando estaciones para el cliente:", clientId);
-      
-              const stationResponse = await axios.get(
-                `http://localhost:10000/api/stations/client/${clientId}`
-              );
-      
-              console.log("Estaciones obtenidas del cliente:", stationResponse.data);
-      
-              // Filtrar estaciones según el tipo de inspección
-              const filteredStations = stationResponse.data.filter((station) => {
-                console.log("Evaluando estación:", station);
-      
-                if (inspectionTypes.includes('Desratización') && station.category === 'Roedores') {
-                  console.log("Estación aceptada para Desratización:", station);
-                  return true;
-                }
-                if (inspectionTypes.includes('Desinsectación') && station.category === 'Aéreas') {
-                  console.log("Estación aceptada para Desinsectación:", station);
-                  return true;
-                }
-                console.log("Estación omitida:", station);
-                return false;
-              });
-      
-              console.log("Estaciones filtradas para la inspección:", filteredStations);
-              setStations(filteredStations);
-            } else {
-              console.log("El servicio no tiene asociado un client_id válido.");
-            }
-          } else {
-            console.log("La inspección no tiene un service_id válido.");
-          }
-      
-          setLoading(false);
-        } catch (error) {
-          console.error("Error fetching inspection data:", error);
-          setLoading(false);
-        }
-      };            
-
-    const fetchProducts = async () => {
       try {
-        const response = await axios.get('http://localhost:10000/api/products');
-        setAvailableProducts(response.data);
+        const response = await api.get(`http://localhost:10000/api/inspections/${inspectionId}`);
+        setInspectionData(response.data);
+  
+        // Cargar observaciones generales
+        setGeneralObservations(response.data.observations || '');
+  
+        // Inicializar findingsByType y productsByType con los datos existentes o vacíos
+        const initialFindings = response.data.findings?.findingsByType || {};
+        const initialProducts = response.data.findings?.productsByType || {};
+  
+        // Preprocesar imágenes para findingsByType
+        Object.keys(initialFindings).forEach((type) => {
+          initialFindings[type] = initialFindings[type]?.map((finding) => ({
+            ...finding,
+            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null,
+          })) || []; // Inicializa como un array vacío si no existe
+        });
+  
+        // Establecer estado inicial para los hallazgos
+        setFindingsByType(initialFindings);
+        setProductsByType(initialProducts);
+  
+        // Preprocesar estaciones y sus hallazgos
+        const initialStationsFindings = response.data.findings?.stationsFindings || [];
+        const clientStationsData = {};
+        initialStationsFindings.forEach((finding) => {
+          clientStationsData[finding.stationId] = {
+            ...finding,
+            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null, // Agregar prefijo si existe la foto
+          };
+        });
+  
+        setClientStations(clientStationsData);
+  
+        // Cargar estaciones relacionadas (si existen)
+        const clientId = response.data.service_id
+          ? (await api.get(`http://localhost:10000/api/services/${response.data.service_id}`)).data
+              .client_id
+          : null;
+  
+        if (clientId) {
+          const stationsResponse = await api.get(
+            `http://localhost:10000/api/stations/client/${clientId}`
+          );
+          setStations(stationsResponse.data);
+        }
+  
+        setLoading(false);
       } catch (error) {
-        console.error("Error fetching products:", error);
+        console.error('Error fetching inspection data:', error);
+        setLoading(false);
       }
     };
-
+  
+    const fetchProducts = async () => {
+      try {
+        const response = await api.get('http://localhost:10000/api/products');
+        setAvailableProducts(response.data);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      }
+    };
+  
     fetchInspectionData();
     fetchProducts();
   }, [inspectionId]);
 
+  useEffect(() => {
+    return () => {
+      if (stationFinding.photo) {
+        URL.revokeObjectURL(stationFinding.photo);
+      }
+      if (stationFindingDesinsectacion.photo) {
+        URL.revokeObjectURL(stationFindingDesinsectacion.photo);
+      }
+    };
+  }, [stationFinding.photo, stationFindingDesinsectacion.photo]);
+
+  const detectChanges = () => {
+    const changes = {
+      generalObservations: generalObservations !== inspectionData?.observations,
+      findingsByType: JSON.stringify(findingsByType) !== JSON.stringify(inspectionData?.findings?.findingsByType),
+      productsByType: JSON.stringify(productsByType) !== JSON.stringify(inspectionData?.findings?.productsByType),
+      stationsFindings: JSON.stringify(clientStations) !== JSON.stringify(
+        inspectionData?.findings?.stationsFindings.reduce((acc, finding) => {
+          acc[finding.stationId] = finding;
+          return acc;
+        }, {})
+      ),
+    };
+  
+    console.log('Cambios detectados:', changes);
+    return Object.values(changes).some((change) => change); // Retorna true si hay algún cambio
+  };
+  
+
   const handleSaveChanges = async () => {
+    if (!detectChanges()) {
+      alert('No se detectaron cambios para guardar.');
+      return;
+    }
+
+    const offlineData = {
+      inspectionId,
+      generalObservations,
+      findingsByType,
+      productsByType,
+      stationsFindings: Object.entries(clientStations).map(([stationId, finding]) => ({
+        stationId,
+        ...finding,
+        photoBlob: finding.photoBlob, // Guardar blobs para imágenes offline
+      })),
+    };
+  
     try {
-      // Construir el JSON con toda la información agrupada
-      const updatedData = {
-        inspectionId, // ID de la inspección actual
-        generalObservations, // Observaciones generales
-        findingsByType, // Hallazgos generales por tipo de inspección
-        productsByType, // Productos aplicados por tipo de inspección
-        stationsFindings: Object.entries(clientStations).map(([stationId, finding]) => ({
-          stationId,
-          ...finding, // Hallazgos de estaciones (Desratización o Desinsectación)
-        })),
-      };
+      if (isOffline()) {
+        // Guardar solicitud en IndexedDB
+        await saveRequest({
+          url: `/inspections/${inspectionId}/save`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: offlineData,
+        });
   
-      console.log('Datos agrupados para enviar al backend:', updatedData);
-  
-      // Enviar la información al backend
-      const response = await axios.post(`http://localhost:10000/api/inspections/${inspectionId}/save`, updatedData);
-  
-      if (response.data.success) {
-        alert('Cambios guardados exitosamente');
+        console.log('Solicitud guardada offline:', offlineData);
+        alert('Cambios guardados offline. Se sincronizarán automáticamente cuando vuelva la conexión.');
       } else {
-        alert('No se pudieron guardar los cambios');
+        // Crear FormData para modo online
+        const formData = new FormData();
+  
+        formData.append('inspectionId', inspectionId);
+        formData.append('generalObservations', generalObservations);
+        formData.append('findingsByType', JSON.stringify(findingsByType));
+        formData.append('productsByType', JSON.stringify(productsByType));
+        formData.append(
+          'stationsFindings',
+          JSON.stringify(
+            Object.entries(clientStations).map(([stationId, finding]) => ({
+              stationId,
+              ...finding,
+              photo: undefined, // Excluir URL temporal
+            }))
+          )
+        );
+  
+        // Agregar imágenes
+        Object.entries(clientStations).forEach(([stationId, finding]) => {
+          if (finding.photoBlob) {
+            formData.append('images', finding.photoBlob);
+          }
+        });
+  
+        // Enviar solicitud al backend
+        const response = await api.post(`/inspections/${inspectionId}/save`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+  
+        if (response.data.success) {
+          alert('Cambios guardados exitosamente.');
+        } else {
+          alert('No se pudieron guardar los cambios.');
+        }
       }
     } catch (error) {
       console.error('Error guardando los cambios:', error);
-      alert('Hubo un error al guardar los cambios');
+      alert('Hubo un error al guardar los cambios.');
     }
   };  
 
@@ -179,6 +237,11 @@ function Inspection() {
   };
 
   const handleFindingPhotoChange = (type, index, file) => {
+    if (!file) {
+      console.error('No se seleccionó un archivo válido.');
+      return;
+    }
+  
     const photoURL = URL.createObjectURL(file);
     setFindingsByType((prevFindings) => {
       const updatedFindings = [...prevFindings[type]];
@@ -256,13 +319,23 @@ function Inspection() {
     }));
   };
   
+
   const handleStationFindingPhotoChange = (file) => {
+    if (!file || !file.type.startsWith("image/")) {
+      console.error("No se seleccionó un archivo válido o no es una imagen.");
+      alert("Seleccione un archivo válido de tipo imagen.");
+      return;
+    }
+  
     const photoURL = URL.createObjectURL(file);
+  
     setStationFinding((prevFinding) => ({
       ...prevFinding,
-      photo: photoURL,
+      photo: photoURL, // URL para previsualización
+      photoBlob: file, // Blob para guardar offline o enviar online
     }));
-  };
+  }; 
+  
   
   const handleSaveStationFinding = () => {
     setClientStations((prevStations) => ({
@@ -308,12 +381,58 @@ function Inspection() {
   };
   
   const handleStationFindingPhotoChangeDesinsectacion = (file) => {
+    if (!file || !file.type.startsWith("image/")) {
+      console.error("No se seleccionó un archivo válido o no es una imagen.");
+      alert("Seleccione un archivo válido de tipo imagen.");
+      return;
+    }
+  
     const photoURL = URL.createObjectURL(file);
+  
     setStationFindingDesinsectacion((prevFinding) => ({
       ...prevFinding,
-      photo: photoURL,
+      photo: photoURL, // URL para previsualización
+      photoBlob: file, // Blob para guardar offline o enviar online
     }));
   };
+
+  const saveStationFindingOffline = async (stationId, finding) => {
+    const db = await initDB();
+    const tx = db.transaction("stationFindings", "readwrite");
+    const store = tx.objectStore("stationFindings");
+  
+    await store.put({
+      id: stationId,
+      ...finding,
+      photoBlob: finding.photoBlob ? new Blob([finding.photoBlob], { type: "image/jpeg" }) : null,
+    });
+  
+    await tx.done;
+    console.log("Hallazgo guardado offline para estación:", stationId);
+  };  
+
+  const syncStationFindings = async () => {
+    const db = await initDB();
+    const tx = db.transaction("stationFindings", "readonly");
+    const store = tx.objectStore("stationFindings");
+    const findings = await store.getAll();
+  
+    for (const finding of findings) {
+      const formData = new FormData();
+      formData.append("stationId", finding.id);
+      formData.append("description", finding.description || "");
+      if (finding.photoBlob) {
+        formData.append("photo", finding.photoBlob, `${finding.id}.jpg`);
+      }
+  
+      try {
+        await api.post("/station/findings", formData);
+        console.log(`Hallazgo sincronizado para estación: ${finding.id}`);
+      } catch (error) {
+        console.error(`Error al sincronizar hallazgo para estación ${finding.id}:`, error);
+      }
+    }
+  }; 
   
 
   if (loading) return <div>Cargando detalles de la inspección...</div>;
@@ -513,7 +632,7 @@ function Inspection() {
                   </tr>
                 </thead>
                 <tbody>
-                  {findingsByType[type].map((finding, idx) => (
+                  {(findingsByType[type] || []).map((finding, idx) => (
                     <tr key={idx}>
                       <td>
                         <input
@@ -721,6 +840,7 @@ function Inspection() {
                 className="form-control"
                 rows="3"
                 value={stationFinding.description || ''}
+                
                 onChange={(e) => handleStationFindingChange('description', e.target.value)}
                 placeholder="Ingrese una descripción del hallazgo"
             ></textarea>
@@ -728,9 +848,12 @@ function Inspection() {
             <div className="mb-3">
             <label className="form-label">Fotografía</label>
             <input
-                type="file"
-                className="form-control"
-                onChange={(e) => handleStationFindingPhotoChange(e.target.files[0])}
+              type="file"
+              className="form-control"
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (file) handleStationFindingPhotoChange(file);
+              }}
             />
             {stationFinding.photo && (
                 <img
@@ -832,9 +955,12 @@ function Inspection() {
             <div className="mb-3">
             <label className="form-label">Fotografía</label>
             <input
-                type="file"
-                className="form-control"
-                onChange={(e) => handleStationFindingPhotoChangeDesinsectacion(e.target.files[0])}
+              type="file"
+              className="form-control"
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (file) handleStationFindingPhotoChangeDesinsectacion(file);
+              }}
             />
             {stationFindingDesinsectacion.photo && (
                 <img
