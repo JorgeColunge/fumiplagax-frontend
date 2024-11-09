@@ -6,6 +6,7 @@ import UserProfile from './UserProfile';
 import EditProfile from './EditProfile';
 import EditMyProfile from './EditMyProfile';
 import SidebarMenu from './SidebarMenu';
+import TopBar from './TopBar'; // Importa el componente TopBar
 import UserList from './UserList';
 import ClientList from './ClientList';
 import ProductList from './ProductList';
@@ -25,6 +26,19 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const handleSidebarToggle = (isOpen) => {
+    setIsSidebarOpen(isOpen);
+  };
+
+  const handleSync = () => {
+    console.log('Sincronizando...');
+  };
+
+  const handleNotify = () => {
+    console.log('Notificación');
+  };
 
   useEffect(() => {
     const handleOnline = () => {
@@ -70,31 +84,52 @@ function App() {
   return (
     <Router>
       <div className="App d-flex">
-        {isLoggedIn && <SidebarMenu userInfo={userInfo} onLogout={handleLogout}/>}
-        <div className={`main-content flex-grow-1 ${isLoggedIn ? '' : 'w-100'}`}>
-          <Routes>
-            <Route path="/" element={isLoggedIn ? <Navigate to="/profile" /> : <Navigate to="/login" />} />
-            <Route path="/login" element={isLoggedIn ? <Navigate to="/profile" /> : <Login onLogin={handleLogin} />} />
-            <Route path="/register" element={isLoggedIn ? <Navigate to="/profile" /> : <Register />} />
-            <Route path="/profile" element={isLoggedIn ? <UserProfile userInfo={userInfo} /> : <Navigate to="/login" />} />
-            <Route path="/edit-profile/:id" element={isLoggedIn ? <EditProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
-            <Route path="/edit-my-profile/:id" element={isLoggedIn ? <EditMyProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
-            <Route path="/users" element={isLoggedIn ? <UserList /> : <Navigate to="/login" />} />
-            <Route path="/inspections" element={isLoggedIn ? <Inspections /> : <Navigate to="/login" />} />
-            <Route path="/inspection/:inspectionId" element={isLoggedIn ? <Inspection /> : <Navigate to="/login" />} />
-            <Route path="/products" element={isLoggedIn ? <ProductList /> : <Navigate to="/login" />} />
-            <Route path="/services-calendar" element={isLoggedIn ? <InspectionCalendar /> : <Navigate to="/login" />} />
-            <Route path="/myservices-calendar" element={isLoggedIn ? <MyServicesCalendar /> : <Navigate to="/login" />} />
-            <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
-            <Route path="/show-profile/:id" element={<ShowProfile />} />
-            <Route path="/services" element={isLoggedIn ? <ServiceList /> : <Navigate to="/login" />} /> {/* Nueva ruta para ServiceList */}
-            <Route path="/myservices" element={isLoggedIn ? <MyServices /> : <Navigate to="/login" />} /> {/* Nueva ruta para ServiceList */}
-            <Route path="/stations/client/:client_id" element={isLoggedIn ? <CompanyStations /> : <Navigate to="/login" />} /> {/* Nueva ruta para ServiceList */}
-          </Routes>
-        </div>
-      </div>
+        {isLoggedIn && (
+          <>
+            <SidebarMenu 
+              userInfo={userInfo} 
+              onLogout={handleLogout} 
+              onToggle={handleSidebarToggle} // Pasamos la función para cambiar el estado
+            />
+            <TopBar 
+              userName={userInfo?.name || "User"} 
+              onSync={handleSync} 
+              onNotify={handleNotify}
+              isSidebarOpen={isSidebarOpen} // Pasamos el estado del sidebar
+            />
+          </>
+        )}
+        <div 
+          className={`main-content flex-grow-1 ${isLoggedIn ? '' : 'w-100'}`} 
+          style={{ 
+            marginTop: '60px',
+            marginLeft: isSidebarOpen ? '200px' : '60px' // Ajusta el margen izquierdo según el estado del Sidebar
+          }}
+        >
+    <Routes>
+      <Route path="/" element={isLoggedIn ? <Navigate to="/profile" /> : <Navigate to="/login" />} />
+      <Route path="/login" element={isLoggedIn ? <Navigate to="/profile" /> : <Login onLogin={handleLogin} />} />
+      <Route path="/register" element={isLoggedIn ? <Navigate to="/profile" /> : <Register />} />
+      <Route path="/profile" element={isLoggedIn ? <UserProfile userInfo={userInfo} /> : <Navigate to="/login" />} />
+      <Route path="/edit-profile/:id" element={isLoggedIn ? <EditProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
+      <Route path="/edit-my-profile/:id" element={isLoggedIn ? <EditMyProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
+      <Route path="/users" element={isLoggedIn ? <UserList /> : <Navigate to="/login" />} />
+      <Route path="/inspections" element={isLoggedIn ? <Inspections /> : <Navigate to="/login" />} />
+      <Route path="/inspection/:inspectionId" element={isLoggedIn ? <Inspection /> : <Navigate to="/login" />} />
+      <Route path="/products" element={isLoggedIn ? <ProductList /> : <Navigate to="/login" />} />
+      <Route path="/services-calendar" element={isLoggedIn ? <InspectionCalendar /> : <Navigate to="/login" />} />
+      <Route path="/myservices-calendar" element={isLoggedIn ? <MyServicesCalendar /> : <Navigate to="/login" />} />
+      <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
+      <Route path="/show-profile/:id" element={<ShowProfile />} />
+      <Route path="/services" element={isLoggedIn ? <ServiceList /> : <Navigate to="/login" />} />
+      <Route path="/myservices" element={isLoggedIn ? <MyServices /> : <Navigate to="/login" />} />
+      <Route path="/stations/client/:client_id" element={isLoggedIn ? <CompanyStations /> : <Navigate to="/login" />} />
+    </Routes>
+  </div>
+</div>
     </Router>
   );
 }
+
 
 export default App;

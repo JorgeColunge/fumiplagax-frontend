@@ -7,9 +7,15 @@ function Inspections() {
   const [inspections, setInspections] = useState([]);
   const [services, setServices] = useState([]);
   const [clients, setClients] = useState([]);
+  // Filtros
+  const [filterClient, setFilterClient] = useState('');
+  const [filterService, setFilterService] = useState('');
+  const [filterDate, setFilterDate] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState(null);
+  const [filteredInspections, setFilteredInspections] = useState([]);
+
 
   const [form, setForm] = useState({
     date: '',
@@ -30,6 +36,10 @@ function Inspections() {
     fetchServices();
     fetchClients();
   }, []);
+
+  useEffect(() => {
+  applyFilters();
+}, [filterClient, filterService, filterDate, inspections]);
 
   const fetchInspections = async () => {
     try {
@@ -57,6 +67,16 @@ function Inspections() {
       console.error("Error al obtener clientes:", error);
     }
   };
+
+  const applyFilters = () => {
+  const filtered = inspections.filter((inspection) => {
+    const matchesClient = filterClient ? inspection.client_id === parseInt(filterClient) : true;
+    const matchesService = filterService ? inspection.service_id === parseInt(filterService) : true;
+    const matchesDate = filterDate ? inspection.date === filterDate : true;
+    return matchesClient && matchesService && matchesDate;
+  });
+  setFilteredInspections(filtered);
+};
 
   const formatDateTime = (dateStr, timeStr) => {
     const date = new Date(dateStr);
@@ -165,11 +185,51 @@ function Inspections() {
   return (
     <div className="container my-4">
       <h2 className="text-center mb-5">Consulta de Inspecciones</h2>
-
       <Row className="w-100" style={{ height: 'auto', alignItems: 'flex-start' }}>
-  {inspections.length > 0 ? (
-    inspections.map(inspection => (
-      <Col key={inspection.id} xs={12} sm={6} md={4} lg={3} className="mb-3">
+        {/* Filtros */}
+<Row className="mb-4">
+  <Col xs={12} md={4}>
+    <Form.Group controlId="filterClient">
+      <Form.Label>Filtrar por Cliente</Form.Label>
+      <Form.Select
+        value={filterClient}
+        onChange={(e) => setFilterClient(e.target.value)}
+      >
+        <option value="">Todos los Clientes</option>
+        {clients.map((client) => (
+          <option key={client.id} value={client.id}>{client.name}</option>
+        ))}
+      </Form.Select>
+    </Form.Group>
+  </Col>
+  <Col xs={12} md={4}>
+    <Form.Group controlId="filterService">
+      <Form.Label>Filtrar por Servicio</Form.Label>
+      <Form.Select
+        value={filterService}
+        onChange={(e) => setFilterService(e.target.value)}
+      >
+        <option value="">Todos los Servicios</option>
+        {services.map((service) => (
+          <option key={service.id} value={service.id}>{service.service_type}</option>
+        ))}
+      </Form.Select>
+    </Form.Group>
+  </Col>
+  <Col xs={12} md={4}>
+    <Form.Group controlId="filterDate">
+      <Form.Label>Filtrar por Fecha</Form.Label>
+      <Form.Control
+        type="date"
+        value={filterDate}
+        onChange={(e) => setFilterDate(e.target.value)}
+      />
+    </Form.Group>
+  </Col>
+</Row>
+{filteredInspections.length > 0 ? (
+  filteredInspections.map(inspection => (
+    <Col key={inspection.id} xs={12} sm={6} md={4} lg={3} className="mb-3">
         <Card className="shadow-sm h-100" onClick={() => handleShowDetails(inspection)} style={{ cursor: 'pointer' }}>
           <Card.Body>
             <Card.Title as="h6" className="mb-2">
