@@ -203,7 +203,7 @@ const deleteUser = async (id) => {
 
   return (
     <div className="container mt-4">
-      <h2 className="text-primary mb-4">Listado de Usuarios del Sistema</h2>
+      <h2 className="mb-4" style={{ color: 'black' }}>Listado de Usuarios del Sistema</h2>
 
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
@@ -297,7 +297,7 @@ const deleteUser = async (id) => {
 
       {canAddUser && (
         <div className="d-flex justify-content-end mt-3">
-          <Button variant="primary" onClick={handleShowModal}>
+          <Button variant="success" onClick={handleShowModal}>
             Agregar Usuario
           </Button>
         </div>

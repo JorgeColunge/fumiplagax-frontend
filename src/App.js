@@ -72,7 +72,7 @@ function App() {
   return (
     <Router>
       <div className="App d-flex">
-        {isLoggedIn && <SidebarMenu onLogout={handleLogout} userInfo={userInfo} />}
+        {isLoggedIn && <SidebarMenu userInfo={userInfo} onLogout={handleLogout}/>}
         <div className={`main-content flex-grow-1 ${isLoggedIn ? '' : 'w-100'}`}>
           <Routes>
             <Route path="/" element={isLoggedIn ? <Navigate to="/profile" /> : <Navigate to="/login" />} />

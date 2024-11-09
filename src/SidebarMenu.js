@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { List, Person, People, Calendar3, Clipboard, FileText, BarChart, ClipboardCheck, BoxArrowRight, Search, Megaphone, CurrencyDollar, Gear, CalendarDate } from 'react-bootstrap-icons';
+import { List, Person, People, Calendar3, Clipboard, FileText, BarChart, ClipboardCheck, BoxArrowRight, Search, Megaphone, CurrencyDollar, Gear, CalendarDate, CalendarEvent, Eyedropper, PersonFillGear, GraphUp, ChatLeftDots } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './SidebarMenu.css';
 
@@ -17,13 +17,23 @@ function SidebarMenu({ onLogout, userInfo }) {
     setIsOpen(!isOpen);
   };
 
+  console.log(userInfo);
+
+  const [profilePic, setProfilePic] = useState('/'); // Imagen predeterminada
+
+  useEffect(() => {
+    if (userInfo && userInfo.image) {
+      setProfilePic(`http://localhost:10000${userInfo.image}`); // Cambia la URL base según sea necesario
+    }
+  }, [userInfo]);  
+
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="menu-toggle" onClick={toggleMenu}>
         <List size={30} />
       </div>
       <div className="logo-container">
-        <img src={userInfo?.photo || "/default-avatar.png"} alt="User" className="logo" />
+      <img src={profilePic} alt="User" className="logo" />
         {isOpen && (
           <div className="user-info">
             <h5>{userInfo?.name || 'Usuario'}</h5>
@@ -31,68 +41,66 @@ function SidebarMenu({ onLogout, userInfo }) {
           </div>
         )}
       </div>
-      <ul className="nav flex-column icon-list">
-        <li className="nav-item">
-          <Link to="/profile" className="nav-link" title="Perfil">
+      <div className="nav-item">
+        <Link to="/profile" className="nav-link" title="Perfil">
             <Person size={20} />
             {isOpen && <span>Perfil</span>}
-          </Link>
-        </li>
-        <li className="nav-item">
+        </Link>
+      </div>
+        <div className="nav-item">
           <Link to="/users" className="nav-link" title="Usuarios">
-            <People size={20} />
+            <PersonFillGear size={20} />
             {isOpen && <span>Usuarios</span>}
           </Link>
-        </li>
-        <li className="nav-item">
+        </div>
+        <div className="nav-item">
           <Link to="/clients" className="nav-link" title="Clientes">
-            <Clipboard size={20} />
+            <People size={20} />
             {isOpen && <span>Clientes</span>}
           </Link>
-        </li>
-        <li className="nav-item">
+        </div>
+        <div className="nav-item">
           <Link to="/services-calendar" className="nav-link" title="Calendario">
             <Calendar3 size={20} />
             {isOpen && <span>Calendario</span>}
           </Link>
-        </li>
-        <li className="nav-item">
+        </div>
+        <div className="nav-item">
           <Link to="/myservices-calendar" className="nav-link" title="Calendario">
-            <CalendarDate size={20} />
+            <CalendarEvent size={20} />
             {isOpen && <span>Mi Calendario</span>}
           </Link>
-        </li>
-        <li className="nav-item">
+        </div>
+        <div className="nav-item">
           <Link to="/inspections" className="nav-link" title="Inspecciones">
             <FileText size={20} />
             {isOpen && <span>Inspecciones</span>}
           </Link>
-        </li>
-        <li className="nav-item">
+        </div>
+        <div className="nav-item">
           <Link to="/services" className="nav-link" title="Servicios">
             <ClipboardCheck size={20} />
             {isOpen && <span>Servicios</span>}
           </Link>
-        </li>
-        <li className="nav-item">
+        </div>
+        <div className="nav-item">
           <Link to="/products" className="nav-link" title="Produtos">
-            <CurrencyDollar size={20} />
+            <Eyedropper size={20} />
             {isOpen && <span>Productos</span>}
           </Link>
-        </li>
-        <li className="nav-item">
+        </div>
+        <div className="nav-item">
           <Link to="/consumption" className="nav-link" title="Consumo">
-            <CurrencyDollar size={20} />
+            <GraphUp size={20} />
             {isOpen && <span>Consumo</span>}
           </Link>
-        </li>
-        <li className="nav-item logout-item">
+        </div>
+        <div className="nav-item">
           <button className="nav-link btn btn-link" onClick={handleLogout} title="Cerrar Sesión">
             <BoxArrowRight size={20} />
             {isOpen && <span>Cerrar Sesión</span>}
           </button>
-        </li>
-      </ul>
+        </div>
     </div>
   );
 }

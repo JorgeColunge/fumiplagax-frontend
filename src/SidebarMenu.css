@@ -7,10 +7,13 @@
   flex-direction: column;
   align-items: center;
   padding-top: 10px;
+  overflow-y: auto; /* Habilita el scroll vertical */
+  max-height: 100vh; /* Asegura que el sidebar ocupe toda la altura de la ventana */
 }
 
 .sidebar.open {
   width: 200px;
+  overflow-y: auto; /* Mantiene el scroll cuando está expandido */
 }
 
 .menu-toggle {
@@ -25,9 +28,10 @@
 }
 
 .logo {
-  width: 35px;
-  height: 35px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
+  object-fit: cover;
 }
 
 .user-info {
@@ -47,9 +51,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 0; /* Reduce padding para hacer el botón más pequeño */
-  height: 35px; /* Ajusta la altura del botón */
-  margin: 2px 0; /* Reduce el margen entre los botones */
+  padding: 10px 0;
+  height: 35px;
+  margin: 2px 0;
   cursor: pointer;
   transition: background 0.3s;
 }
@@ -69,7 +73,7 @@
 }
 
 .nav-link span {
-  margin-left: 8px; /* Ajuste del espacio entre ícono y texto */
+  margin-left: 8px;
   display: none;
 }
 
@@ -77,7 +81,8 @@
   display: inline;
 }
 
-.logout-item {
-  margin-top: auto;
-  margin-bottom: 10px;
+/* Tamaño de los iconos cuando el menú está expandido */
+.sidebar.open .nav-link svg {
+  width: 20px;
+  height: 20px;
 }
