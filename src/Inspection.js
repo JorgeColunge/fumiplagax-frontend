@@ -58,10 +58,10 @@ function Inspection() {
   
         // Preprocesar imágenes para findingsByType
         Object.keys(initialFindings).forEach((type) => {
-          initialFindings[type] = initialFindings[type]?.map((finding) => ({
+          initialFindings[type] = initialFindings[type].map((finding) => ({
             ...finding,
-            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null,
-          })) || []; // Inicializa como un array vacío si no existe
+            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null, // Agregar prefijo si existe la foto
+          }));
         });
   
         // Establecer estado inicial para los hallazgos
@@ -125,95 +125,73 @@ function Inspection() {
   }, [stationFinding.photo, stationFindingDesinsectacion.photo]);
 
   const detectChanges = () => {
-    const changes = {
-      generalObservations: generalObservations !== inspectionData?.observations,
-      findingsByType: JSON.stringify(findingsByType) !== JSON.stringify(inspectionData?.findings?.findingsByType),
-      productsByType: JSON.stringify(productsByType) !== JSON.stringify(inspectionData?.findings?.productsByType),
-      stationsFindings: JSON.stringify(clientStations) !== JSON.stringify(
-        inspectionData?.findings?.stationsFindings.reduce((acc, finding) => {
-          acc[finding.stationId] = finding;
-          return acc;
-        }, {})
-      ),
-    };
-  
-    console.log('Cambios detectados:', changes);
-    return Object.values(changes).some((change) => change); // Retorna true si hay algún cambio
+  const changes = {
+    generalObservations: generalObservations !== inspectionData?.observations,
+    findingsByType: JSON.stringify(findingsByType) !== JSON.stringify(inspectionData?.findings?.findingsByType),
+    productsByType: JSON.stringify(productsByType) !== JSON.stringify(inspectionData?.findings?.productsByType),
+    stationsFindings: JSON.stringify(clientStations) !== JSON.stringify(
+      inspectionData?.findings?.stationsFindings.reduce((acc, finding) => {
+        acc[finding.stationId] = finding;
+        return acc;
+      }, {})
+    ),
   };
-  
 
-  const handleSaveChanges = async () => {
-    if (!detectChanges()) {
-      alert('No se detectaron cambios para guardar.');
-      return;
-    }
+  console.log('Cambios detectados:', changes);
+  return Object.values(changes).some((change) => change); // Retorna true si hay algún cambio
+};
 
-    const offlineData = {
-      inspectionId,
-      generalObservations,
-      findingsByType,
-      productsByType,
-      stationsFindings: Object.entries(clientStations).map(([stationId, finding]) => ({
-        stationId,
-        ...finding,
-        photoBlob: finding.photoBlob, // Guardar blobs para imágenes offline
-      })),
-    };
-  
-    try {
-      if (isOffline()) {
-        // Guardar solicitud en IndexedDB
-        await saveRequest({
-          url: `/inspections/${inspectionId}/save`,
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: offlineData,
-        });
-  
-        console.log('Solicitud guardada offline:', offlineData);
-        alert('Cambios guardados offline. Se sincronizarán automáticamente cuando vuelva la conexión.');
-      } else {
-        // Crear FormData para modo online
-        const formData = new FormData();
-  
-        formData.append('inspectionId', inspectionId);
-        formData.append('generalObservations', generalObservations);
-        formData.append('findingsByType', JSON.stringify(findingsByType));
-        formData.append('productsByType', JSON.stringify(productsByType));
-        formData.append(
-          'stationsFindings',
-          JSON.stringify(
-            Object.entries(clientStations).map(([stationId, finding]) => ({
-              stationId,
-              ...finding,
-              photo: undefined, // Excluir URL temporal
-            }))
-          )
-        );
-  
-        // Agregar imágenes
-        Object.entries(clientStations).forEach(([stationId, finding]) => {
-          if (finding.photoBlob) {
-            formData.append('images', finding.photoBlob);
-          }
-        });
-  
-        // Enviar solicitud al backend
-        const response = await api.post(`/inspections/${inspectionId}/save`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-  
-        if (response.data.success) {
-          alert('Cambios guardados exitosamente.');
-        } else {
-          alert('No se pudieron guardar los cambios.');
+
+const handleSaveChanges = async () => {
+  try {
+    const formData = new FormData();
+
+    formData.append('inspectionId', inspectionId);
+    formData.append('generalObservations', generalObservations);
+    formData.append('findingsByType', JSON.stringify(findingsByType));
+    formData.append('productsByType', JSON.stringify(productsByType));
+
+    // Convertir stationsFindings en un array
+    const stationsFindingsArray = Object.entries(clientStations).map(([stationId, finding]) => ({
+      stationId,
+      ...finding,
+    }));
+
+    formData.append('stationsFindings', JSON.stringify(stationsFindingsArray));
+
+    // Mapear imágenes de findings y estaciones
+    Object.keys(findingsByType).forEach((type) => {
+      findingsByType[type].forEach((finding) => {
+        if (finding.photoBlob) {
+          formData.append('images', finding.photoBlob, `${finding.id}.jpg`);
         }
+      });
+    });
+
+    stationsFindingsArray.forEach((finding) => {
+      if (finding.photoBlob) {
+        formData.append('images', finding.photoBlob, `${finding.stationId}.jpg`);
       }
-    } catch (error) {
-      console.error('Error guardando los cambios:', error);
+    });
+
+    // Enviar datos al backend
+    await api.post(`/inspections/${inspectionId}/save`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    alert('Cambios guardados exitosamente.');
+  } catch (error) {
+    console.error('Error guardando los cambios:', error);
+
+    if (error.message.includes('Offline')) {
+      alert(
+        'Cambios guardados localmente. Se sincronizarán automáticamente cuando vuelva la conexión.'
+      );
+    } else {
       alert('Hubo un error al guardar los cambios.');
     }
-  };  
+  }
+};
 
   const handleStationChange = (stationId, field, value) => {
     setClientStations((prevStations) => ({
@@ -221,12 +199,17 @@ function Inspection() {
       [stationId]: { ...prevStations[stationId], [field]: value },
     }));
   };
+
   const handleAddFinding = (type) => {
     setFindingsByType((prevFindings) => ({
       ...prevFindings,
-      [type]: [...prevFindings[type], { place: '', description: '', photo: null }],
+      [type]: [
+        ...(prevFindings[type] || []),
+        { id: Date.now(), place: '', description: '', photo: null },
+      ],
     }));
   };
+  
 
   const handleFindingChange = (type, index, field, value) => {
     setFindingsByType((prevFindings) => {
@@ -237,18 +220,26 @@ function Inspection() {
   };
 
   const handleFindingPhotoChange = (type, index, file) => {
-    if (!file) {
-      console.error('No se seleccionó un archivo válido.');
+    if (!file || !file.type.startsWith('image/')) {
+      console.error('No se seleccionó un archivo válido o no es una imagen.');
+      alert('Seleccione un archivo válido de tipo imagen.');
       return;
     }
   
     const photoURL = URL.createObjectURL(file);
+  
     setFindingsByType((prevFindings) => {
       const updatedFindings = [...prevFindings[type]];
-      updatedFindings[index] = { ...updatedFindings[index], photo: photoURL };
+      updatedFindings[index] = {
+        ...updatedFindings[index],
+        photo: photoURL, // URL para previsualización
+        photoBlob: file, // Asegúrate de guardar el archivo como File
+      };
       return { ...prevFindings, [type]: updatedFindings };
     });
-  };
+  
+    console.log(`Imagen seleccionada para tipo ${type}, índice ${index}:`, file);
+  };    
 
   const handleProductChange = (type, field, value) => {
     setProductsByType((prevProducts) => ({
@@ -316,6 +307,7 @@ function Inspection() {
     setStationFinding((prevFinding) => ({
       ...prevFinding,
       [field]: value,
+      id: prevFinding.id || Date.now(), // Asegurar que cada hallazgo tenga un id único
     }));
   };
   
@@ -632,7 +624,7 @@ function Inspection() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(findingsByType[type] || []).map((finding, idx) => (
+                {(findingsByType[type] || []).map((finding, idx) => (
                     <tr key={idx}>
                       <td>
                         <input

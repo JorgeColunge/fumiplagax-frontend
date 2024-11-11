@@ -18,21 +18,77 @@ export const saveRequest = async (request) => {
     const tx = db.transaction('requests', 'readwrite');
     const store = tx.objectStore('requests');
 
-    // Completa la URL si es relativa
     const completeUrl = request.url.startsWith('http')
       ? request.url
       : `http://localhost:10000/api${request.url}`;
 
-    await store.add({
+    const serializableRequest = {
       ...request,
       url: completeUrl,
-    });
+    };
 
+    await store.add(serializableRequest);
     await tx.done;
-    console.log('Solicitud guardada offline:', request);
+    console.log('Solicitud guardada offline:', serializableRequest);
   } catch (error) {
     console.error('Error al guardar la solicitud offline:', error);
   }
+};
+
+// Convertir FormData a un objeto serializable (manejo de blobs)
+export const convertFormDataToObject = async (formData) => {
+  const object = {};
+  const promises = [];
+
+  formData.forEach((value, key) => {
+    if (value instanceof Blob) {
+      const promise = new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          object[key] = {
+            type: 'blob',
+            data: reader.result, // Base64 del blob
+            name: value.name,
+          };
+          resolve();
+        };
+        reader.readAsDataURL(value);
+      });
+      promises.push(promise);
+    } else {
+      object[key] = value;
+    }
+  });
+
+  // Esperar a que todas las promesas se resuelvan
+  await Promise.all(promises);
+  return object;
+};
+
+
+// Reconstruir FormData desde un objeto
+export const reconstructFormData = (data) => {
+  const formData = new FormData();
+
+  Object.entries(data).forEach(([key, value]) => {
+    if (value && value.type === 'blob') {
+      const byteString = atob(value.data.split(',')[1]);
+      const mimeString = value.data.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+
+      const blob = new Blob([ab], { type: mimeString });
+      formData.append(key, blob, value.name);
+    } else {
+      formData.append(key, value);
+    }
+  });
+
+  return formData;
 };
 
 
@@ -48,6 +104,9 @@ export const clearRequests = async () => {
   await db.clear('requests');
 };
 
+// Detectar si está offline
+export const isOffline = () => !navigator.onLine;
+
 // Sincronizar solicitudes
 export const syncRequests = async () => {
   const requests = await getRequests();
@@ -61,55 +120,28 @@ export const syncRequests = async () => {
 
   try {
     for (const req of requests) {
-      if (req.headers['Content-Type'] === 'application/json') {
-        const { inspectionId, generalObservations, findingsByType, productsByType, stationsFindings } = req.body;
+      // Reconstruir FormData si los datos son serializables
+      const formData = reconstructFormData(req.body);
 
-        const formData = new FormData();
+      console.log('Datos reconstruidos para sincronización:', formData);
 
-        // Agregar datos JSON al FormData
-        formData.append('inspectionId', inspectionId);
-        formData.append('generalObservations', generalObservations);
-        formData.append('findingsByType', JSON.stringify(findingsByType));
-        formData.append('productsByType', JSON.stringify(productsByType));
+      // Enviar la solicitud reconstruida al backend
+      const response = await fetch(req.url, {
+        method: req.method,
+        body: formData,
+        // NO agregar manualmente 'Content-Type', fetch lo hará automáticamente
+      });
 
-        // Agregar estaciones y sus imágenes al FormData
-        formData.append(
-          'stationsFindings',
-          JSON.stringify(
-            stationsFindings.map((finding) => ({
-              ...finding,
-              photoBlob: undefined, // Excluir blob antes de enviarlo
-            }))
-          )
-        );
-
-        stationsFindings.forEach((finding) => {
-          if (finding.photoBlob) {
-            formData.append('images', finding.photoBlob); // Subir blobs como imágenes
-          }
-        });
-
-        // Enviar solicitud al backend
-        const response = await fetch(req.url, {
-          method: req.method,
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error(`Error en la solicitud ${req.url}: ${response.statusText}`);
-        }
-
-        console.log(`Solicitud sincronizada correctamente: ${req.url}`);
+      if (!response.ok) {
+        throw new Error(`Error en la solicitud ${req.url}: ${response.statusText}`);
       }
+
+      console.log(`Solicitud sincronizada correctamente: ${req.url}`);
     }
 
-    await clearRequests(); // Limpia solicitudes sincronizadas
+    await clearRequests(); // Limpiar solicitudes sincronizadas
     console.log('Sincronización completada.');
   } catch (error) {
     console.error('Error durante la sincronización:', error);
   }
 };
-
-
-// Detectar si está offline
-export const isOffline = () => !navigator.onLine;
