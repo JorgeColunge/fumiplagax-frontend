@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { saveRequest, isOffline } from './offlineHandler';
+import { saveRequest, isOffline, convertFormDataToObject } from './offlineHandler';
 
 const api = axios.create({
   baseURL: 'http://localhost:10000/api',
@@ -7,13 +7,24 @@ const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   if (isOffline()) {
+    console.log('Interceptando solicitud offline:', config);
+
+    let serializableBody;
+    if (config.data instanceof FormData) {
+      // Esperar a que la serialización del FormData sea completa
+      serializableBody = await convertFormDataToObject(config.data);
+    } else {
+      serializableBody = config.data;
+    }
+
     // Guardar solicitud offline
     await saveRequest({
       url: config.url,
       method: config.method,
       headers: config.headers,
-      body: config.data,
+      body: serializableBody,
     });
+
     return Promise.reject({ message: 'Offline: la solicitud se guardó localmente' });
   }
   return config;

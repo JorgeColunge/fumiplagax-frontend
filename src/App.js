@@ -20,6 +20,7 @@ import Inspection from './Inspection';
 import MyServices from './MyServices';
 import CompanyStations from './CompanyStations';
 import { syncRequests } from './offlineHandler';
+import { saveUsers, getUsers, syncUsers } from './indexedDBHandler';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -45,6 +46,7 @@ function App() {
     const handleOnline = () => {
       console.log('Conexión restaurada. Iniciando sincronización...');
       syncRequests();
+      syncUsers();
     };
 
     window.addEventListener('online', handleOnline);
