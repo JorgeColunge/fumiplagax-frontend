@@ -23,4 +23,32 @@
     font-weight: bold;
     text-align: center;
   }
+
+  .notification-menu {
+    max-height: 200px;
+    overflow-y: auto;
+    width: 250px;
+  }
+
+  .notification-dropdown-menu {
+    max-height: 300px; /* Limita el tamaño máximo del menú */
+    overflow-y: auto; /* Agrega scroll si hay muchas notificaciones */
+    width: 250px; /* Ajusta el ancho según prefieras */
+  }
   
+  .notification-item {
+    padding: 10px;
+    font-size: 14px;
+    color: #333;
+  }  
+
+  .notification-count {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background-color: red;
+    color: white;
+    font-size: 12px;
+    padding: 2px 5px;
+    border-radius: 50%;
+  }  

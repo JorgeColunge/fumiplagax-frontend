@@ -7,6 +7,7 @@ import EditProfile from './EditProfile';
 import EditMyProfile from './EditMyProfile';
 import SidebarMenu from './SidebarMenu';
 import TopBar from './TopBar'; // Importa el componente TopBar
+import axios from 'axios';
 import UserList from './UserList';
 import ClientList from './ClientList';
 import ProductList from './ProductList';
@@ -63,7 +64,7 @@ function App() {
     const fetchNotifications = async () => {
       try {
         const response = await axios.get(`http://localhost:10000/api/notifications/${userId}`);
-        setNotifications(response.data.notifications); // Suponiendo que la API devuelve `notifications`
+        setNotifications(response.data.notifications);
       } catch (error) {
         console.error("Error fetching notifications:", error);
       }
@@ -72,16 +73,7 @@ function App() {
     if (userId) {
       fetchNotifications();
     }
-  }, [userId]); // Coloca `userId` como dependencia
-  
-  return (
-    <TopBar 
-      userName={userInfo?.name || "User"} 
-      onSync={handleSync} 
-      notifications={notifications} // Pasamos `notifications` como prop
-      isSidebarOpen={isSidebarOpen}
-    />
-  );
+  }, [userId]);
 
   useEffect(() => {
     const storedUserInfo = localStorage.getItem("user_info");
@@ -121,12 +113,13 @@ function App() {
               onLogout={handleLogout} 
               onToggle={handleSidebarToggle} // Pasamos la función para cambiar el estado
             />
-            <TopBar 
-              userName={userInfo?.name || "User"} 
-              onSync={handleSync} 
-              onNotify={handleNotify}
-              isSidebarOpen={isSidebarOpen} // Pasamos el estado del sidebar
-            />
+<TopBar 
+  userName={userInfo?.name || "User"} 
+  onSync={handleSync} 
+  notifications={notifications} 
+  setNotifications={setNotifications} // Pasamos `setNotifications` como prop
+  isSidebarOpen={isSidebarOpen}
+/>
           </>
         )}
         <div 
