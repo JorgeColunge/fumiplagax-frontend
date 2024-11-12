@@ -53,6 +53,36 @@ function App() {
     };
   }, []);
 
+  // Obtener userId del usuario almacenado en localStorage
+  const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
+  const userId = storedUserInfo?.id_usuario || '';
+
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const response = await axios.get(`http://localhost:10000/api/notifications/${userId}`);
+        setNotifications(response.data.notifications); // Suponiendo que la API devuelve `notifications`
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+      }
+    };
+  
+    if (userId) {
+      fetchNotifications();
+    }
+  }, [userId]); // Coloca `userId` como dependencia
+  
+  return (
+    <TopBar 
+      userName={userInfo?.name || "User"} 
+      onSync={handleSync} 
+      notifications={notifications} // Pasamos `notifications` como prop
+      isSidebarOpen={isSidebarOpen}
+    />
+  );
+
   useEffect(() => {
     const storedUserInfo = localStorage.getItem("user_info");
     if (storedUserInfo) {
