@@ -11,10 +11,6 @@
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
   }  
   
-  .sync-icon, .notify-icon {
-    color: #333;
-  }
-  
   .user-initial-circle {
     width: 40px;
     height: 40px;
