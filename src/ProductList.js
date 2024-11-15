@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Button, Card, Modal, Form } from 'react-bootstrap';
-import { BsPencilSquare, BsTrash } from 'react-icons/bs';
+import { BsPencilSquare, BsTrash, BsEye, BsPlusCircle } from 'react-icons/bs';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function ProductList() {
@@ -21,6 +21,13 @@ function ProductList() {
     health_registration: '',
     emergency_card: ''
   });
+
+  const [safetyDataSheetFile, setSafetyDataSheetFile] = useState(null);
+  const [technicalSheetFile, setTechnicalSheetFile] = useState(null);
+  const [healthRegistrationFile, setHealthRegistrationFile] = useState(null);
+  const [emergencyCardFile, setEmergencyCardFile] = useState(null);  
+
+  const [pendingAlert, setPendingAlert] = useState(false);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -76,22 +83,46 @@ function ProductList() {
   };
 
   const handleAddOrEditProduct = async () => {
+    // Muestra la primera alerta de "en breve"
+    alert("El registro del producto estará listo en breve");
+
+    // Cierra el modal
+    handleCloseModal();
+
     try {
-      if (editingProduct) {
-        await axios.put(`http://localhost:10000/api/products/${editingProduct.id}`, newProduct);
-        setProducts(products.map((product) => (product.id === editingProduct.id ? newProduct : product)));
-        alert("Producto actualizado exitosamente");
-      } else {
-        const response = await axios.post('http://localhost:10000/api/products', newProduct);
-        setProducts([...products, response.data.product]);
-        alert("Producto agregado exitosamente");
-      }
-      handleCloseModal();
+        const formData = new FormData();
+        formData.append("name", newProduct.name);
+        formData.append("description_type", newProduct.description_type);
+        formData.append("dose", newProduct.dose);
+        formData.append("residual_duration", newProduct.residual_duration);
+
+        if (safetyDataSheetFile) formData.append("safety_data_sheet", safetyDataSheetFile);
+        if (technicalSheetFile) formData.append("technical_sheet", technicalSheetFile);
+        if (healthRegistrationFile) formData.append("health_registration", healthRegistrationFile);
+        if (emergencyCardFile) formData.append("emergency_card", emergencyCardFile);
+
+        let response;
+        if (editingProduct) {
+            response = await axios.put(
+                `http://localhost:10000/api/products/${editingProduct.id}`,
+                formData,
+                { headers: { "Content-Type": "multipart/form-data" } }
+            );
+            setProducts(products.map((product) => (product.id === editingProduct.id ? response.data.product : product)));
+        } else {
+            response = await axios.post('http://localhost:10000/api/products', formData, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+            setProducts([...products, response.data.product]);
+        }
+
+        // Muestra la alerta de éxito una vez se complete el registro
+        alert("El registro del producto se realizó con éxito");
     } catch (error) {
-      console.error("Error al guardar el producto:", error);
-      alert("Hubo un error al guardar el producto.");
+        console.error("Error al guardar el producto:", error);
+        alert("Hubo un error al guardar el producto.");
     }
-  };
+};
 
   const deleteProduct = async (id) => {
     if (window.confirm("¿Estás seguro de que deseas eliminar este producto?")) {
@@ -122,6 +153,11 @@ function ProductList() {
       <Button variant="primary" className="mb-4" onClick={() => handleShowModal()}>
         Agregar Producto
       </Button>
+      {pendingAlert && (
+    <div className="alert alert-info">
+        El registro del producto estará listo en breve
+    </div>
+)}
 
       <div className="row">
         {Object.keys(groupedProducts).map(descriptionType => (
@@ -175,22 +211,151 @@ function ProductList() {
               <Form.Label>Duración Residual</Form.Label>
               <Form.Control type="text" name="residual_duration" value={newProduct.residual_duration} onChange={handleInputChange} />
             </Form.Group>
-            <Form.Group controlId="formSafetyDataSheet" className="mb-3">
-              <Form.Label>Hoja de Datos de Seguridad</Form.Label>
-              <Form.Control type="text" name="safety_data_sheet" value={newProduct.safety_data_sheet} onChange={handleInputChange} />
-            </Form.Group>
-            <Form.Group controlId="formTechnicalSheet" className="mb-3">
-              <Form.Label>Ficha Técnica</Form.Label>
-              <Form.Control type="text" name="technical_sheet" value={newProduct.technical_sheet} onChange={handleInputChange} />
-            </Form.Group>
-            <Form.Group controlId="formHealthRegistration" className="mb-3">
-              <Form.Label>Registro Sanitario</Form.Label>
-              <Form.Control type="text" name="health_registration" value={newProduct.health_registration} onChange={handleInputChange} />
-            </Form.Group>
-            <Form.Group controlId="formEmergencyCard" className="mb-3">
-              <Form.Label>Tarjeta de Emergencia</Form.Label>
-              <Form.Control type="text" name="emergency_card" value={newProduct.emergency_card} onChange={handleInputChange} />
-            </Form.Group>
+            <Form.Group controlId="formSafetyDataSheet" className="mb-3 d-flex align-items-center flex-column">
+  <div className="d-flex w-100 align-items-center">
+    <Form.Label className="me-2">Hoja de Datos de Seguridad</Form.Label>
+    <div className="ms-auto d-flex justify-content-end">
+      {/* Botón para cargar archivo */}
+      <input
+        type="file"
+        accept=".pdf,.doc,.docx"
+        onChange={(e) => {
+          setSafetyDataSheetFile(e.target.files[0]);
+          setNewProduct({ ...newProduct, safety_data_sheet: e.target.files[0]?.name || '' });
+        }}
+        style={{ display: 'none' }}
+        id="safetyDataSheetFileInput"
+      />
+      <Button variant="link" size="sm" onClick={() => document.getElementById('safetyDataSheetFileInput').click()}>
+        <BsPencilSquare style={{ color: 'green', fontSize: '1.2em' }} />
+      </Button>
+      {/* Botón para ver el archivo */}
+      <Button
+        variant="link"
+        size="sm"
+        onClick={() => {
+          if (newProduct.safety_data_sheet) {
+            window.open(newProduct.safety_data_sheet, '_blank');
+          } else {
+            alert("No hay Hoja de Datos de Seguridad disponible.");
+          }
+        }}
+      >
+        <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
+      </Button>
+      {/* Botón para eliminar el archivo */}
+      <Button
+        variant="link"
+        size="sm"
+        onClick={() => {
+          setSafetyDataSheetFile(null);
+          setNewProduct({ ...newProduct, safety_data_sheet: '' });
+          alert("Hoja de Datos de Seguridad eliminada.");
+        }}
+      >
+        <BsTrash style={{ color: 'red', fontSize: '1.2em' }} />
+      </Button>
+    </div>
+  </div>
+  {/* Mostrar nombre del archivo si existe */}
+  <small className="text-muted mt-1">
+    {newProduct.safety_data_sheet || 'Sin archivo seleccionado'}
+  </small>
+</Form.Group>
+
+<Form.Group controlId="formTechnicalSheet" className="mb-3 d-flex align-items-center flex-column">
+  <div className="d-flex w-100 align-items-center">
+    <Form.Label className="me-2">Ficha Técnica</Form.Label>
+    <div className="ms-auto d-flex justify-content-end">
+      <input
+        type="file"
+        accept=".pdf,.doc,.docx"
+        onChange={(e) => {
+          setTechnicalSheetFile(e.target.files[0]);
+          setNewProduct({ ...newProduct, technical_sheet: e.target.files[0]?.name || '' });
+        }}
+        style={{ display: 'none' }}
+        id="technicalSheetFileInput"
+      />
+      <Button variant="link" size="sm" onClick={() => document.getElementById('technicalSheetFileInput').click()}>
+        <BsPencilSquare style={{ color: 'green', fontSize: '1.2em' }} />
+      </Button>
+      <Button variant="link" size="sm" onClick={() => newProduct.technical_sheet && window.open(newProduct.technical_sheet, '_blank')}>
+        <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
+      </Button>
+      <Button variant="link" size="sm" onClick={() => {
+        setTechnicalSheetFile(null);
+        setNewProduct({ ...newProduct, technical_sheet: '' });
+      }}>
+        <BsTrash style={{ color: 'red', fontSize: '1.2em' }} />
+      </Button>
+    </div>
+  </div>
+  <small className="text-muted mt-1">{newProduct.technical_sheet || 'Sin archivo seleccionado'}</small>
+</Form.Group>
+
+<Form.Group controlId="formHealthRegistration" className="mb-3 d-flex align-items-center flex-column">
+  <div className="d-flex w-100 align-items-center">
+    <Form.Label className="me-2">Registro Sanitario</Form.Label>
+    <div className="ms-auto d-flex justify-content-end">
+      <input
+        type="file"
+        accept=".pdf,.doc,.docx"
+        onChange={(e) => {
+          setHealthRegistrationFile(e.target.files[0]);
+          setNewProduct({ ...newProduct, health_registration: e.target.files[0]?.name || '' });
+        }}
+        style={{ display: 'none' }}
+        id="healthRegistrationFileInput"
+      />
+      <Button variant="link" size="sm" onClick={() => document.getElementById('healthRegistrationFileInput').click()}>
+        <BsPencilSquare style={{ color: 'green', fontSize: '1.2em' }} />
+      </Button>
+      <Button variant="link" size="sm" onClick={() => newProduct.health_registration && window.open(newProduct.health_registration, '_blank')}>
+        <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
+      </Button>
+      <Button variant="link" size="sm" onClick={() => {
+        setHealthRegistrationFile(null);
+        setNewProduct({ ...newProduct, health_registration: '' });
+      }}>
+        <BsTrash style={{ color: 'red', fontSize: '1.2em' }} />
+      </Button>
+    </div>
+  </div>
+  <small className="text-muted mt-1">{newProduct.health_registration || 'Sin archivo seleccionado'}</small>
+</Form.Group>
+
+<Form.Group controlId="formEmergencyCard" className="mb-3 d-flex align-items-center flex-column">
+  <div className="d-flex w-100 align-items-center">
+    <Form.Label className="me-2">Tarjeta de Emergencia</Form.Label>
+    <div className="ms-auto d-flex justify-content-end">
+      <input
+        type="file"
+        accept=".pdf,.doc,.docx"
+        onChange={(e) => {
+          setEmergencyCardFile(e.target.files[0]);
+          setNewProduct({ ...newProduct, emergency_card: e.target.files[0]?.name || '' });
+        }}
+        style={{ display: 'none' }}
+        id="emergencyCardFileInput"
+      />
+      <Button variant="link" size="sm" onClick={() => document.getElementById('emergencyCardFileInput').click()}>
+        <BsPencilSquare style={{ color: 'green', fontSize: '1.2em' }} />
+      </Button>
+      <Button variant="link" size="sm" onClick={() => newProduct.emergency_card && window.open(newProduct.emergency_card, '_blank')}>
+        <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
+      </Button>
+      <Button variant="link" size="sm" onClick={() => {
+        setEmergencyCardFile(null);
+        setNewProduct({ ...newProduct, emergency_card: '' });
+      }}>
+        <BsTrash style={{ color: 'red', fontSize: '1.2em' }} />
+      </Button>
+    </div>
+  </div>
+  <small className="text-muted mt-1">{newProduct.emergency_card || 'Sin archivo seleccionado'}</small>
+</Form.Group>
+
           </Form>
         </Modal.Body>
         <Modal.Footer>
@@ -205,19 +370,53 @@ function ProductList() {
   <Modal.Header closeButton>
     <Modal.Title>Detalles del Producto</Modal.Title>
   </Modal.Header>
+
   <Modal.Body>
-    {selectedProduct && (
-      <>
-        <p><strong>Nombre:</strong> {selectedProduct.name}</p>
-        <p><strong>Dosis:</strong> {selectedProduct.dose}</p>
-        <p><strong>Duración Residual:</strong> {selectedProduct.residual_duration}</p>
-        <p><strong>Hoja de Datos de Seguridad:</strong> {selectedProduct.safety_data_sheet}</p>
-        <p><strong>Ficha Técnica:</strong> {selectedProduct.technical_sheet}</p>
-        <p><strong>Registro Sanitario:</strong> {selectedProduct.health_registration}</p>
-        <p><strong>Tarjeta de Emergencia:</strong> {selectedProduct.emergency_card}</p>
-      </>
-    )}
-  </Modal.Body>
+  {selectedProduct && (
+    <>
+      <p><strong>Nombre:</strong> {selectedProduct.name}</p>
+      <p><strong>Dosis:</strong> {selectedProduct.dose}</p>
+      <p><strong>Duración Residual:</strong> {selectedProduct.residual_duration}</p>
+
+      <div className="d-flex justify-content-between align-items-center">
+        <p><strong>Hoja de Datos de Seguridad:</strong></p>
+        {selectedProduct.safety_data_sheet ? (
+          <Button variant="link" size="sm" onClick={() => window.open(selectedProduct.safety_data_sheet, '_blank')}>
+            <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="d-flex justify-content-between align-items-center">
+        <p><strong>Ficha Técnica:</strong></p>
+        {selectedProduct.technical_sheet ? (
+          <Button variant="link" size="sm" onClick={() => window.open(selectedProduct.technical_sheet, '_blank')}>
+            <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="d-flex justify-content-between align-items-center">
+        <p><strong>Registro Sanitario:</strong></p>
+        {selectedProduct.health_registration ? (
+          <Button variant="link" size="sm" onClick={() => window.open(selectedProduct.health_registration, '_blank')}>
+            <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="d-flex justify-content-between align-items-center">
+        <p><strong>Tarjeta de Emergencia:</strong></p>
+        {selectedProduct.emergency_card ? (
+          <Button variant="link" size="sm" onClick={() => window.open(selectedProduct.emergency_card, '_blank')}>
+            <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
+          </Button>
+        ) : null}
+      </div>
+    </>
+  )}
+</Modal.Body>
+
   <Modal.Footer>
     <Button variant="secondary" onClick={handleCloseDetailModal}>Cerrar</Button>
   </Modal.Footer>
