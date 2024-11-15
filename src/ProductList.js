@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Button, Card, Modal, Form } from 'react-bootstrap';
+import { BsPencilSquare, BsTrash } from 'react-icons/bs';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function ProductList() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false); // Nuevo estado para el modal de detalles
   const [editingProduct, setEditingProduct] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null); // Nuevo estado para el producto seleccionado  
   const [newProduct, setNewProduct] = useState({
     name: '',
     description_type: '',
@@ -52,10 +55,20 @@ function ProductList() {
     setShowModal(true);
   };
 
+  const handleShowDetailModal = (product) => {
+    setSelectedProduct(product);
+    setShowDetailModal(true);
+  };  
+
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingProduct(null);
   };
+
+  const handleCloseDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedProduct(null);
+  };  
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -112,30 +125,30 @@ function ProductList() {
 
       <div className="row">
         {Object.keys(groupedProducts).map(descriptionType => (
-          <div key={descriptionType} className="col-md-6 mb-4">
-            <h4>{descriptionType || "Sin Tipo de Descripción"}</h4>
-            {groupedProducts[descriptionType].map((product) => (
-              <Card key={product.id} className="mb-3">
-                <Card.Body>
-                  <Card.Title>{product.name}</Card.Title>
-                  <Card.Text>
-                    <strong>Dosis:</strong> {product.dose}<br />
-                    <strong>Duración Residual:</strong> {product.residual_duration}<br />
-                    <strong>Hoja de Datos de Seguridad:</strong> {product.safety_data_sheet}<br />
-                    <strong>Ficha Técnica:</strong> {product.technical_sheet}<br />
-                    <strong>Registro Sanitario:</strong> {product.health_registration}<br />
-                    <strong>Tarjeta de Emergencia:</strong> {product.emergency_card}
-                  </Card.Text>
-                  <Button variant="success" size="sm" onClick={() => handleShowModal(product)}>
-                    Editar
-                  </Button>
-                  <Button variant="danger" size="sm" className="ms-2" onClick={() => deleteProduct(product.id)}>
-                    Eliminar
-                  </Button>
-                </Card.Body>
-              </Card>
-            ))}
-          </div>
+          <div key={descriptionType} className="col-md-4 mb-4">
+  <h4>{descriptionType || "Sin Tipo de Descripción"}</h4>
+  {groupedProducts[descriptionType].map((product) => (
+    <Card key={product.id} className="mb-3" onClick={() => handleShowDetailModal(product)} style={{ cursor: 'pointer' }}>
+<Card.Body className="d-flex flex-column align-items-center position-relative" style={{ height: '250px' }}>
+  <div className="text-center mb-4">
+    <Card.Title>{product.name}</Card.Title>
+    <Card.Text>
+      <strong>Dosis:</strong> {product.dose}<br />
+      <strong>Duración Residual:</strong> {product.residual_duration}
+    </Card.Text>
+  </div>
+  <div className="position-absolute bottom-0 end-0 mb-2 me-2">
+    <Button variant="link" size="sm" onClick={(event) => { event.stopPropagation(); handleShowModal(product); }}>
+      <BsPencilSquare style={{ color: 'green', fontSize: '1.5em' }} />
+    </Button>
+    <Button variant="link" size="sm" onClick={(event) => { event.stopPropagation(); deleteProduct(product.id); }}>
+      <BsTrash style={{ color: 'red', fontSize: '1.5em' }} />
+    </Button>
+  </div>
+</Card.Body>
+</Card>
+  ))}
+</div>
         ))}
       </div>
 
@@ -187,6 +200,29 @@ function ProductList() {
           </Button>
         </Modal.Footer>
       </Modal>
+      {/* Modal para ver detalles del producto */}
+<Modal show={showDetailModal} onHide={handleCloseDetailModal}>
+  <Modal.Header closeButton>
+    <Modal.Title>Detalles del Producto</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    {selectedProduct && (
+      <>
+        <p><strong>Nombre:</strong> {selectedProduct.name}</p>
+        <p><strong>Dosis:</strong> {selectedProduct.dose}</p>
+        <p><strong>Duración Residual:</strong> {selectedProduct.residual_duration}</p>
+        <p><strong>Hoja de Datos de Seguridad:</strong> {selectedProduct.safety_data_sheet}</p>
+        <p><strong>Ficha Técnica:</strong> {selectedProduct.technical_sheet}</p>
+        <p><strong>Registro Sanitario:</strong> {selectedProduct.health_registration}</p>
+        <p><strong>Tarjeta de Emergencia:</strong> {selectedProduct.emergency_card}</p>
+      </>
+    )}
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={handleCloseDetailModal}>Cerrar</Button>
+  </Modal.Footer>
+</Modal>
+
     </div>
   );
 }
