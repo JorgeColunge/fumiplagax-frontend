@@ -60,7 +60,9 @@ function Inspection() {
         Object.keys(initialFindings).forEach((type) => {
           initialFindings[type] = initialFindings[type].map((finding) => ({
             ...finding,
-            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null, // Agregar prefijo si existe la foto
+            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null, // URL de la foto
+            photoRelative: finding.photo || null, // URL relativa para el backend
+            photoBlob: null, // No hay Blob inicialmente porque proviene del backend
           }));
         });
   
@@ -74,7 +76,9 @@ function Inspection() {
         initialStationsFindings.forEach((finding) => {
           clientStationsData[finding.stationId] = {
             ...finding,
-            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null, // Agregar prefijo si existe la foto
+            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null, // URL de la foto
+            photoRelative: finding.photo || null, // URL relativa para el backend
+            photoBlob: null, // No hay Blob inicialmente porque proviene del backend
           };
         });
   
@@ -111,7 +115,7 @@ function Inspection() {
   
     fetchInspectionData();
     fetchProducts();
-  }, [inspectionId]);
+  }, [inspectionId]);  
 
   useEffect(() => {
     return () => {
@@ -141,25 +145,39 @@ function Inspection() {
   return Object.values(changes).some((change) => change); // Retorna true si hay algún cambio
 };
 
-
 const handleSaveChanges = async () => {
   try {
     const formData = new FormData();
 
+    // Información básica
     formData.append('inspectionId', inspectionId);
     formData.append('generalObservations', generalObservations);
-    formData.append('findingsByType', JSON.stringify(findingsByType));
+
+    // Procesar findingsByType con lógica condicional
+    const findingsByTypeProcessed = {};
+    Object.keys(findingsByType).forEach((type) => {
+      findingsByTypeProcessed[type] = findingsByType[type].map((finding) => {
+        const processedFinding = {
+          ...finding,
+          photo: finding.photoBlob ? null : finding.photoRelative, // Excluir URL si hay nueva imagen
+        };
+        return processedFinding;
+      });
+    });
+
+    formData.append('findingsByType', JSON.stringify(findingsByTypeProcessed));
     formData.append('productsByType', JSON.stringify(productsByType));
 
-    // Convertir stationsFindings en un array
+    // Procesar stationsFindings con lógica condicional
     const stationsFindingsArray = Object.entries(clientStations).map(([stationId, finding]) => ({
-      stationId,
       ...finding,
+      stationId,
+      photo: finding.photoBlob ? null : finding.photoRelative, // Excluir URL si hay nueva imagen
     }));
 
     formData.append('stationsFindings', JSON.stringify(stationsFindingsArray));
 
-    // Mapear imágenes de findings y estaciones
+    // Agregar imágenes nuevas de findings
     Object.keys(findingsByType).forEach((type) => {
       findingsByType[type].forEach((finding) => {
         if (finding.photoBlob) {
@@ -168,6 +186,7 @@ const handleSaveChanges = async () => {
       });
     });
 
+    // Agregar imágenes nuevas de stationsFindings
     stationsFindingsArray.forEach((finding) => {
       if (finding.photoBlob) {
         formData.append('images', finding.photoBlob, `${finding.stationId}.jpg`);
@@ -221,7 +240,6 @@ const handleSaveChanges = async () => {
 
   const handleFindingPhotoChange = (type, index, file) => {
     if (!file || !file.type.startsWith('image/')) {
-      console.error('No se seleccionó un archivo válido o no es una imagen.');
       alert('Seleccione un archivo válido de tipo imagen.');
       return;
     }
@@ -232,13 +250,11 @@ const handleSaveChanges = async () => {
       const updatedFindings = [...prevFindings[type]];
       updatedFindings[index] = {
         ...updatedFindings[index],
-        photo: photoURL, // URL para previsualización
-        photoBlob: file, // Asegúrate de guardar el archivo como File
+        photo: photoURL, // Nueva URL para previsualización
+        photoBlob: file, // Nuevo archivo seleccionado
       };
       return { ...prevFindings, [type]: updatedFindings };
     });
-  
-    console.log(`Imagen seleccionada para tipo ${type}, índice ${index}:`, file);
   };    
 
   const handleProductChange = (type, field, value) => {
@@ -313,21 +329,30 @@ const handleSaveChanges = async () => {
   
 
   const handleStationFindingPhotoChange = (file) => {
-    if (!file || !file.type.startsWith("image/")) {
-      console.error("No se seleccionó un archivo válido o no es una imagen.");
-      alert("Seleccione un archivo válido de tipo imagen.");
+    if (!file || !file.type.startsWith('image/')) {
+      console.error('No se seleccionó un archivo válido o no es una imagen.');
+      alert('Seleccione un archivo válido de tipo imagen.');
       return;
     }
   
+    // Crear una URL temporal para la previsualización
     const photoURL = URL.createObjectURL(file);
   
-    setStationFinding((prevFinding) => ({
-      ...prevFinding,
-      photo: photoURL, // URL para previsualización
-      photoBlob: file, // Blob para guardar offline o enviar online
-    }));
-  }; 
+    setStationFinding((prevFinding) => {
+      // Liberar la URL anterior si existía
+      if (prevFinding.photo && prevFinding.photo.startsWith('blob:')) {
+        URL.revokeObjectURL(prevFinding.photo);
+      }
   
+      return {
+        ...prevFinding,
+        photo: photoURL, // Nueva URL para previsualización
+        photoBlob: file, // Nuevo archivo seleccionado (Blob)
+      };
+    });
+  
+    console.log('Nueva imagen seleccionada:', file);
+  };  
   
   const handleSaveStationFinding = () => {
     setClientStations((prevStations) => ({
@@ -447,7 +472,7 @@ const handleSaveChanges = async () => {
       <h2 className="text-primary mb-4">Detalles de la Inspección</h2>
 
       {/* Sección General */}
-      <div className="card border-dark mb-3">
+      <div className="card border-dark mb-3" style={{ minHeight: 0, height: 'auto' }}>
         <div className="card-header">General</div>
         <div className="card-body">
           <h5 className="card-title">Información General</h5>
@@ -473,15 +498,15 @@ const handleSaveChanges = async () => {
 
       {/* Secciones por Tipo de Inspección */}
       {parsedInspectionTypes.map((type, index) => (
-        <div className="card border-primary mb-3" key={index}>
+        <div className="card border-primary mb-3" key={index} >
           <div className="card-header">{type}</div>
           <div className="card-body">
             <h5 className="card-title">{`Detalles Específicos de ${type}`}</h5>
 
             {type === 'Desratización' && stations.length > 0 && (
-            <div className="mt-3">
+            <div className="mt-3" >
                 <h6>Hallazgos en Estaciones ({type})</h6>
-                <div className="table-responsive">
+                <div className="table-responsive" style={{ minHeight: 0, height: 'auto' }}>
                 <table className="table table-bordered">
                     <thead>
                     <tr>
@@ -675,7 +700,7 @@ const handleSaveChanges = async () => {
 
             {/* Producto */}
             <h6>Producto</h6>
-            <div className="row">
+            <div className="row" style={{ minHeight: 0, height: 'auto' }}>
               <div className="col-md-6 mb-3">
                 <label htmlFor={`product-${type}`} className="form-label">
                   Producto
