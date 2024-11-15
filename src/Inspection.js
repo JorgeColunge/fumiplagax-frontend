@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, Table, InputGroup, FormControl, Modal, Form } from 'react-bootstrap';
 import api from './Api'; // Usa el archivo de API con lógica offline integrada
 import { saveRequest, isOffline } from './offlineHandler';
 import { initDB, initUsersDB, saveUsers, getUsers } from './indexedDBHandler';
+import SignatureCanvas from 'react-signature-canvas';
+import "./Inspection.css";
+import { ArrowDownSquare, ArrowUpSquare, Eye, PencilSquare, XCircle } from 'react-bootstrap-icons';
 
 function Inspection() {
   const { inspectionId } = useParams();
@@ -40,7 +43,60 @@ function Inspection() {
     description: '',
     photo: null,
   });
+  const [collapseStates, setCollapseStates] = useState({});
+  const [isMobile, setIsMobile] = useState(false);
+  const [viewStationModalOpen, setViewStationModalOpen] = useState(false);
+  const [viewStationData, setViewStationData] = useState({});
+  const [stationType, setStationType] = useState(null); // 'Desratización' o 'Desinsectación'
+  const [signModalOpen, setSignModalOpen] = useState(false);
+  const [techSignature, setTechSignature] = useState(null);
+  const [clientSignature, setClientSignature] = useState(null);
+  const [signData, setSignData] = useState({
+    name: '',
+    id: '',
+    position: '',
+  });
 
+  const sigCanvasTech = useRef();
+  const sigCanvasClient = useRef();
+
+  const handleClearTechSignature = () => {
+    sigCanvasTech.current.clear();
+    setTechSignature(null);
+  };
+
+  const handleClearClientSignature = () => {
+    sigCanvasClient.current.clear();
+    setClientSignature(null);
+  };
+
+  const handleSaveSignature = () => {
+    setTechSignature(sigCanvasTech.current.getTrimmedCanvas().toDataURL('image/png'));
+    setClientSignature(sigCanvasClient.current.getTrimmedCanvas().toDataURL('image/png'));
+  };
+
+  const handleSignModalClose = () => {
+    setSignModalOpen(false);
+    setTechSignature(null);
+    setClientSignature(null);
+    setSignData({ name: '', id: '', position: '' });
+  };
+
+  const handleSignDataChange = (field, value) => {
+    setSignData((prevData) => ({
+      ...prevData,
+      [field]: value,
+    }));
+  };
+
+  const handleSaveSignatures = () => {
+    // Aquí puedes manejar el guardado de las firmas
+    console.log('Firma Técnico:', techSignature);
+    console.log('Firma Cliente:', clientSignature);
+    console.log('Datos:', signData);
+    alert('Firmas guardadas exitosamente.');
+    handleSignModalClose();
+  };
 
 
   useEffect(() => {
@@ -127,6 +183,23 @@ function Inspection() {
       }
     };
   }, [stationFinding.photo, stationFindingDesinsectacion.photo]);
+
+  useEffect(() => {
+    // Detectar si el dispositivo es móvil
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768); // Ancho típico para dispositivos móviles
+    };
+  
+    // Escuchar cambios en el tamaño de la ventana
+    window.addEventListener('resize', handleResize);
+  
+    // Ejecutar al montar el componente
+    handleResize();
+  
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
   const detectChanges = () => {
   const changes = {
@@ -220,14 +293,24 @@ const handleSaveChanges = async () => {
   };
 
   const handleAddFinding = (type) => {
+    const newFindingId = Date.now(); // ID único basado en el timestamp
+    const newFindingKey = `${type}-${newFindingId}`; // Clave única para el hallazgo
+  
+    // Actualizar los hallazgos con el nuevo elemento
     setFindingsByType((prevFindings) => ({
       ...prevFindings,
       [type]: [
         ...(prevFindings[type] || []),
-        { id: Date.now(), place: '', description: '', photo: null },
+        { id: newFindingId, place: '', description: '', photo: null },
       ],
     }));
-  };
+  
+    // Actualizar los estados de colapso para expandir el nuevo hallazgo
+    setCollapseStates((prevStates) => ({
+      ...prevStates,
+      [newFindingKey]: true, // Expandir el nuevo hallazgo
+    }));
+  };  
   
 
   const handleFindingChange = (type, index, field, value) => {
@@ -300,8 +383,32 @@ const handleSaveChanges = async () => {
 
   const handleOpenStationModal = (stationId) => {
     setCurrentStationId(stationId);
+  
+    if (clientStations[stationId]) {
+      setStationFinding({
+        ...clientStations[stationId], // Carga los datos existentes
+        photoBlob: null, // Asegúrate de que `photoBlob` esté vacío para nuevas selecciones
+      });
+    } else {
+      // Si no hay hallazgo previo, usa valores predeterminados
+      setStationFinding({
+        purpose: 'Consumo',
+        consumptionAmount: 'Nada',
+        captureQuantity: '',
+        marked: 'No',
+        physicalState: 'Buena',
+        damageLocation: '',
+        requiresChange: 'No',
+        changePriority: 'No',
+        description: '',
+        photo: null,
+        photoBlob: null,
+      });
+    }
+  
     setStationModalOpen(true);
   };
+  
   
   const handleCloseStationModal = () => {
     setCurrentStationId(null);
@@ -373,8 +480,29 @@ const handleSaveChanges = async () => {
 
   const handleOpenStationModalDesinsectacion = (stationId) => {
     setCurrentStationIdDesinsectacion(stationId);
+  
+    if (clientStations[stationId]) {
+      setStationFindingDesinsectacion({
+        ...clientStations[stationId], // Carga los datos existentes
+        photoBlob: null, // Asegúrate de que `photoBlob` esté vacío para nuevas selecciones
+      });
+    } else {
+      // Si no hay hallazgo previo, usa valores predeterminados
+      setStationFindingDesinsectacion({
+        captureQuantity: '',
+        physicalState: 'Buena',
+        damageLocation: '',
+        requiresChange: 'No',
+        changePriority: 'No',
+        description: '',
+        photo: null,
+        photoBlob: null,
+      });
+    }
+  
     setStationModalOpenDesinsectacion(true);
   };
+  
   
   const handleCloseStationModalDesinsectacion = () => {
     setCurrentStationIdDesinsectacion(null);
@@ -450,7 +578,41 @@ const handleSaveChanges = async () => {
       }
     }
   }; 
-  
+
+  // Manejador de estado de colapso
+const handleCollapseToggle = (currentKey) => {
+  setCollapseStates({ [currentKey]: !collapseStates[currentKey] }); // Solo permite un hallazgo expandido
+};
+
+const handleViewStation = (stationId) => {
+  setViewStationData(clientStations[stationId] || {});
+  setViewStationModalOpen(true);
+};
+
+const handleViewStationDesratizacion = (stationId) => {
+  setViewStationData(clientStations[stationId] || {});
+  setStationType('Desratización');
+  setViewStationModalOpen(true);
+};
+
+const handleViewStationDesinsectacion = (stationId) => {
+  setViewStationData(clientStations[stationId] || {});
+  setStationType('Desinsectación');
+  setViewStationModalOpen(true);
+};
+
+const handleDeleteFinding = (type, index) => {
+  if (window.confirm("¿Estás seguro de que deseas eliminar este hallazgo?")) {
+    setFindingsByType((prevFindings) => {
+      const updatedFindings = { ...prevFindings };
+      updatedFindings[type].splice(index, 1);
+      if (updatedFindings[type].length === 0) {
+        delete updatedFindings[type];
+      }
+      return updatedFindings;
+    });
+  }
+};
 
   if (loading) return <div>Cargando detalles de la inspección...</div>;
 
@@ -469,21 +631,17 @@ const handleSaveChanges = async () => {
 
   return (
     <div className="container mt-4">
-      <h2 className="text-primary mb-4">Detalles de la Inspección</h2>
+      <h2 className="text-success mb-4">Detalles de la Inspección</h2>
 
       {/* Sección General */}
       <div className="card border-dark mb-3" style={{ minHeight: 0, height: 'auto' }}>
         <div className="card-header">General</div>
         <div className="card-body">
-          <h5 className="card-title">Información General</h5>
-          <p><strong>ID de la Inspección:</strong> {inspectionId}</p>
+          <p><strong>Inspección:</strong> {inspectionId}</p>
           <p><strong>Fecha:</strong> {date}</p>
           <p><strong>Hora:</strong> {time}</p>
-          <p><strong>ID del Servicio Relacionado:</strong> {service_id}</p>
+          <p><strong>Servicio:</strong> {service_id}</p>
           <div className="mt-3">
-            <label htmlFor="generalObservations" className="form-label">
-              Observaciones Generales:
-            </label>
             <textarea
               id="generalObservations"
               className="form-control"
@@ -498,213 +656,517 @@ const handleSaveChanges = async () => {
 
       {/* Secciones por Tipo de Inspección */}
       {parsedInspectionTypes.map((type, index) => (
-        <div className="card border-primary mb-3" key={index} >
+        <div className="card border-success mb-3" key={index} >
           <div className="card-header">{type}</div>
           <div className="card-body">
-            <h5 className="card-title">{`Detalles Específicos de ${type}`}</h5>
 
             {type === 'Desratización' && stations.length > 0 && (
-            <div className="mt-3" >
-                <h6>Hallazgos en Estaciones ({type})</h6>
-                <div className="table-responsive" style={{ minHeight: 0, height: 'auto' }}>
-                <table className="table table-bordered">
-                    <thead>
-                    <tr>
-                        <th>Estación</th>
-                        <th>Finalidad</th>
-                        <th>Estado Físico</th>
-                        <th>Descripción</th>
-                        <th>Foto</th>
-                        <th>Acciones</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {stations
-                        .filter((station) => station.category === 'Roedores')
-                        .map((station) => (
-                        <tr key={station.id}>
-                            <td>{station.name || `Estación ${station.id}`}</td>
-                            {clientStations[station.id] ? (
-                            <>
-                                <td>{clientStations[station.id].purpose || '-'}</td>
-                                <td>{clientStations[station.id].physicalState || '-'}</td>
-                                <td>{clientStations[station.id].description || '-'}</td>
-                                <td>
-                                {clientStations[station.id].photo ? (
-                                    <img
-                                    src={clientStations[station.id].photo}
-                                    alt="Foto"
-                                    style={{ width: '100px', height: '100px', objectFit: 'cover' }}
-                                    />
+              <div className="mt-1">
+                <h6>Hallazgos en Estaciones</h6>
+                <div className="table-responsive mt-3">
+                  {isMobile ? (
+                    // Vista móvil con colapso
+                    stations
+                      .filter((station) => station.category === 'Roedores')
+                      .map((station) => {
+                        const currentKey = `station-${station.id}`;
+                        return (
+                          <div
+                            key={station.id}
+                            className="finding-item border mb-3 p-2"
+                            style={{ borderRadius: '5px', backgroundColor: '#f8f9fa' }}
+                          >
+                            <div className="d-flex justify-content-between align-items-center">
+                              <strong>{station.name || `Estación ${station.id}`}</strong>
+                              <div
+                                className="icon-toggle"
+                                onClick={() => handleCollapseToggle(currentKey)}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                {collapseStates[currentKey] ? (
+                                  <ArrowUpSquare title="Ocultar" />
                                 ) : (
-                                    '-'
+                                  <ArrowDownSquare title="Expandir" />
                                 )}
+                              </div>
+                            </div>
+                            <div
+                              className={`finding-details ${
+                                collapseStates[currentKey] ? 'd-block' : 'd-none'
+                              } mt-2`}
+                            >
+                             {clientStations[station.id] ? (
+                      <>
+                        <p><strong>Finalidad:</strong> {clientStations[station.id].purpose || '-'}</p>
+
+                        {clientStations[station.id].purpose === 'Consumo' && (
+                          <p><strong>Cantidad Consumida:</strong> {clientStations[station.id].consumptionAmount || '-'}</p>
+                        )}
+
+                        {clientStations[station.id].purpose === 'Captura' && (
+                          <p><strong>Cantidad Capturada:</strong> {clientStations[station.id].captureQuantity || '-'}</p>
+                        )}
+
+                        <p><strong>Estado Físico:</strong> {clientStations[station.id].physicalState || '-'}</p>
+                        {clientStations[station.id].physicalState === 'Dañada' && (
+                          <>
+                            <p><strong>Lugar del Daño:</strong> {clientStations[station.id].damageLocation || '-'}</p>
+                            <p><strong>Requiere Cambio:</strong> {clientStations[station.id].requiresChange || '-'}</p>
+                            {clientStations[station.id].requiresChange === 'Si' && (
+                              <p><strong>Prioridad de Cambio:</strong> {clientStations[station.id].changePriority || '-'}</p>
+                            )}
+                          </>
+                        )}
+                        <p><strong>Descripción:</strong> {clientStations[station.id].description || '-'}</p>
+                        <div className="mb-3">
+                          {clientStations[station.id].photo ? (
+                            <img
+                              src={clientStations[station.id].photo}
+                              alt="Foto"
+                              style={{ width: '150px', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <span>Sin Foto</span>
+                          )}
+                        </div>
+                        <button
+                          className="btn btn-outline-success"
+                          onClick={() => handleOpenStationModal(station.id)}
+                        >
+                          Editar
+                        </button>
+                      </>
+                  ) : (
+                    <>
+                      <p>Sin hallazgo reportado</p>
+                      <button
+                        className="btn btn-outline-success"
+                        onClick={() => handleOpenStationModalDesinsectacion(station.id)}
+                      >
+                        +
+                      </button>
+                    </>
+                  )}
+                            </div>
+                          </div>
+                        );
+                      })
+                  ) : (
+                    // Vista de tabla para tablet y computadora
+                    <table className="table table-bordered">
+                      <thead>
+                        <tr>
+                          <th>Estación</th>
+                          <th>Finalidad</th>
+                          <th>Estado Físico</th>
+                          <th>Descripción</th>
+                          <th>Foto</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stations
+                          .filter((station) => station.category === 'Roedores')
+                          .map((station) => (
+                            <tr key={station.id}>
+                              <td className='align-middle'>{station.name || `Estación ${station.id}`}</td>
+                              {clientStations[station.id] ? (
+                              <>
+                                <td className='align-middle'>{clientStations[station.id].purpose || '-'}</td>
+                                <td className='align-middle'>{clientStations[station.id].physicalState || '-'}</td>
+                                <td className='align-middle'>{clientStations[station.id].description || '-'}</td>
+                                <td className='align-middle mx-1 px-1'>
+                                  {clientStations[station.id].photo ? (
+                                    <img
+                                      src={clientStations[station.id].photo}
+                                      alt="Foto"
+                                      style={{ width: '250px', objectFit: 'cover', margin: "0px", padding: "0px" }}
+                                    />
+                                  ) : (
+                                    '-'
+                                  )}
                                 </td>
-                                <td>
-                                <button
-                                    className="btn btn-outline-primary"
+                                <td className='align-middle'>
+                                {!isMobile && (
+                                    <Eye
+                                    className='mx-2'
+                                      size={"25px"}
+                                      color='blue'
+                                      type='button'
+                                      onClick={() => handleViewStationDesratizacion(station.id)}
+                                    >
+                                    </Eye>
+                                  )}
+                                  <PencilSquare
+                                  className='mx-2'
+                                    size={"20px"}
+                                    color='green'
+                                    type='button'
                                     onClick={() => handleOpenStationModal(station.id)}
-                                >
+                                  >
                                     Editar
-                                </button>
+                                  </PencilSquare>
                                 </td>
-                            </>
+                              </>
                             ) : (
-                            <>
+                              <>
                                 <td colSpan="4">Sin hallazgo reportado</td>
                                 <td>
-                                <button
-                                    className="btn btn-outline-primary"
+                                  <button
+                                    className="btn btn-outline-success"
                                     onClick={() => handleOpenStationModal(station.id)}
-                                >
+                                  >
                                     +
-                                </button>
+                                  </button>
                                 </td>
-                            </>
+                              </>
                             )}
-                        </tr>
-                        ))}
-                    </tbody>
-                </table>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
-            </div>
+              </div>
             )}
 
+
             {type === 'Desinsectación' && stations.length > 0 && (
-            <div className="mt-3">
-                <h6>Hallazgos en Estaciones ({type})</h6>
-                <div className="table-responsive">
-                <table className="table table-bordered">
-                    <thead>
-                    <tr>
-                        <th>Estación</th>
-                        <th>Cantidad de Capturas</th>
-                        <th>Estado Físico</th>
-                        <th>Descripción</th>
-                        <th>Foto</th>
-                        <th>Acciones</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {stations
-                        .filter((station) => station.category === 'Aéreas')
-                        .map((station) => (
-                        <tr key={station.id}>
-                            <td>{station.name || `Estación ${station.id}`}</td>
-                            {clientStations[station.id] ? (
-                            <>
-                                <td>{clientStations[station.id].captureQuantity || '-'}</td>
-                                <td>{clientStations[station.id].physicalState || '-'}</td>
-                                <td>{clientStations[station.id].description || '-'}</td>
-                                <td>
-                                {clientStations[station.id].photo ? (
-                                    <img
-                                    src={clientStations[station.id].photo}
-                                    alt="Foto"
-                                    style={{ width: '100px', height: '100px', objectFit: 'cover' }}
-                                    />
+              <div className="mt-1">
+                <h6>Hallazgos en Estaciones</h6>
+                <div className="table-responsive mt-3">
+                  {isMobile ? (
+                    // Vista móvil con colapso
+                    stations
+                      .filter((station) => station.category === 'Aéreas')
+                      .map((station) => {
+                        const currentKey = `station-desinsectacion-${station.id}`;
+                        return (
+                          <div
+                            key={station.id}
+                            className="finding-item border mb-3 p-2"
+                            style={{ borderRadius: '5px', backgroundColor: '#f8f9fa' }}
+                          >
+                            <div className="d-flex justify-content-between align-items-center">
+                              <strong>{station.name || `Estación ${station.id}`}</strong>
+                              <div
+                                className="icon-toggle"
+                                onClick={() => handleCollapseToggle(currentKey)}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                {collapseStates[currentKey] ? (
+                                  <ArrowUpSquare title="Ocultar" />
                                 ) : (
-                                    '-'
+                                  <ArrowDownSquare title="Expandir" />
                                 )}
-                                </td>
-                                <td>
-                                <button
-                                    className="btn btn-outline-primary"
+                              </div>
+                            </div>
+                            <div
+                              className={`finding-details ${
+                                collapseStates[currentKey] ? 'd-block' : 'd-none'
+                              } mt-2`}
+                            >
+                              {clientStations[station.id] ? (
+                                <>
+                                  <p><strong>Capturas:</strong> {clientStations[station.id].captureQuantity || '-'}</p>
+                                  <p><strong>Estado Físico:</strong> {clientStations[station.id].physicalState || '-'}</p>
+                                  <p><strong>Descripción:</strong> {clientStations[station.id].description || '-'}</p>
+                                  <div className="mb-3">
+                                    {clientStations[station.id].photo ? (
+                                      <img
+                                        src={clientStations[station.id].photo}
+                                        alt="Foto"
+                                        style={{ width: '150px', objectFit: 'cover' }}
+                                      />
+                                    ) : (
+                                      <span>Sin Foto</span>
+                                    )}
+                                  </div>
+                                  <button
+                                    className="btn btn-outline-success"
                                     onClick={() => handleOpenStationModalDesinsectacion(station.id)}
-                                >
+                                  >
                                     Editar
-                                </button>
-                                </td>
-                            </>
-                            ) : (
-                            <>
-                                <td colSpan="4">Sin hallazgo reportado</td>
-                                <td>
-                                <button
-                                    className="btn btn-outline-primary"
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <p>Sin hallazgo reportado</p>
+                                  <button
+                                    className="btn btn-outline-success"
                                     onClick={() => handleOpenStationModalDesinsectacion(station.id)}
-                                >
+                                  >
                                     +
-                                </button>
-                                </td>
-                            </>
-                            )}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                  ) : (
+                    // Vista de tabla para tablet y computadora
+                    <table className="table table-bordered">
+                      <thead>
+                        <tr>
+                          <th>Estación</th>
+                          <th>Cantidad de Capturas</th>
+                          <th>Estado Físico</th>
+                          <th>Descripción</th>
+                          <th>Foto</th>
+                          <th>Acciones</th>
                         </tr>
-                        ))}
-                    </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {stations
+                          .filter((station) => station.category === 'Aéreas')
+                          .map((station) => (
+                            <tr key={station.id}>
+                              <td className='align-middle'>{station.name || `Estación ${station.id}`}</td>
+                              {clientStations[station.id] ? (
+                                <>
+                                  <td className='align-middle'>{clientStations[station.id].captureQuantity || '-'}</td>
+                                  <td className='align-middle'>{clientStations[station.id].physicalState || '-'}</td>
+                                  <td className='align-middle'>{clientStations[station.id].description || '-'}</td>
+                                  <td className='align-middle'>
+                                    {clientStations[station.id].photo ? (
+                                      <img
+                                        src={clientStations[station.id].photo}
+                                        alt="Foto"
+                                        style={{ width: '250px', objectFit: 'cover', margin: "0px", padding: "0px" }}
+                                      />
+                                    ) : (
+                                      '-'
+                                    )}
+                                  </td>
+                                  <td className='align-middle'>
+                                  {!isMobile && (
+                                    <Eye
+                                    className='mx-2'
+                                      size={"25px"}
+                                      color='blue'
+                                      type='button'
+                                      onClick={() => handleViewStationDesinsectacion(station.id)}
+                                    >
+                                    </Eye>
+                                  )}
+                                  <PencilSquare
+                                  className='mx-2'
+                                    size={"20px"}
+                                    color='green'
+                                    type='button'
+                                    onClick={() => handleOpenStationModalDesinsectacion(station.id)}
+                                  >
+                                    Editar
+                                  </PencilSquare>
+                                  </td>
+                                </>
+                              ) : (
+                                <>
+                                  <td colSpan="4">Sin hallazgo reportado</td>
+                                  <td>
+                                    <button
+                                      className="btn btn-outline-success"
+                                      onClick={() => handleOpenStationModalDesinsectacion(station.id)}
+                                    >
+                                      +
+                                    </button>
+                                  </td>
+                                </>
+                              )}
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
-            </div>
+              </div>
             )}
 
             {/* Hallazgos */}
-            <h6>Hallazgos</h6>
-            <div className="table-responsive">
-              <table className="table table-bordered">
-                <thead>
-                  <tr>
-                    <th style={{ width: "20%" }}>Lugar</th>
-                    <th style={{ width: "50%" }}>Descripción</th>
-                    <th style={{ width: "30%" }}>Foto</th>
-                  </tr>
-                </thead>
-                <tbody>
-                {(findingsByType[type] || []).map((finding, idx) => (
-                    <tr key={idx}>
-                      <td>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={finding.place}
-                          onChange={(e) => handleFindingChange(type, idx, 'place', e.target.value)}
-                          placeholder="Lugar"
-                        />
-                      </td>
-                      <td>
-                        <textarea
-                          className="form-control"
-                          rows="2"
-                          value={finding.description}
-                          onChange={(e) => handleFindingChange(type, idx, 'description', e.target.value)}
-                          placeholder="Descripción"
-                        ></textarea>
-                      </td>
-                      <td>
-                        <div className="d-flex flex-column align-items-center">
-                          <input
-                            type="file"
-                            className="form-control mb-2"
-                            onChange={(e) => handleFindingPhotoChange(type, idx, e.target.files[0])}
-                          />
-                          {finding.photo && (
-                            <img
-                              src={finding.photo}
-                              alt={`Preview ${idx}`}
-                              style={{ width: "100px", height: "100px", objectFit: "cover" }}
-                            />
+            <hr></hr>
+            <h6 className='mt-2'>Hallazgos</h6>
+            <div className="table-responsive findings-container">
+            {(findingsByType[type] || []).map((finding, idx) => {
+              const currentKey = `${type}-${finding.id}`; // Usar el ID único como clave
+              const findingTitle = finding.place && finding.place.trim() !== '' 
+                ? `Hallazgo ${finding.place}` 
+                : `Hallazgo ${idx + 1}`; // Mostrar 'Hallazgo' seguido del índice si 'place' está vacío
+
+              return (
+                <div key={currentKey} className="finding-item mb-3 mx-1">
+                  {/* Para dispositivos móviles: función de colapso */}
+                  {isMobile ? (
+                    <>
+                      <div className="d-flex justify-content-between align-items-center" >
+                        <strong>{findingTitle}</strong>
+                        <div
+                          className="icon-toggle"
+                          onClick={() =>
+                            setCollapseStates({ [currentKey]: !collapseStates[currentKey] })
+                          }
+                          style={{ cursor: "pointer", display: "inline-block" }}
+                        >
+                          {collapseStates[currentKey] ? (
+                            <ArrowUpSquare title="Ocultar" />
+                          ) : (
+                            <ArrowDownSquare title="Expandir" />
                           )}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+
+                      <div
+                        className={`finding-details ${
+                          collapseStates[currentKey] ? "d-block" : "d-none"
+                        }`} 
+                      >
+                        <div className="row mt-3" style={{ minHeight: 0, height: 'auto' }}>
+                          <div className="col-md-2" >
+                            <label htmlFor={`place-${type}-${idx}`} className="form-label">
+                              Lugar
+                            </label>
+                            <input
+                              id={`place-${type}-${idx}`}
+                              type="text"
+                              className="form-control table-input"
+                              value={finding.place}
+                              onChange={(e) =>
+                                handleFindingChange(type, idx, "place", e.target.value)
+                              }
+                              placeholder="Lugar"
+                            />
+                          </div>
+                          <div className="col-md-8">
+                            <label
+                              htmlFor={`description-${type}-${idx}`}
+                              className="form-label"
+                            >
+                              Descripción
+                            </label>
+                            <textarea
+                              id={`description-${type}-${idx}`}
+                              className="form-control table-textarea"
+                              rows="2"
+                              value={finding.description}
+                              onChange={(e) =>
+                                handleFindingChange(type, idx, "description", e.target.value)
+                              }
+                              placeholder="Descripción"
+                            ></textarea>
+                          </div>
+                          <div className="col-md-2">
+                            <label className="form-label">Foto</label>
+                            <div className="image-upload-container">
+                              {finding.photo ? (
+                                <img
+                                  src={finding.photo}
+                                  alt={`Preview ${idx}`}
+                                  className="image-preview"
+                                />
+                              ) : (
+                                <div className="drag-drop-area">
+                                  <span>Arrastra o selecciona una imagen</span>
+                                </div>
+                              )}
+                              <input
+                                type="file"
+                                className="image-input"
+                                onChange={(e) =>
+                                  handleFindingPhotoChange(type, idx, e.target.files[0])
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    // Para tablet y computadoras: mostrar todo expandido
+                    <div className="finding-details d-block">
+                      <div className="col-md-2 mt-0 mb-0 ms-auto text-end">
+                        <XCircle
+                          size={"20px"}
+                          color='red'
+                          onClick={() => handleDeleteFinding(type, idx)}
+                        ></XCircle>
+                      </div>
+                      <div className="row mt-3" style={{ minHeight: 0, height: 'auto' }}>
+                        <div className="col-md-2">
+                          <label htmlFor={`place-${type}-${idx}`} className="form-label">
+                            Lugar
+                          </label>
+                          <input
+                            id={`place-${type}-${idx}`}
+                            type="text"
+                            className="form-control table-input"
+                            value={finding.place}
+                            onChange={(e) =>
+                              handleFindingChange(type, idx, "place", e.target.value)
+                            }
+                            placeholder="Lugar"
+                          />
+                        </div>
+                        <div className="col-md-8">
+                          <label
+                            htmlFor={`description-${type}-${idx}`}
+                            className="form-label"
+                          >
+                            Descripción
+                          </label>
+                          <textarea
+                            id={`description-${type}-${idx}`}
+                            className="form-control table-textarea"
+                            rows="2"
+                            value={finding.description}
+                            onChange={(e) =>
+                              handleFindingChange(type, idx, "description", e.target.value)
+                            }
+                            placeholder="Descripción"
+                          ></textarea>
+                        </div>
+                        <div className="col-md-2">
+                          <label className="form-label">Foto</label>
+                          <div className="image-upload-container">
+                            {finding.photo ? (
+                              <img
+                                src={finding.photo}
+                                alt={`Preview ${idx}`}
+                                className="image-preview"
+                              />
+                            ) : (
+                              <div className="drag-drop-area">
+                                <span>Arrastra o selecciona una imagen</span>
+                              </div>
+                            )}
+                            <input
+                              type="file"
+                              className="image-input"
+                              onChange={(e) =>
+                                handleFindingPhotoChange(type, idx, e.target.files[0])
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
             <button
-              className="btn btn-outline-primary mb-3"
+              className="btn btn-outline-success mb-3"
               onClick={() => handleAddFinding(type)}
             >
               + Agregar Hallazgo
             </button>
 
             {/* Producto */}
-            <h6>Producto</h6>
+            <hr></hr>
+            <h6 className='mt-2'>Producto</h6>
             <div className="row" style={{ minHeight: 0, height: 'auto' }}>
               <div className="col-md-6 mb-3">
-                <label htmlFor={`product-${type}`} className="form-label">
-                  Producto
-                </label>
                 <select
                   id={`product-${type}`}
                   className="form-select"
@@ -720,16 +1182,13 @@ const handleSaveChanges = async () => {
                 </select>
               </div>
               <div className="col-md-6 mb-3">
-                <label htmlFor={`dosage-${type}`} className="form-label">
-                  Dosificación (en gramos/ml)
-                </label>
                 <input
                   id={`dosage-${type}`}
                   type="number"
                   className="form-control"
                   value={productsByType[type]?.dosage || ''}
                   onChange={(e) => handleProductChange(type, 'dosage', e.target.value)}
-                  placeholder="Ingrese la dosificación"
+                  placeholder="Ingrese la dosificación en gr/ml"
                 />
               </div>
             </div>
@@ -737,10 +1196,13 @@ const handleSaveChanges = async () => {
         </div>
       ))}
 
-      {/* Botón para guardar cambios */}
+      {/* Botón para guardar cambios y firmar */}
       <div className="text-end mt-4">
-        <button className="btn btn-success" onClick={handleSaveChanges}>
-            Guardar Cambios
+        <button className="btn btn-success me-2" onClick={handleSaveChanges}>
+          Guardar Cambios
+        </button>
+        <button className="btn btn-primary" onClick={() => setSignModalOpen(true)}>
+          Firmar
         </button>
       </div>
 
@@ -864,29 +1326,36 @@ const handleSaveChanges = async () => {
             </div>
             <div className="mb-3">
             <label className="form-label">Fotografía</label>
-            <input
-              type="file"
-              className="form-control"
-              onChange={(e) => {
-                const file = e.target.files[0];
-                if (file) handleStationFindingPhotoChange(file);
-              }}
-            />
-            {stationFinding.photo && (
+            <div className="image-upload-container">
+              {stationFinding.photo ? (
                 <img
-                src={stationFinding.photo}
-                alt="Preview"
-                style={{ width: '100px', height: '100px', objectFit: 'cover' }}
-                className="mt-2"
+                  src={stationFinding.photo}
+                  alt="Preview"
+                  className="image-preview"
                 />
-            )}
+              ) : (
+                <div className="drag-drop-area">
+                  <span>Arrastra o selecciona una imagen</span>
+                </div>
+              )}
+              <input
+                type="file"
+                className="image-input"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    handleStationFindingPhotoChange(file); // Se mantiene la lógica original
+                  }
+                }}
+              />
             </div>
+          </div>
         </Modal.Body>
         <Modal.Footer>
             <button className="btn btn-secondary" onClick={handleCloseStationModal}>
             Cancelar
             </button>
-            <button className="btn btn-primary" onClick={handleSaveStationFinding}>
+            <button className="btn btn-success" onClick={handleSaveStationFinding}>
             Guardar Hallazgo
             </button>
         </Modal.Footer>
@@ -894,7 +1363,7 @@ const handleSaveChanges = async () => {
 
         <Modal show={stationModalOpenDesinsectacion} onHide={handleCloseStationModalDesinsectacion} size="lg">
         <Modal.Header closeButton>
-            <Modal.Title>Agregar Hallazgo para la Estación (Desinsectación)</Modal.Title>
+            <Modal.Title>Agregar Hallazgo para la Estación</Modal.Title>
         </Modal.Header>
         <Modal.Body>
             <div className="mb-3">
@@ -971,33 +1440,176 @@ const handleSaveChanges = async () => {
             </div>
             <div className="mb-3">
             <label className="form-label">Fotografía</label>
-            <input
-              type="file"
-              className="form-control"
-              onChange={(e) => {
-                const file = e.target.files[0];
-                if (file) handleStationFindingPhotoChangeDesinsectacion(file);
-              }}
-            />
-            {stationFindingDesinsectacion.photo && (
+            <div className="image-upload-container">
+              {stationFindingDesinsectacion.photo ? (
                 <img
-                src={stationFindingDesinsectacion.photo}
-                alt="Preview"
-                style={{ width: '100px', height: '100px', objectFit: 'cover' }}
-                className="mt-2"
+                  src={stationFindingDesinsectacion.photo}
+                  alt="Preview"
+                  className="image-preview"
                 />
-            )}
+              ) : (
+                <div className="drag-drop-area">
+                  <span>Arrastra o selecciona una imagen</span>
+                </div>
+              )}
+              <input
+                type="file"
+                className="image-input"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    handleStationFindingPhotoChangeDesinsectacion(file); // Mantiene la lógica original
+                  }
+                }}
+              />
             </div>
+          </div>
         </Modal.Body>
         <Modal.Footer>
             <button className="btn btn-secondary" onClick={handleCloseStationModalDesinsectacion}>
             Cancelar
             </button>
-            <button className="btn btn-primary" onClick={handleSaveStationFindingDesinsectacion}>
+            <button className="btn btn-success" onClick={handleSaveStationFindingDesinsectacion}>
             Guardar Hallazgo
             </button>
         </Modal.Footer>
         </Modal>
+
+        <Modal show={viewStationModalOpen} onHide={() => setViewStationModalOpen(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Detalles de la Estación</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {stationType === 'Desratización' && (
+            <>
+              <p><strong>Finalidad:</strong> {viewStationData.purpose || '-'}</p>
+              {viewStationData.purpose === 'Consumo' && (
+                <p><strong>Cantidad Consumida:</strong> {viewStationData.consumptionAmount || '-'}</p>
+              )}
+              {viewStationData.purpose === 'Captura' && (
+                <p><strong>Cantidad Capturada:</strong> {viewStationData.captureQuantity || '-'}</p>
+              )}
+            </>
+          )}
+          {stationType === 'Desinsectación' && (
+            <>
+              <p><strong>Capturas:</strong> {viewStationData.captureQuantity || '-'}</p>
+            </>
+          )}
+          <p><strong>Estado Físico:</strong> {viewStationData.physicalState || '-'}</p>
+          {viewStationData.physicalState === 'Dañada' && (
+            <>
+              <p><strong>Lugar del Daño:</strong> {viewStationData.damageLocation || '-'}</p>
+              <p><strong>Requiere Cambio:</strong> {viewStationData.requiresChange || '-'}</p>
+              {viewStationData.requiresChange === 'Si' && (
+                <p><strong>Prioridad de Cambio:</strong> {viewStationData.changePriority || '-'}</p>
+              )}
+            </>
+          )}
+          <p><strong>Descripción:</strong> {viewStationData.description || '-'}</p>
+          <div className="mb-3">
+            {viewStationData.photo ? (
+              <img
+                src={viewStationData.photo}
+                alt="Foto"
+                style={{ width: '300px', objectFit: 'cover' }}
+              />
+            ) : (
+              <span>Sin Foto</span>
+            )}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <button className="btn btn-secondary" onClick={() => setViewStationModalOpen(false)}>
+            Cerrar
+          </button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de firma */}
+      <Modal show={signModalOpen} onHide={handleSignModalClose} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Firmar Inspección</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="mb-3">
+            <label className="form-label">Firma Técnico</label>
+            <SignatureCanvas
+              ref={sigCanvasTech}
+              penColor="black"
+              canvasProps={{ width: 500, height: 200, className: 'signature-canvas' }}
+            />
+            <div className="mt-2">
+              <button className="btn btn-outline-secondary me-2" onClick={handleClearTechSignature}>
+                Limpiar Firma Técnico
+              </button>
+            </div>
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Firma Cliente</label>
+            <SignatureCanvas
+              ref={sigCanvasClient}
+              penColor="black"
+              canvasProps={{ width: 500, height: 200, className: 'signature-canvas' }}
+            />
+            <div className="mt-2">
+              <button
+                className="btn btn-outline-secondary me-2"
+                onClick={handleClearClientSignature}
+              >
+                Limpiar Firma Cliente
+              </button>
+            </div>
+          </div>
+          <div className="row">
+            <div className="col-md-4">
+              <label className="form-label">Nombre</label>
+              <input
+                type="text"
+                className="form-control"
+                value={signData.name}
+                onChange={(e) => handleSignDataChange('name', e.target.value)}
+                placeholder="Nombre del cliente"
+              />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label">Cédula</label>
+              <input
+                type="text"
+                className="form-control"
+                value={signData.id}
+                onChange={(e) => handleSignDataChange('id', e.target.value)}
+                placeholder="Cédula"
+              />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label">Cargo</label>
+              <input
+                type="text"
+                className="form-control"
+                value={signData.position}
+                onChange={(e) => handleSignDataChange('position', e.target.value)}
+                placeholder="Cargo"
+              />
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <button className="btn btn-secondary" onClick={handleSignModalClose}>
+            Cancelar
+          </button>
+          <button
+            className="btn btn-success"
+            onClick={() => {
+              handleSaveSignature();
+              handleSaveSignatures();
+            }}
+          >
+            Guardar Firmas
+          </button>
+        </Modal.Footer>
+      </Modal>
+
     </div>
   );
 }
