@@ -14,9 +14,7 @@ function ServiceList() {
   const [showModal, setShowModal] = useState(false);
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
-  console.log("Stored User Info:", storedUserInfo); // Verifica el contenido completo
   const userId = storedUserInfo?.id_usuario || '';
-  console.log("User ID:", userId); // Debería mostrar el ID real ahora
   const [selectedUser, setSelectedUser] = useState('');
 
   const [showServiceType, setShowServiceType] = useState(false);
@@ -220,9 +218,6 @@ const handleDropdownToggle = (isOpen, event) => {
     setFilteredServices(filtered);
   }, [selectedUser, searchServiceText, services]); // Se ejecuta cada vez que cambian estos valores para actualizar el filtrado de servicios
   
-
-  console.log("User ID:", newService.created_by); // Verifica que el ID del usuario logueado se esté configurando correctamente
-
   if (loading) return <div>Cargando servicios...</div>;
 
   const handleServiceSearchChange = (e) => {
@@ -408,18 +403,6 @@ const filteredTechniciansForCompanion = technicians.filter(
 
   if (loading) return <div>Cargando servicios...</div>;
 
-  const groupedServices = clients.map(client => ({
-    client,
-    services: services.filter(service => service.client_id === client.id),
-  }));
-
-  const toggleGroupCollapse = (clientId) => {
-    setCollapsedGroups((prevState) => ({
-      ...prevState,
-      [clientId]: !prevState[clientId],
-    }));
-  };
-
   const handleCompanionChange = (e) => {
     const { value, checked } = e.target;
     setNewService((prevService) => ({
@@ -434,27 +417,26 @@ const filteredTechniciansForCompanion = technicians.filter(
     <div className="container mt-4">
       <h2 className="text-primary mb-4">Servicios Pendientes</h2>
       <Form.Group controlId="formServiceSearch" className="mb-4">
-  <Form.Control
-    type="text"
-    placeholder="Buscar servicios..."
-    value={searchServiceText}
-    onChange={handleServiceSearchChange}
-  />
-</Form.Group>
-
-<Form.Group controlId="userFilter" className="mb-4">
-  <Form.Label>Filtrar por Usuario</Form.Label>
-  <Form.Control as="select" value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
-    <option value="">Todos los usuarios</option>
-    {technicians.map((technician) => (
-      <option key={technician.id} value={technician.id}>
-        {technician.name}
-      </option>
-    ))}
-  </Form.Control>
-</Form.Group>
-
-
+        <Form.Control
+          type="text"
+          placeholder="Buscar servicios..."
+          value={searchServiceText}
+          onChange={handleServiceSearchChange}
+        />
+      </Form.Group>
+  
+      <Form.Group controlId="userFilter" className="mb-4">
+        <Form.Label>Filtrar por Usuario</Form.Label>
+        <Form.Control as="select" value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
+          <option value="">Todos los usuarios</option>
+          {technicians.map((technician) => (
+            <option key={technician.id} value={technician.id}>
+              {technician.name}
+            </option>
+          ))}
+        </Form.Control>
+      </Form.Group>
+  
       <Button variant="primary" onClick={handleShowAddServiceModal} className="mb-4">
         Añadir Servicio
       </Button>
@@ -462,26 +444,15 @@ const filteredTechniciansForCompanion = technicians.filter(
       <Row>
   <Col md={open ? 5 : 12}>
     <div className="service-list">
-      {groupedServices.map(({ client, services }) => (
-        <div key={client.id} className="mb-4">
-        <h5
-          className="text-muted"
-          onClick={() => toggleGroupCollapse(client.id)}
-          style={{ cursor: 'pointer' }}
-        >
-          {client.name} {collapsedGroups[client.id] ? '▲' : '▼'}
-        </h5>
-        <Collapse in={collapsedGroups[client.id]}>
-          <div>
-            <Row>
-              {filteredServices
-                .filter(service => service.client_id === client.id) // Filtra servicios para este cliente
-                .map(service => (
+      <Row>
+                {filteredServices
+                  .filter(service => service.client_id === client.id) // Filtra servicios para este cliente
+                  .map(service => (
                   <Col md={6} key={service.id}>
                     <Card
-                      className={`mb-3 ${selectedService?.id === service.id ? 'border-success' : ''}`}
-                      onClick={() => handleServiceClick(service)}
-                      style={{ cursor: "pointer", minHeight: "200px" }}
+              className={`service-card ${selectedService?.id === service.id ? 'border-success' : ''}`}
+              style={{ cursor: "pointer", minHeight: "250px" }}
+              onClick={() => handleServiceClick(service)}
                     >
                       <Card.Body>
                         <Card.Title>
@@ -499,17 +470,8 @@ const filteredTechniciansForCompanion = technicians.filter(
                         </Card.Body>
                       </Card>
                     </Col>
-                  ))
-                }
-              </Row>
-              {services.length === 0 && (
-                <p>No hay servicios para este cliente</p>
-              )}
-            </div>
-          </Collapse>
-          <br />
-        </div>
-      ))}
+        ))}
+      </Row>
     </div>
   </Col>
 

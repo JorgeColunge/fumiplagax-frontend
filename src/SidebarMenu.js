@@ -18,8 +18,6 @@ function SidebarMenu({ onLogout, userInfo, onToggle }) {
     onToggle(!isOpen); // Llama a la función pasada como prop
   };
 
-  console.log(userInfo);
-
   const [profilePic, setProfilePic] = useState('/'); // Imagen predeterminada
 
   useEffect(() => {
