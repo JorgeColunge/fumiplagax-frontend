@@ -209,10 +209,6 @@ const handleSearch = (e) => {
               <Form.Label>Correo</Form.Label>
               <Form.Control type="email" name="email" value={newClient.email} onChange={handleInputChange} />
             </Form.Group>
-            <Form.Group controlId="formClientRepresentative" className="mb-3">
-              <Form.Label>Responsable</Form.Label>
-              <Form.Control type="text" name="representative" value={newClient.representative} onChange={handleInputChange} />
-            </Form.Group>
             <Form.Group controlId="formClientDocumentType" className="mb-3">
               <Form.Label>Tipo de Documento</Form.Label>
               <Form.Control type="text" name="document_type" value={newClient.document_type} onChange={handleInputChange} />
@@ -255,7 +251,6 @@ const handleSearch = (e) => {
         <p><strong>Dirección:</strong> {selectedClient.address}</p>
         <p><strong>Teléfono:</strong> {selectedClient.phone}</p>
         <p><strong>Correo:</strong> {selectedClient.email}</p>
-        <p><strong>Responsable:</strong> {selectedClient.representative}</p>
         <p><strong>Tipo de Documento:</strong> {selectedClient.document_type}</p>
         <p><strong>Número de Documento:</strong> {selectedClient.document_number}</p>
         <p><strong>Nombre de Contacto:</strong> {selectedClient.contact_name}</p>

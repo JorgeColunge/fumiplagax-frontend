@@ -1,14 +1,45 @@
-.service-list {
-    max-height: 80vh;
-    overflow-y: auto;
-  }
-  
-  .service-details {
-    background-color: #f9f9f9;
-    border-radius: 8px;
-  }
-  
-  .card.border-success {
-    border: 2px solid #28a745;
-  }
-  
+.service-card {
+  border-radius: 8px;
+  background-color: #007bff; /* Fondo estilo botón */
+  color: #fff; /* Texto blanco */
+  border: none; /* Sin bordes */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Sombra básica */
+  padding: 16px;
+  text-align: center;
+  transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
+  cursor: pointer; /* Cursor tipo botón */
+  min-height: 200px; /* Establece una altura mínima */
+}
+
+.service-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  background-color: #0056b3; /* Oscurece el fondo al pasar el cursor */
+}
+
+.service-card-title {
+  font-weight: bold;
+  font-size: 1.2em; /* Aumenta el tamaño del texto */
+  margin-bottom: 8px;
+}
+
+.service-card-subtitle {
+  color: #f8f9fa; /* Contraste para subtítulos */
+  margin-bottom: 8px;
+}
+
+.service-card-description {
+  font-size: 0.9em;
+  color: #f8f9fa; /* Texto de descripción */
+}
+
+.service-card-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
+.mb-4 {
+  margin-bottom: 16px; /* Espaciado entre filas */
+}
+
