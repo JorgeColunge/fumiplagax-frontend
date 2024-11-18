@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useUnsavedChanges } from './UnsavedChangesContext';
 import { List, Person, People, Calendar3, Clipboard, FileText, BarChart, ClipboardCheck, BoxArrowRight, Search, Megaphone, CurrencyDollar, Gear, CalendarDate, CalendarEvent, Eyedropper, PersonFillGear, GraphUp, ChatLeftDots } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './SidebarMenu.css';
@@ -7,10 +8,24 @@ import './SidebarMenu.css';
 function SidebarMenu({ onLogout, userInfo, onToggle }) {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
+  const {
+    hasUnsavedChanges,
+    setUnsavedRoute,
+    setShowUnsavedModal,
+  } = useUnsavedChanges();
 
   const handleLogout = () => {
     onLogout();
     navigate('/login');
+  };
+
+  const handleNavigation = (path) => {
+    if (hasUnsavedChanges) {
+      setUnsavedRoute(path); // Configura la ruta pendiente
+      setShowUnsavedModal(true); // Muestra el modal
+      return;
+    }
+    navigate(path); // Navega directamente si no hay cambios pendientes
   };
 
   const toggleMenu = () => {
@@ -43,65 +58,65 @@ function SidebarMenu({ onLogout, userInfo, onToggle }) {
         )}
       </div>
       <div className="nav-item">
-        <Link to="/profile" className="nav-link" title="Perfil">
-            <Person size={20} />
-            {isOpen && <span>Perfil</span>}
-        </Link>
+        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/profile')}>
+          <Person size={20} />
+          {isOpen && <span>Perfil</span>}
+        </button>
       </div>
-        <div className="nav-item">
-          <Link to="/users" className="nav-link" title="Usuarios">
-            <PersonFillGear size={20} />
-            {isOpen && <span>Usuarios</span>}
-          </Link>
-        </div>
-        <div className="nav-item">
-          <Link to="/clients" className="nav-link" title="Clientes">
-            <People size={20} />
-            {isOpen && <span>Clientes</span>}
-          </Link>
-        </div>
-        <div className="nav-item">
-          <Link to="/services-calendar" className="nav-link" title="Calendario">
-            <Calendar3 size={20} />
-            {isOpen && <span>Calendario</span>}
-          </Link>
-        </div>
-        <div className="nav-item">
-          <Link to="/myservices-calendar" className="nav-link" title="Calendario">
-            <CalendarEvent size={20} />
-            {isOpen && <span>Mi Calendario</span>}
-          </Link>
-        </div>
-        <div className="nav-item">
-          <Link to="/inspections" className="nav-link" title="Inspecciones">
-            <FileText size={20} />
-            {isOpen && <span>Inspecciones</span>}
-          </Link>
-        </div>
-        <div className="nav-item">
-          <Link to="/services" className="nav-link" title="Servicios">
-            <ClipboardCheck size={20} />
-            {isOpen && <span>Servicios</span>}
-          </Link>
-        </div>
-        <div className="nav-item">
-          <Link to="/products" className="nav-link" title="Produtos">
-            <Eyedropper size={20} />
-            {isOpen && <span>Productos</span>}
-          </Link>
-        </div>
-        <div className="nav-item">
-          <Link to="/consumption" className="nav-link" title="Consumo">
-            <GraphUp size={20} />
-            {isOpen && <span>Consumo</span>}
-          </Link>
-        </div>
-        <div className="nav-item">
-          <button className="nav-link btn btn-link" onClick={handleLogout} title="Cerrar Sesión">
-            <BoxArrowRight size={20} />
-            {isOpen && <span>Cerrar Sesión</span>}
-          </button>
-        </div>
+      <div className="nav-item">
+        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/users')}>
+          <PersonFillGear size={20} />
+          {isOpen && <span>Usuarios</span>}
+        </button>
+      </div>
+      <div className="nav-item">
+        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/clients')}>
+          <People size={20} />
+          {isOpen && <span>Clientes</span>}
+        </button>
+      </div>
+      <div className="nav-item">
+        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/services-calendar')}>
+          <Calendar3 size={20} />
+          {isOpen && <span>Calendario</span>}
+        </button>
+      </div>
+      <div className="nav-item">
+        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/myservices-calendar')}>
+          <CalendarEvent size={20} />
+          {isOpen && <span>Mi Calendario</span>}
+        </button>
+      </div>
+      <div className="nav-item">
+        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/inspections')}>
+          <FileText size={20} />
+          {isOpen && <span>Inspecciones</span>}
+        </button>
+      </div>
+      <div className="nav-item">
+        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/services')}>
+          <ClipboardCheck size={20} />
+          {isOpen && <span>Servicios</span>}
+        </button>
+      </div>
+      <div className="nav-item">
+        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/products')}>
+          <Eyedropper size={20} />
+          {isOpen && <span>Productos</span>}
+        </button>
+      </div>
+      <div className="nav-item">
+        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/consumption')}>
+          <GraphUp size={20} />
+          {isOpen && <span>Consumo</span>}
+        </button>
+      </div>
+      <div className="nav-item">
+        <button className="nav-link btn btn-link" onClick={handleLogout} title="Cerrar Sesión">
+          <BoxArrowRight size={20} />
+          {isOpen && <span>Cerrar Sesión</span>}
+        </button>
+      </div>
     </div>
   );
 }

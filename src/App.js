@@ -19,6 +19,8 @@ import ServiceList from './ServiceList';
 import Inspection from './Inspection';
 import MyServices from './MyServices';
 import CompanyStations from './CompanyStations';
+import UnsavedChangesModal from './UnsavedChangesModal';
+import { UnsavedChangesProvider } from './UnsavedChangesContext';
 import { syncRequests } from './offlineHandler';
 import { saveUsers, getUsers, syncUsers } from './indexedDBHandler';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -106,8 +108,10 @@ function App() {
   if (loading) return <div className="text-center mt-5">Cargando...</div>;
 
   return (
+    <UnsavedChangesProvider>
     <Router>
       <div className="App d-flex">
+        <UnsavedChangesModal />
         {isLoggedIn && (
           <>
             <SidebarMenu 
@@ -115,44 +119,46 @@ function App() {
               onLogout={handleLogout} 
               onToggle={handleSidebarToggle} // Pasamos la función para cambiar el estado
             />
-<TopBar 
-  userName={userInfo?.name || "User"} 
-  onSync={handleSync} 
-  notifications={notifications} 
-  setNotifications={setNotifications} // Pasamos `setNotifications` como prop
-  isSidebarOpen={isSidebarOpen}
-/>
-          </>
-        )}
-        <div 
-          className={`main-content flex-grow-1 ${isLoggedIn ? '' : 'w-100'}`} 
-          style={{ 
-            marginTop: '60px',
-            marginLeft: isSidebarOpen ? '200px' : '60px' // Ajusta el margen izquierdo según el estado del Sidebar
-          }}
-        >
-    <Routes>
-      <Route path="/" element={isLoggedIn ? <Navigate to="/profile" /> : <Navigate to="/login" />} />
-      <Route path="/login" element={isLoggedIn ? <Navigate to="/profile" /> : <Login onLogin={handleLogin} />} />
-      <Route path="/register" element={isLoggedIn ? <Navigate to="/profile" /> : <Register />} />
-      <Route path="/profile" element={isLoggedIn ? <UserProfile userInfo={userInfo} /> : <Navigate to="/login" />} />
-      <Route path="/edit-profile/:id" element={isLoggedIn ? <EditProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
-      <Route path="/edit-my-profile/:id" element={isLoggedIn ? <EditMyProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
-      <Route path="/users" element={isLoggedIn ? <UserList /> : <Navigate to="/login" />} />
-      <Route path="/inspections" element={isLoggedIn ? <Inspections /> : <Navigate to="/login" />} />
-      <Route path="/inspection/:inspectionId" element={isLoggedIn ? <Inspection /> : <Navigate to="/login" />} />
-      <Route path="/products" element={isLoggedIn ? <ProductList /> : <Navigate to="/login" />} />
-      <Route path="/services-calendar" element={isLoggedIn ? <InspectionCalendar /> : <Navigate to="/login" />} />
-      <Route path="/myservices-calendar" element={isLoggedIn ? <MyServicesCalendar /> : <Navigate to="/login" />} />
-      <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
-      <Route path="/show-profile/:id" element={<ShowProfile />} />
-      <Route path="/services" element={isLoggedIn ? <ServiceList /> : <Navigate to="/login" />} />
-      <Route path="/myservices" element={isLoggedIn ? <MyServices /> : <Navigate to="/login" />} />
-      <Route path="/stations/client/:client_id" element={isLoggedIn ? <CompanyStations /> : <Navigate to="/login" />} />
-    </Routes>
-  </div>
-</div>
+            <TopBar 
+              userName={userInfo?.name || "User"} 
+              onSync={handleSync} 
+              notifications={notifications} 
+              setNotifications={setNotifications} // Pasamos `setNotifications` como prop
+              isSidebarOpen={isSidebarOpen}
+            />
+                      </>
+                    )}
+                    <div 
+                      className={`main-content flex-grow-1 ${isLoggedIn ? '' : 'w-100'}`} 
+                      style={{ 
+                        marginTop: '60px',
+                        marginLeft: isSidebarOpen ? '200px' : '60px' // Ajusta el margen izquierdo según el estado del Sidebar
+                      }}
+                    >
+                <Routes>
+                  <Route path="/" element={isLoggedIn ? <Navigate to="/profile" /> : <Navigate to="/login" />} />
+                  <Route path="/login" element={isLoggedIn ? <Navigate to="/profile" /> : <Login onLogin={handleLogin} />} />
+                  <Route path="/register" element={isLoggedIn ? <Navigate to="/profile" /> : <Register />} />
+                  <Route path="/profile" element={isLoggedIn ? <UserProfile userInfo={userInfo} /> : <Navigate to="/login" />} />
+                  <Route path="/edit-profile/:id" element={isLoggedIn ? <EditProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
+                  <Route path="/edit-my-profile/:id" element={isLoggedIn ? <EditMyProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
+                  <Route path="/users" element={isLoggedIn ? <UserList /> : <Navigate to="/login" />} />
+                  <Route path="/inspections" element={isLoggedIn ? <Inspections /> : <Navigate to="/login" />} />
+                  <Route path="/inspection/:inspectionId" element={isLoggedIn ? <Inspection /> : <Navigate to="/login" />} />
+                  <Route path="/products" element={isLoggedIn ? <ProductList /> : <Navigate to="/login" />} />
+                  <Route path="/services-calendar" element={isLoggedIn ? <InspectionCalendar /> : <Navigate to="/login" />} />
+                  <Route path="/myservices-calendar" element={isLoggedIn ? <MyServicesCalendar /> : <Navigate to="/login" />} />
+                  <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
+                  <Route path="/show-profile/:id" element={<ShowProfile />} />
+                  <Route path="/services" element={isLoggedIn ? <ServiceList /> : <Navigate to="/login" />} />
+                  <Route path="/myservices" element={isLoggedIn ? <MyServices /> : <Navigate to="/login" />} />
+                  <Route path="/stations/client/:client_id" element={isLoggedIn ? <CompanyStations /> : <Navigate to="/login" />} />
+                </Routes>
+                
+              </div>
+            </div>
     </Router>
+    </UnsavedChangesProvider>
   );
 }
 

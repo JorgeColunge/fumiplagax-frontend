@@ -12,6 +12,7 @@ const initDB = async () => {
 };
 
 // Guardar solicitud
+// Guardar solicitud
 export const saveRequest = async (request) => {
   try {
     const db = await initDB();
@@ -45,7 +46,7 @@ export const saveRequest = async (request) => {
   }
 };
 
-// Convertir FormData a un objeto serializable (manejo de blobs)
+// Convertir FormData a Objeto Serializable
 export const convertFormDataToObject = async (formData) => {
   const object = {};
   const promises = [];
@@ -65,7 +66,7 @@ export const convertFormDataToObject = async (formData) => {
             object[key].push({
               type: value.type,
               data: reader.result,
-              name: value.name || 'file',
+              name: value.name || key,
             });
 
             console.log(`✅ Blob convertido correctamente a base64 para ${key}:`, object[key]);
@@ -99,33 +100,36 @@ export const convertFormDataToObject = async (formData) => {
   }
 };
 
+
 export const reconstructFormData = (data) => {
   const formData = new FormData();
   console.log('🔄 Datos originales para reconstrucción:', data);
 
-  Object.entries(data).forEach(([key, value]) => {
-    if (key === 'findingsByType' || key === 'stationsFindings' || key === 'productsByType') {
-      try {
-        // Mantener la estructura JSON en campos relevantes
-        const jsonValue = typeof value === 'string' ? value : JSON.stringify(value);
-        formData.append(key, jsonValue);
-        console.log(`✅ Campo JSON reconstruido para ${key}:`, jsonValue);
-      } catch (error) {
-        console.error(`❌ Error al procesar ${key}:`, error);
-      }
-    } else if (key === 'images' && Array.isArray(value)) {
-      // Añadir todas las imágenes al campo `images`
-      value.forEach((image, index) => {
+  // 1. Añadir campos JSON relevantes directamente
+  const jsonFields = ['findingsByType', 'stationsFindings', 'productsByType', 'signatures'];
+  jsonFields.forEach((key) => {
+    if (data[key]) {
+      const jsonValue = typeof data[key] === 'string' ? data[key] : JSON.stringify(data[key]);
+      formData.append(key, jsonValue);
+      console.log(`✅ Campo JSON reconstruido para ${key}:`, jsonValue);
+    }
+  });
+
+  // 2. Añadir imágenes por categoría
+  const imageFields = ['tech_signature', 'client_signature', 'findingsImages', 'stationImages', 'images'];
+  imageFields.forEach((field) => {
+    if (Array.isArray(data[field])) {
+      data[field].forEach((image) => {
         const blob = convertBase64ToBlob(image.data, image.type);
-        if (blob) {
-          formData.append('images', blob, image.name || `image-${index}.jpg`);
-          console.log(`✅ Blob reconstruido y agregado a FormData para images:`, blob);
-        } else {
-          console.error(`❌ No se pudo reconstruir el blob para images[${index}]:`, image);
-        }
+        formData.append(field, blob, image.name);
+        console.log(`✅ Imagen añadida al campo ${field}: ${image.name}`);
       });
-    } else {
-      // Campos simples (ej., inspectionId, generalObservations)
+    }
+  });
+
+  // 3. Campos simples (ej., inspectionId, generalObservations)
+  Object.entries(data).forEach(([key, value]) => {
+    if (!jsonFields.includes(key) && !imageFields.includes(key)) {
       formData.append(key, value);
       console.log(`✅ Campo simple agregado para ${key}:`, value);
     }
@@ -134,7 +138,6 @@ export const reconstructFormData = (data) => {
   console.log('✅ FormData reconstruido:', Array.from(formData.entries()));
   return formData;
 };
-
 
 // Convertir Base64 a Blob
 const convertBase64ToBlob = (base64, type) => {
@@ -178,7 +181,6 @@ export const clearRequests = async () => {
 // Detectar si está offline
 export const isOffline = () => !navigator.onLine;
 
-// Sincronizar solicitudes
 export const syncRequests = async () => {
   const requests = await getRequests();
 

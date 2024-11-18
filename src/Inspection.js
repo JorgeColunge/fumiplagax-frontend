@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams,useLocation } from 'react-router-dom';
 import { Button, Table, InputGroup, FormControl, Modal, Form } from 'react-bootstrap';
 import api from './Api'; // Usa el archivo de API con lógica offline integrada
 import { saveRequest, isOffline } from './offlineHandler';
@@ -7,6 +7,7 @@ import { initDB, initUsersDB, saveUsers, getUsers } from './indexedDBHandler';
 import SignatureCanvas from 'react-signature-canvas';
 import "./Inspection.css";
 import { ArrowDownSquare, ArrowUpSquare, Eye, PencilSquare, XCircle } from 'react-bootstrap-icons';
+import  {useUnsavedChanges} from './UnsavedChangesContext'
 
 function Inspection() {
   const { inspectionId } = useParams();
@@ -49,6 +50,8 @@ function Inspection() {
   const [viewStationData, setViewStationData] = useState({});
   const [stationType, setStationType] = useState(null); // 'Desratización' o 'Desinsectación'
   const [signModalOpen, setSignModalOpen] = useState(false);
+  const [techSignaturePreview, setTechSignaturePreview] = useState(null);
+  const [clientSignaturePreview, setClientSignaturePreview] = useState(null);
   const [techSignature, setTechSignature] = useState(null);
   const [clientSignature, setClientSignature] = useState(null);
   const [signData, setSignData] = useState({
@@ -59,6 +62,8 @@ function Inspection() {
 
   const sigCanvasTech = useRef();
   const sigCanvasClient = useRef();
+  const location = useLocation();
+  const { setHasUnsavedChanges, setUnsavedRoute } = useUnsavedChanges();
 
   const handleClearTechSignature = () => {
     sigCanvasTech.current.clear();
@@ -70,17 +75,39 @@ function Inspection() {
     setClientSignature(null);
   };
 
-  const handleSaveSignature = () => {
-    setTechSignature(sigCanvasTech.current.getTrimmedCanvas().toDataURL('image/png'));
-    setClientSignature(sigCanvasClient.current.getTrimmedCanvas().toDataURL('image/png'));
+  const handleSaveSignature = async () => {
+    if (sigCanvasTech.current) {
+      // Generar la imagen en formato Blob para enviar al backend
+      sigCanvasTech.current.getTrimmedCanvas().toBlob((blob) => {
+        setTechSignature(blob); // Guardar como Blob
+      });
+      // Generar la imagen en formato base64 para previsualización
+      const dataURL = sigCanvasTech.current.getTrimmedCanvas().toDataURL();
+      setTechSignaturePreview(dataURL); // Guardar la previsualización
+    }
+    if (sigCanvasClient.current) {
+      // Generar la imagen en formato Blob para enviar al backend
+      sigCanvasClient.current.getTrimmedCanvas().toBlob((blob) => {
+        setClientSignature(blob); // Guardar como Blob
+      });
+      // Generar la imagen en formato base64 para previsualización
+      const dataURL = sigCanvasClient.current.getTrimmedCanvas().toDataURL();
+      setClientSignaturePreview(dataURL); // Guardar la previsualización
+    }
+  };
+  
+
+  const handleSignModalCancel = () => {
+    setSignModalOpen(false);
+    setTechSignature(null);
+    setClientSignature(null);
+    setSignData({ name: "", id: "", position: "" });
   };
 
   const handleSignModalClose = () => {
     setSignModalOpen(false);
-    setTechSignature(null);
-    setClientSignature(null);
-    setSignData({ name: '', id: '', position: '' });
   };
+  
 
   const handleSignDataChange = (field, value) => {
     setSignData((prevData) => ({
@@ -88,16 +115,6 @@ function Inspection() {
       [field]: value,
     }));
   };
-
-  const handleSaveSignatures = () => {
-    // Aquí puedes manejar el guardado de las firmas
-    console.log('Firma Técnico:', techSignature);
-    console.log('Firma Cliente:', clientSignature);
-    console.log('Datos:', signData);
-    alert('Firmas guardadas exitosamente.');
-    handleSignModalClose();
-  };
-
 
   useEffect(() => {
     const fetchInspectionData = async () => {
@@ -108,39 +125,57 @@ function Inspection() {
         // Cargar observaciones generales
         setGeneralObservations(response.data.observations || '');
   
-        // Inicializar findingsByType y productsByType con los datos existentes o vacíos
+        // Inicializar findingsByType y productsByType
         const initialFindings = response.data.findings?.findingsByType || {};
         const initialProducts = response.data.findings?.productsByType || {};
   
-        // Preprocesar imágenes para findingsByType
         Object.keys(initialFindings).forEach((type) => {
           initialFindings[type] = initialFindings[type].map((finding) => ({
             ...finding,
-            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null, // URL de la foto
-            photoRelative: finding.photo || null, // URL relativa para el backend
-            photoBlob: null, // No hay Blob inicialmente porque proviene del backend
+            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null,
+            photoRelative: finding.photo || null,
+            photoBlob: null,
           }));
         });
   
-        // Establecer estado inicial para los hallazgos
         setFindingsByType(initialFindings);
         setProductsByType(initialProducts);
   
-        // Preprocesar estaciones y sus hallazgos
+        // Cargar firmas si existen
+        const signatures = response.data.findings?.signatures || {};
+        if (signatures.technician?.signature) {
+          const techSignatureUrl = `http://localhost:10000${signatures.technician.signature}`;
+          setTechSignaturePreview(techSignatureUrl);
+        }
+        if (signatures.client?.signature) {
+          const clientSignatureUrl = `http://localhost:10000${signatures.client.signature}`;
+          setClientSignaturePreview(clientSignatureUrl);
+        }
+
+        // Cargar datos del cliente
+        if (signatures.client) {
+          setSignData({
+            name: signatures.client.name || '',
+            id: signatures.client.id || '',
+            position: signatures.client.position || '',
+          });
+        }
+  
+        // Cargar estaciones
         const initialStationsFindings = response.data.findings?.stationsFindings || [];
         const clientStationsData = {};
         initialStationsFindings.forEach((finding) => {
           clientStationsData[finding.stationId] = {
             ...finding,
-            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null, // URL de la foto
-            photoRelative: finding.photo || null, // URL relativa para el backend
-            photoBlob: null, // No hay Blob inicialmente porque proviene del backend
+            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null,
+            photoRelative: finding.photo || null,
+            photoBlob: null,
           };
         });
   
         setClientStations(clientStationsData);
   
-        // Cargar estaciones relacionadas (si existen)
+        // Cargar estaciones relacionadas
         const clientId = response.data.service_id
           ? (await api.get(`http://localhost:10000/api/services/${response.data.service_id}`)).data
               .client_id
@@ -160,17 +195,7 @@ function Inspection() {
       }
     };
   
-    const fetchProducts = async () => {
-      try {
-        const response = await api.get('http://localhost:10000/api/products');
-        setAvailableProducts(response.data);
-      } catch (error) {
-        console.error('Error fetching products:', error);
-      }
-    };
-  
     fetchInspectionData();
-    fetchProducts();
   }, [inspectionId]);  
 
   useEffect(() => {
@@ -223,67 +248,102 @@ const handleSaveChanges = async () => {
     const formData = new FormData();
 
     // Información básica
-    formData.append('inspectionId', inspectionId);
-    formData.append('generalObservations', generalObservations);
+    formData.append("inspectionId", inspectionId);
+    formData.append("generalObservations", generalObservations);
 
-    // Procesar findingsByType con lógica condicional
+    // Procesar findingsByType
     const findingsByTypeProcessed = {};
     Object.keys(findingsByType).forEach((type) => {
-      findingsByTypeProcessed[type] = findingsByType[type].map((finding) => {
-        const processedFinding = {
-          ...finding,
-          photo: finding.photoBlob ? null : finding.photoRelative, // Excluir URL si hay nueva imagen
-        };
-        return processedFinding;
-      });
+      findingsByTypeProcessed[type] = findingsByType[type].map((finding) => ({
+        ...finding,
+        photo: finding.photoBlob ? null : finding.photoRelative, // Enviar la URL relativa si no hay nueva imagen
+      }));
     });
 
-    formData.append('findingsByType', JSON.stringify(findingsByTypeProcessed));
-    formData.append('productsByType', JSON.stringify(productsByType));
+    formData.append("findingsByType", JSON.stringify(findingsByTypeProcessed));
+    formData.append("productsByType", JSON.stringify(productsByType));
 
-    // Procesar stationsFindings con lógica condicional
+    // Procesar stationsFindings
     const stationsFindingsArray = Object.entries(clientStations).map(([stationId, finding]) => ({
       ...finding,
       stationId,
-      photo: finding.photoBlob ? null : finding.photoRelative, // Excluir URL si hay nueva imagen
+      photo: finding.photoBlob ? null : finding.photoRelative, // Enviar la URL relativa si no hay nueva imagen
     }));
 
-    formData.append('stationsFindings', JSON.stringify(stationsFindingsArray));
+    formData.append("stationsFindings", JSON.stringify(stationsFindingsArray));
 
-    // Agregar imágenes nuevas de findings
+    // Construir el objeto signatures
+    const signatures = {
+      client: {
+        id: signData.id,
+        name: signData.name,
+        position: signData.position,
+        signature: clientSignature instanceof Blob ? null : clientSignaturePreview, // Usar la URL si no hay nueva firma
+      },
+      technician: {
+        name: "Técnico",
+        signature: techSignature instanceof Blob ? null : techSignaturePreview, // Usar la URL si no hay nueva firma
+      },
+    };
+
+    formData.append("signatures", JSON.stringify(signatures));
+
+    // Agregar imágenes como campos separados
+    if (techSignature instanceof Blob) {
+      formData.append("tech_signature", techSignature, "tech_signature.jpg");
+    }
+    if (clientSignature instanceof Blob) {
+      formData.append("client_signature", clientSignature, "client_signature.jpg");
+    }
+
+    // Agregar imágenes de findings
     Object.keys(findingsByType).forEach((type) => {
       findingsByType[type].forEach((finding) => {
         if (finding.photoBlob) {
-          formData.append('images', finding.photoBlob, `${finding.id}.jpg`);
+          formData.append("findingsImages", finding.photoBlob, `${finding.id}.jpg`);
         }
       });
     });
 
-    // Agregar imágenes nuevas de stationsFindings
+    // Agregar imágenes de stationsFindings
     stationsFindingsArray.forEach((finding) => {
       if (finding.photoBlob) {
-        formData.append('images', finding.photoBlob, `${finding.stationId}.jpg`);
+        formData.append("stationImages", finding.photoBlob, `${finding.stationId}.jpg`);
       }
     });
 
     // Enviar datos al backend
     await api.post(`/inspections/${inspectionId}/save`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { "Content-Type": "multipart/form-data" },
     });
 
-    alert('Cambios guardados exitosamente.');
+    alert("Cambios guardados exitosamente.");
   } catch (error) {
-    console.error('Error guardando los cambios:', error);
+    console.error("Error guardando los cambios:", error);
 
-    if (error.message.includes('Offline')) {
+    if (error.message.includes("Offline")) {
       alert(
-        'Cambios guardados localmente. Se sincronizarán automáticamente cuando vuelva la conexión.'
+        "Cambios guardados localmente. Se sincronizarán automáticamente cuando vuelva la conexión."
       );
     } else {
-      alert('Hubo un error al guardar los cambios.');
+      alert("Hubo un error al guardar los cambios.");
     }
   }
 };
+
+const dataURLtoBlob = (dataURL) => {
+  const byteString = atob(dataURL.split(',')[1]);
+  const mimeString = dataURL.split(',')[0].split(':')[1].split(';')[0];
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+
+  return new Blob([ab], { type: mimeString });
+};
+
 
   const handleStationChange = (stationId, field, value) => {
     setClientStations((prevStations) => ({
@@ -317,6 +377,9 @@ const handleSaveChanges = async () => {
     setFindingsByType((prevFindings) => {
       const updatedFindings = [...prevFindings[type]];
       updatedFindings[index] = { ...updatedFindings[index], [field]: value };
+      // Marcar cambios detectados
+      setHasUnsavedChanges(true);
+      setUnsavedRoute(location.pathname);
       return { ...prevFindings, [type]: updatedFindings };
     });
   };
@@ -427,12 +490,17 @@ const handleSaveChanges = async () => {
   };
   
   const handleStationFindingChange = (field, value) => {
-    setStationFinding((prevFinding) => ({
-      ...prevFinding,
-      [field]: value,
-      id: prevFinding.id || Date.now(), // Asegurar que cada hallazgo tenga un id único
-    }));
+    setStationFinding((prevFinding) => {
+      const updatedFinding = {
+        ...prevFinding,
+        [field]: value,
+        id: prevFinding.id || Date.now(), // Asegurar que cada hallazgo tenga un id único
+      };
+      console.log(`Hallazgo para estación id asignado: ${updatedFinding.id}`);
+      return updatedFinding; // Retornar el nuevo estado
+    });
   };
+  
   
 
   const handleStationFindingPhotoChange = (file) => {
@@ -519,11 +587,17 @@ const handleSaveChanges = async () => {
   };
   
   const handleStationFindingChangeDesinsectacion = (field, value) => {
-    setStationFindingDesinsectacion((prevFinding) => ({
-      ...prevFinding,
-      [field]: value,
-    }));
+    setStationFindingDesinsectacion((prevFinding) => {
+      const updatedFinding = {
+        ...prevFinding,
+        [field]: value,
+        id: prevFinding.id || Date.now(), // Generar un id único si no existe
+      };
+      console.log(`Hallazgo de desinsectación id asignado: ${updatedFinding.id}`);
+      return updatedFinding; // Retornar el estado actualizado
+    });
   };
+  
   
   const handleStationFindingPhotoChangeDesinsectacion = (file) => {
     if (!file || !file.type.startsWith("image/")) {
@@ -732,6 +806,7 @@ const handleDeleteFinding = (type, index) => {
                         <button
                           className="btn btn-outline-success"
                           onClick={() => handleOpenStationModal(station.id)}
+                          disabled={techSignaturePreview && clientSignaturePreview}
                         >
                           Editar
                         </button>
@@ -742,6 +817,7 @@ const handleDeleteFinding = (type, index) => {
                       <button
                         className="btn btn-outline-success"
                         onClick={() => handleOpenStationModalDesinsectacion(station.id)}
+                        disabled={techSignaturePreview && clientSignaturePreview}
                       >
                         +
                       </button>
@@ -788,24 +864,33 @@ const handleDeleteFinding = (type, index) => {
                                 </td>
                                 <td className='align-middle'>
                                 {!isMobile && (
+                                  <button
+                                    className="btn btn-link p-0"
+                                    onClick={() => handleViewStationDesratizacion(station.id)}
+                                    style={{ border: "none", background: "none" }}
+                                    >
                                     <Eye
                                     className='mx-2'
                                       size={"25px"}
                                       color='blue'
                                       type='button'
-                                      onClick={() => handleViewStationDesratizacion(station.id)}
-                                    >
-                                    </Eye>
+                                    />
+                                    </button>
                                   )}
-                                  <PencilSquare
-                                  className='mx-2'
-                                    size={"20px"}
-                                    color='green'
-                                    type='button'
+                                  <button
+                                    className="btn btn-link p-0"
                                     onClick={() => handleOpenStationModal(station.id)}
+                                    disabled={techSignaturePreview && clientSignaturePreview} // Bloquear si ya está firmado
+                                    style={{ border: "none", background: "none" }} // Estilo para eliminar apariencia de botón
                                   >
-                                    Editar
-                                  </PencilSquare>
+                                    <PencilSquare
+                                      className="mx-2"
+                                      size={"20px"}
+                                      color={techSignaturePreview && clientSignaturePreview ? "gray" : "green"} // Cambiar color si está bloqueado
+                                      type="button"
+                                      title={techSignaturePreview && clientSignaturePreview ? "Inspección firmada, edición bloqueada" : "Editar"}
+                                    />
+                                  </button>
                                 </td>
                               </>
                             ) : (
@@ -815,6 +900,7 @@ const handleDeleteFinding = (type, index) => {
                                   <button
                                     className="btn btn-outline-success"
                                     onClick={() => handleOpenStationModal(station.id)}
+                                    disabled={techSignaturePreview && clientSignaturePreview}
                                   >
                                     +
                                   </button>
@@ -885,6 +971,7 @@ const handleDeleteFinding = (type, index) => {
                                   <button
                                     className="btn btn-outline-success"
                                     onClick={() => handleOpenStationModalDesinsectacion(station.id)}
+                                    disabled={techSignaturePreview && clientSignaturePreview}
                                   >
                                     Editar
                                   </button>
@@ -895,6 +982,7 @@ const handleDeleteFinding = (type, index) => {
                                   <button
                                     className="btn btn-outline-success"
                                     onClick={() => handleOpenStationModalDesinsectacion(station.id)}
+                                    disabled={techSignaturePreview && clientSignaturePreview}
                                   >
                                     +
                                   </button>
@@ -941,24 +1029,34 @@ const handleDeleteFinding = (type, index) => {
                                   </td>
                                   <td className='align-middle'>
                                   {!isMobile && (
-                                    <Eye
-                                    className='mx-2'
-                                      size={"25px"}
-                                      color='blue'
-                                      type='button'
+                                    <button
+                                      className="btn btn-link p-0"
                                       onClick={() => handleViewStationDesinsectacion(station.id)}
+                                      style={{ border: "none", background: "none" }}
                                     >
-                                    </Eye>
+                                      <Eye
+                                      className='mx-2'
+                                        size={"25px"}
+                                        color='blue'
+                                        type='button'
+                                      />
+                                    </button>
                                   )}
-                                  <PencilSquare
-                                  className='mx-2'
-                                    size={"20px"}
-                                    color='green'
-                                    type='button'
-                                    onClick={() => handleOpenStationModalDesinsectacion(station.id)}
+                                  <button
+                                    className="btn btn-link p-0"
+                                    onClick={() => handleOpenStationModal(station.id)}
+                                    disabled={techSignaturePreview && clientSignaturePreview}
+                                    style={{ border: "none", background: "none" }}
                                   >
-                                    Editar
-                                  </PencilSquare>
+                                    <PencilSquare
+                                    className='mx-2'
+                                      size={"20px"}
+                                      color='green'
+                                      type='button'
+                                      onClick={() => handleOpenStationModalDesinsectacion(station.id)}
+                                      disabled={techSignaturePreview && clientSignaturePreview}
+                                    />
+                                  </button>
                                   </td>
                                 </>
                               ) : (
@@ -968,6 +1066,7 @@ const handleDeleteFinding = (type, index) => {
                                     <button
                                       className="btn btn-outline-success"
                                       onClick={() => handleOpenStationModalDesinsectacion(station.id)}
+                                      disabled={techSignaturePreview && clientSignaturePreview}
                                     >
                                       +
                                     </button>
@@ -1158,6 +1257,7 @@ const handleDeleteFinding = (type, index) => {
             <button
               className="btn btn-outline-success mb-3"
               onClick={() => handleAddFinding(type)}
+              disabled={techSignaturePreview && clientSignaturePreview}
             >
               + Agregar Hallazgo
             </button>
@@ -1196,13 +1296,56 @@ const handleDeleteFinding = (type, index) => {
         </div>
       ))}
 
+      {/* Sección de Firma */}
+      <div className="card border-primary mt-4">
+        <div className="card-header">Firmas</div>
+        <div className="card-body">
+          {/* Mostrar solo el botón si no hay firmas */}
+          {!techSignaturePreview || !clientSignaturePreview ? (
+            <div className="text-center">
+              <button className="btn btn-outline-success" onClick={() => setSignModalOpen(true)}>
+                Firmar
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Mostrar la información completa si hay firmas */}
+              {/* Firma del Técnico */}
+              <div className="mb-4 text-center">
+                <h5>Firma del Técnico</h5>
+                <img
+                  src={techSignaturePreview}
+                  alt="Firma del Técnico"
+                  style={{ width: isMobile ? 280 : 700, height: 200, objectFit: 'contain', border: '1px solid #ddd' }}
+                />
+              </div>
+
+              {/* Firma del Cliente */}
+              <div className="mb-4 text-center">
+                <h5>Firma del Cliente</h5>
+                <img
+                  src={clientSignaturePreview}
+                  alt="Firma del Cliente"
+                  style={{ width: isMobile ? 280 : 700, height: 200, objectFit: 'contain', border: '1px solid #ddd' }}
+                />
+              </div>
+
+              {/* Datos del Cliente */}
+              <div className="mt-4">
+                <h5>Datos del Cliente</h5>
+                <p><strong>Nombre:</strong> {signData.name || 'No registrado'}</p>
+                <p><strong>Cédula:</strong> {signData.id || 'No registrada'}</p>
+                <p><strong>Cargo:</strong> {signData.position || 'No registrado'}</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Botón para guardar cambios y firmar */}
       <div className="text-end mt-4">
         <button className="btn btn-success me-2" onClick={handleSaveChanges}>
           Guardar Cambios
-        </button>
-        <button className="btn btn-primary" onClick={() => setSignModalOpen(true)}>
-          Firmar
         </button>
       </div>
 
@@ -1526,87 +1669,126 @@ const handleDeleteFinding = (type, index) => {
         </Modal.Footer>
       </Modal>
 
-      {/* Modal de firma */}
-      <Modal show={signModalOpen} onHide={handleSignModalClose} size="lg">
+       {/* Modal de firma */}
+       <Modal show={signModalOpen} onHide={handleSignModalCancel} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Firmar Inspección</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <div className="mb-3">
-            <label className="form-label">Firma Técnico</label>
-            <SignatureCanvas
-              ref={sigCanvasTech}
-              penColor="black"
-              canvasProps={{ width: 500, height: 200, className: 'signature-canvas' }}
-            />
-            <div className="mt-2">
-              <button className="btn btn-outline-secondary me-2" onClick={handleClearTechSignature}>
-                Limpiar Firma Técnico
-              </button>
+          {/* Firma del Técnico */}
+          <div className="mb-4 text-center">
+            <h5 className="mb-3">Firma del Técnico</h5>
+            <div className="position-relative text-center">
+              <SignatureCanvas
+                ref={sigCanvasTech}
+                penColor="black"
+                canvasProps={{
+                  width: isMobile ? 280 : 700,
+                  height: 200,
+                  className: "signature-canvas",
+                }}
+              />
+              <XCircle
+                className="position-absolute top-0 end-0 text-danger"
+                size={24}
+                style={{ cursor: "pointer" }}
+                title="Limpiar Firma Técnico"
+                onClick={handleClearTechSignature}
+              />
             </div>
           </div>
-          <div className="mb-3">
-            <label className="form-label">Firma Cliente</label>
-            <SignatureCanvas
-              ref={sigCanvasClient}
-              penColor="black"
-              canvasProps={{ width: 500, height: 200, className: 'signature-canvas' }}
-            />
-            <div className="mt-2">
-              <button
-                className="btn btn-outline-secondary me-2"
+
+          {/* Firma del Cliente */}
+          <div className="mb-4 text-center">
+            <h5 className="mb-3">Firma del Cliente</h5>
+            <div className="col-12 position-relative text-center">
+              <SignatureCanvas
+                ref={sigCanvasClient}
+                penColor="black"
+                canvasProps={{
+                  width: isMobile ? 280 : 700,
+                  height: 200,
+                  className: "signature-canvas",
+                }}
+              />
+              <XCircle
+                className="position-absolute top-0 end-0 text-danger"
+                size={24}
+                style={{ cursor: "pointer" }}
+                title="Limpiar Firma Cliente"
                 onClick={handleClearClientSignature}
-              >
-                Limpiar Firma Cliente
-              </button>
+              />
             </div>
           </div>
-          <div className="row">
-            <div className="col-md-4">
-              <label className="form-label">Nombre</label>
+
+          {/* Datos adicionales */}
+          <div className="row" style={{ minHeight: 0, height: 'auto' }}>
+            <div className="col-md-4 mt-1 text-center">
+            <h5 className="mb-3">Datos del Cliente</h5>
               <input
                 type="text"
                 className="form-control"
                 value={signData.name}
-                onChange={(e) => handleSignDataChange('name', e.target.value)}
+                onChange={(e) => handleSignDataChange("name", e.target.value)}
                 placeholder="Nombre del cliente"
+                required
               />
             </div>
-            <div className="col-md-4">
-              <label className="form-label">Cédula</label>
+            <div className="col-md-4 mt-1">
               <input
-                type="text"
+                type="number"
                 className="form-control"
                 value={signData.id}
-                onChange={(e) => handleSignDataChange('id', e.target.value)}
+                onChange={(e) => handleSignDataChange("id", e.target.value)}
                 placeholder="Cédula"
+                required
               />
             </div>
-            <div className="col-md-4">
-              <label className="form-label">Cargo</label>
+            <div className="col-md-4 mt-1">
               <input
                 type="text"
                 className="form-control"
                 value={signData.position}
-                onChange={(e) => handleSignDataChange('position', e.target.value)}
+                onChange={(e) => handleSignDataChange("position", e.target.value)}
                 placeholder="Cargo"
+                required
               />
             </div>
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <button className="btn btn-secondary" onClick={handleSignModalClose}>
+          <button className="btn btn-secondary" onClick={handleSignModalCancel}>
             Cancelar
           </button>
           <button
-            className="btn btn-success"
-            onClick={() => {
-              handleSaveSignature();
-              handleSaveSignatures();
-            }}
-          >
-            Guardar Firmas
-          </button>
+  className="btn btn-success"
+  onClick={() => {
+    // Validación de firmas
+    if (sigCanvasTech.current.isEmpty() || sigCanvasClient.current.isEmpty()) {
+      alert("Ambas firmas (Técnico y Cliente) son obligatorias.");
+      return;
+    }
+
+    // Validación de campos del cliente
+    if (!signData.name.trim() || !signData.id.trim() || !signData.position.trim()) {
+      alert("Todos los campos del cliente (Nombre, Cédula, Cargo) son obligatorios.");
+      return;
+    }
+
+    // Guardar las firmas y los datos del cliente
+    handleSaveSignature();
+    setSignData((prevData) => ({
+      ...prevData,
+      name: signData.name.trim(),
+      id: signData.id.trim(),
+      position: signData.position.trim(),
+    }));
+    alert('Firmas y datos guardados correctamente.');
+    handleSignModalClose();
+  }}
+>
+  Guardar Firmas
+</button>
         </Modal.Footer>
       </Modal>
 
