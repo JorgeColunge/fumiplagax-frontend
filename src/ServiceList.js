@@ -350,10 +350,6 @@ const handleEditClick = (service) => {
   };
 
   const handleServiceClick = (service) => {
-    if (selectedService?.id === service.id) {
-      setSelectedService(null);
-      setOpen(false);
-    } else {
       setSelectedService(service);
       setOpen(true);
       fetchInspections(service.id);
@@ -602,59 +598,6 @@ const filteredTechniciansForCompanion = technicians.filter(
             </Row>
           </div>
         </Col>
-  
-        {open && (
-          <Col md={7}>
-            <Collapse in={open}>
-              <div>
-                {selectedService ? (
-                  <div className="service-details p-3 border">
-                    <h4>Detalles del Servicio</h4>
-                    <p><strong>ID del servicio:</strong> {selectedService.id}</p>
-                    <p><strong>Tipo de Servicio:</strong> {selectedService.service_type}</p>
-                    <p><strong>Descripción:</strong> {selectedService.description}</p>
-                    <p><strong>Categoría:</strong> {selectedService.category}</p>
-                    {selectedService.category === 'Periodico' && (
-                      <p><strong>Cantidad al mes:</strong> {selectedService.quantity_per_month}</p>
-                    )}
-                    <p><strong>Valor:</strong> ${selectedService.value}</p>
-  
-                    <h5 className="mt-4">Inspecciones</h5>
-                    {inspections.length > 0 ? (
-                      <Table striped bordered hover size="sm" className="mt-3">
-                        <thead>
-                          <tr>
-                            <th>ID</th>
-                            <th>Fecha</th>
-                            <th>Hora de Inicio</th>
-                            <th>Hora de Finalización</th>
-                            <th>Observaciones</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {inspections.map(inspection => (
-                            <tr key={inspection.id}>
-                              <td>{inspection.id}</td>
-                              <td>{inspection.date}</td>
-                              <td>{inspection.time}</td>
-                              <td>{inspection.exit_time}</td>
-                              <td>{inspection.observations}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </Table>
-                    ) : (
-                      <p>No hay inspecciones registradas para este servicio.</p>
-                    )}
-                    <Button variant="link" className="text-success" onClick={handleShowModal}>Añadir Inspección</Button>
-                  </div>
-                ) : (
-                  <p className="text-center mt-4">Seleccione un servicio para ver los detalles</p>
-                )}
-              </div>
-            </Collapse>
-          </Col>
-        )}
       </Row>
   
       {/* Modal para añadir una nueva inspección */}
@@ -943,9 +886,6 @@ const filteredTechniciansForCompanion = technicians.filter(
           onChange={(e) => {
             const { value, checked } = e.target;
 
-            // Mostrar el valor del checkbox que se está seleccionando/deseleccionando
-            console.log("Checkbox changed:", value, "Checked:", checked);
-
             setEditService((prevService) => {
               // Verificar el estado antes de actualizar
               console.log("Previous service_type:", prevService.service_type);
@@ -953,11 +893,6 @@ const filteredTechniciansForCompanion = technicians.filter(
               const updatedServiceType = checked
                 ? [...prevService.service_type, value]
                 : prevService.service_type.filter((type) => type !== value);
-
-              // Mostrar el estado actualizado
-              console.log("Updated service_type:", updatedServiceType);
-
-              setVisiblePestOptions(Array.from(new Set(updatedServiceType.flatMap(type => pestOptions[type] || []))));
 
               return {
                 ...prevService,
