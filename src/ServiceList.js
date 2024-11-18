@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
-import { Card, Col, Row, Collapse, Button, Table, Modal, Form} from 'react-bootstrap';
+import { FaEdit, FaTrash } from 'react-icons/fa';
+import { Card, Col, Row, Collapse, Button, Table, Modal, Form } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function ServiceList() { 
@@ -14,10 +15,29 @@ function ServiceList() {
   const [showModal, setShowModal] = useState(false);
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
-  console.log("Stored User Info:", storedUserInfo); // Verifica el contenido completo
   const userId = storedUserInfo?.id_usuario || '';
-  console.log("User ID:", userId); // Debería mostrar el ID real ahora
   const [selectedUser, setSelectedUser] = useState('');
+
+  const [showEditServiceType, setShowEditServiceType] = useState(false); // Nuevo estado para el colapso en edición
+
+  const [clientNames, setClientNames] = useState({});
+
+  const [editService, setEditService] = useState({
+    service_type: [],
+    description: '',
+    pest_to_control: '',
+    intervention_areas: '',
+    responsible: '',
+    category: '',
+    quantity_per_month: '',
+    client_id: '',
+    value: '',
+    companion: [],
+    created_by: userId,
+    created_at: moment().format('DD-MM-YYYY'),
+  });
+  
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const [showServiceType, setShowServiceType] = useState(false);
 
@@ -29,8 +49,6 @@ function ServiceList() {
 
   const [searchServiceText, setSearchServiceText] = useState(''); // Estado para el texto de búsqueda en servicios
   const [filteredServices, setFilteredServices] = useState([]); // Estado para los servicios filtrados
-  
-  const [collapsedGroups, setCollapsedGroups] = useState({})
 
   const [newService, setNewService] = useState({
     service_type: [],
@@ -128,6 +146,28 @@ const handleDropdownToggle = (isOpen, event) => {
   setShowDropdown(isOpen);
 };
 
+const handleEditClick = (service) => {
+  console.log("Clicked Edit for service:", service); // <-- Log para verificar clic en Editar
+
+  setEditService({
+    ...service,
+    service_type: service.service_type ? service.service_type.split(',') : [],
+    pest_to_control: service.pest_to_control ? service.pest_to_control.split(',') : [],
+    intervention_areas: service.intervention_areas ? service.intervention_areas.split(',') : [],
+    companion: service.companion ? service.companion.split(',') : []
+  });
+
+  console.log("Initial editService after setting:", {
+    ...service,
+    service_type: service.service_type ? service.service_type.split(',') : [],
+    pest_to_control: service.pest_to_control ? service.pest_to_control.split(',') : [],
+    intervention_areas: service.intervention_areas ? service.intervention_areas.split(',') : [],
+    companion: service.companion ? service.companion.split(',') : []
+  }); // <-- Log para verificar estado inicial de editService
+  setVisiblePestOptions(pestOptions[service.service_type] || []);
+  setShowEditModal(true);
+};
+
   const handleServiceTypeChange = (e) => {
     const { value, checked } = e.target;
     setNewService((prevService) => {
@@ -151,6 +191,37 @@ const handleDropdownToggle = (isOpen, event) => {
       };
     });
   };
+
+  const handleSaveChanges = async () => {
+    try {
+      const response = await axios.put(`http://localhost:10000/api/services/${editService.id}`, {
+        ...editService,
+        service_type: editService.service_type.join(','),
+        pest_to_control: editService.pest_to_control.join(','),
+        intervention_areas: editService.intervention_areas.join(','),
+        companion: editService.companion.join(',')
+      });
+      
+      if (response.data.success) {
+        setServices(services.map(service => service.id === editService.id ? editService : service));
+        setShowEditModal(false);
+        setEditService(null);
+      }
+    } catch (error) {
+      console.error("Error updating service:", error);
+    }
+  };
+  
+  const handleDeleteClick = async (serviceId) => {
+    try {
+      const response = await axios.delete(`http://localhost:10000/api/services/${serviceId}`);
+      if (response.data.success) {
+        setServices(services.filter(service => service.id !== serviceId));
+      }
+    } catch (error) {
+      console.error("Error deleting service:", error);
+    }
+  };  
 
   const [technicians, setTechnicians] = useState([]);
   const fetchTechnicians = async () => {
@@ -183,6 +254,14 @@ const handleDropdownToggle = (isOpen, event) => {
       try {
         const servicesResponse = await axios.get('http://localhost:10000/api/services');
         const clientsResponse = await axios.get('http://localhost:10000/api/clients');
+        
+        // Crear un diccionario de nombres de clientes
+        const clientData = {};
+        clientsResponse.data.forEach(client => {
+          clientData[client.id] = client.name;
+        });
+        
+        setClientNames(clientData); // Guarda los nombres de los clientes
         setServices(servicesResponse.data);
         setFilteredServices(servicesResponse.data); // Inicialmente, muestra todos los servicios
         setClients(clientsResponse.data);
@@ -192,6 +271,9 @@ const handleDropdownToggle = (isOpen, event) => {
         setLoading(false);
       }
     };
+  
+    fetchServicesAndClients();
+    fetchTechnicians();
   
     // Llama a la función de carga de servicios y clientes una sola vez
     fetchServicesAndClients();
@@ -220,9 +302,6 @@ const handleDropdownToggle = (isOpen, event) => {
     setFilteredServices(filtered);
   }, [selectedUser, searchServiceText, services]); // Se ejecuta cada vez que cambian estos valores para actualizar el filtrado de servicios
   
-
-  console.log("User ID:", newService.created_by); // Verifica que el ID del usuario logueado se esté configurando correctamente
-
   if (loading) return <div>Cargando servicios...</div>;
 
   const handleServiceSearchChange = (e) => {
@@ -408,18 +487,6 @@ const filteredTechniciansForCompanion = technicians.filter(
 
   if (loading) return <div>Cargando servicios...</div>;
 
-  const groupedServices = clients.map(client => ({
-    client,
-    services: services.filter(service => service.client_id === client.id),
-  }));
-
-  const toggleGroupCollapse = (clientId) => {
-    setCollapsedGroups((prevState) => ({
-      ...prevState,
-      [clientId]: !prevState[clientId],
-    }));
-  };
-
   const handleCompanionChange = (e) => {
     const { value, checked } = e.target;
     setNewService((prevService) => ({
@@ -434,139 +501,164 @@ const filteredTechniciansForCompanion = technicians.filter(
     <div className="container mt-4">
       <h2 className="text-primary mb-4">Servicios Pendientes</h2>
       <Form.Group controlId="formServiceSearch" className="mb-4">
-  <Form.Control
-    type="text"
-    placeholder="Buscar servicios..."
-    value={searchServiceText}
-    onChange={handleServiceSearchChange}
-  />
-</Form.Group>
-
-<Form.Group controlId="userFilter" className="mb-4">
-  <Form.Label>Filtrar por Usuario</Form.Label>
-  <Form.Control as="select" value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
-    <option value="">Todos los usuarios</option>
-    {technicians.map((technician) => (
-      <option key={technician.id} value={technician.id}>
-        {technician.name}
-      </option>
-    ))}
-  </Form.Control>
-</Form.Group>
-
-
+        <Form.Control
+          type="text"
+          placeholder="Buscar servicios..."
+          value={searchServiceText}
+          onChange={handleServiceSearchChange}
+        />
+      </Form.Group>
+  
+      <Form.Group controlId="userFilter" className="mb-4">
+        <Form.Label>Filtrar por Usuario</Form.Label>
+        <Form.Control as="select" value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
+          <option value="">Todos los usuarios</option>
+          {technicians.map((technician) => (
+            <option key={technician.id} value={technician.id}>
+              {technician.name}
+            </option>
+          ))}
+        </Form.Control>
+      </Form.Group>
+  
       <Button variant="primary" onClick={handleShowAddServiceModal} className="mb-4">
         Añadir Servicio
       </Button>
-
+  
       <Row>
-  <Col md={open ? 5 : 12}>
-    <div className="service-list">
-      {groupedServices.map(({ client, services }) => (
-        <div key={client.id} className="mb-4">
-        <h5
-          className="text-muted"
-          onClick={() => toggleGroupCollapse(client.id)}
-          style={{ cursor: 'pointer' }}
-        >
-          {client.name} {collapsedGroups[client.id] ? '▲' : '▼'}
-        </h5>
-        <Collapse in={collapsedGroups[client.id]}>
-          <div>
+        <Col md={open ? 5 : 12}>
+          <div className="service-list">
             <Row>
-              {filteredServices
-                .filter(service => service.client_id === client.id) // Filtra servicios para este cliente
-                .map(service => (
-                  <Col md={6} key={service.id}>
-                    <Card
-                      className={`mb-3 ${selectedService?.id === service.id ? 'border-success' : ''}`}
-                      onClick={() => handleServiceClick(service)}
-                      style={{ cursor: "pointer", minHeight: "200px" }}
-                    >
-                      <Card.Body>
-                        <Card.Title>
-                          {service.service_type.replace(/[{}"]/g, '').split(',').join(', ')}
-                        </Card.Title>
-                        <Card.Text>
-                          <strong>Descripción:</strong> {service.description}<br />
-                          <strong>Fecha:</strong> {service.date}<br />
-                          <strong>Hora:</strong> {service.time}
-                        </Card.Text>
-                        <div className="d-flex justify-content-between mt-3">
-                          <Button variant="outline-success" size="sm">Generar Informe</Button>
-                          <Button variant="outline-primary" size="sm">Novedad en Estación</Button>
-                        </div>
-                        </Card.Body>
-                      </Card>
-                    </Col>
-                  ))
-                }
-              </Row>
-              {services.length === 0 && (
-                <p>No hay servicios para este cliente</p>
-              )}
-            </div>
-          </Collapse>
-          <br />
-        </div>
-      ))}
-    </div>
-  </Col>
+              {filteredServices.map(service => (
+                <Col md={4} lg={4} xl={4} sm={6} xs={12} key={service.id} className="mb-4">
 
-  <Col md={open ? 7 : 0}>
-    <Collapse in={open}>
+<Card
+  className="mb-3 border"
+  style={{ cursor: "pointer", minHeight: "280px", height: "280px" }}
+  onClick={() => handleServiceClick(service)}
+>
+  <Card.Body>
+    <div className="d-flex align-items-center justify-content-between">
       <div>
-        {selectedService ? (
-          <div className="service-details p-3 border">
-            <h4>Detalles del Servicio</h4>
-            <p><strong>ID del servicio:</strong> {selectedService.id}</p>
-            <p><strong>Tipo de Servicio:</strong> {selectedService.service_type}</p>
-            <p><strong>Descripción:</strong> {selectedService.description}</p>
-            <p><strong>Categoría:</strong> {selectedService.categoria}</p>
-            {selectedService.categoria === 'Periodico' && (
-              <p><strong>Cantidad al mes:</strong> {selectedService.cantidad_al_mes}</p>
-            )}
-            <p><strong>Valor:</strong> ${selectedService.value}</p>
-
-            <h5 className="mt-4">Inspecciones</h5>
-            {inspections.length > 0 ? (
-              <Table striped bordered hover size="sm" className="mt-3">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Fecha</th>
-                    <th>Hora de Inicio</th>
-                    <th>Hora de Finalización</th>
-                    <th>Observaciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inspections.map(inspection => (
-                    <tr key={inspection.id}>
-                      <td>{inspection.id}</td>
-                      <td>{inspection.date}</td>
-                      <td>{inspection.time}</td>
-                      <td>{inspection.exit_time}</td>
-                      <td>{inspection.observations}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            ) : (
-              <p>No hay inspecciones registradas para este servicio.</p>
-            )}
-            <Button variant="link" className="text-success" onClick={handleShowModal}>Añadir Inspección</Button>
-          </div>
-        ) : (
-          <p className="text-center mt-4">Seleccione un servicio para ver los detalles</p>
-        )}
+        <span className="fw-bold text-primary">🛠 SS-{service.id}</span>
+        <span className="text-muted mx-2">|</span>
+        <span className="text-dark">{service.service_type.replace(/[{}"]/g, '').split(',').join(', ')}</span>
       </div>
-    </Collapse>
-  </Col>
-</Row>
+    </div>
+    <hr />
+    <div>
+      <span className="text-muted small">Plagas: </span>
+      <span className="text-dark">
+        {(() => {
+          const pestMatches = service.pest_to_control.match(/"([^"]+)"/g);
+          const pests = pestMatches ? pestMatches.map(item => item.replace(/"/g, '')) : [];
+          return pests.length > 0 ? pests.join(', ') : "No especificado";
+        })()}
+      </span>
+    </div>
+    <div className="mt-2">
+      <span className="text-muted small">Áreas: </span>
+      <span className="text-dark">
+        {(() => {
+          const areaMatches = service.intervention_areas.match(/"([^"]+)"/g);
+          const areas = areaMatches ? areaMatches.map(item => item.replace(/"/g, '')) : [];
+          return areas.length > 0 ? areas.join(', ') : "No especificadas";
+        })()}
+      </span>
+    </div>
+    <div className="mt-3">
+      <h5 className="text-primary">
+        {clientNames[service.client_id] || "Cliente Desconocido"}
+      </h5>
+    </div>
+    <div className="d-flex justify-content-end mt-3">
+      <Button
+        variant="outline-success"
+        size="sm"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleEditClick(service);
+        }}
+        className="me-2"
+      >
+        <FaEdit size={18} />
+      </Button>
+      <Button
+        variant="outline-danger"
+        size="sm"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDeleteClick(service.id);
+        }}
+      >
+        <FaTrash size={18} />
+      </Button>
+    </div>
+  </Card.Body>
+</Card>
 
-  {/* Modal para añadir una nueva inspección */}
-  <Modal show={showModal} onHide={handleCloseModal}>
+                </Col>
+              ))}
+            </Row>
+          </div>
+        </Col>
+  
+        {open && (
+          <Col md={7}>
+            <Collapse in={open}>
+              <div>
+                {selectedService ? (
+                  <div className="service-details p-3 border">
+                    <h4>Detalles del Servicio</h4>
+                    <p><strong>ID del servicio:</strong> {selectedService.id}</p>
+                    <p><strong>Tipo de Servicio:</strong> {selectedService.service_type}</p>
+                    <p><strong>Descripción:</strong> {selectedService.description}</p>
+                    <p><strong>Categoría:</strong> {selectedService.category}</p>
+                    {selectedService.category === 'Periodico' && (
+                      <p><strong>Cantidad al mes:</strong> {selectedService.quantity_per_month}</p>
+                    )}
+                    <p><strong>Valor:</strong> ${selectedService.value}</p>
+  
+                    <h5 className="mt-4">Inspecciones</h5>
+                    {inspections.length > 0 ? (
+                      <Table striped bordered hover size="sm" className="mt-3">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Fecha</th>
+                            <th>Hora de Inicio</th>
+                            <th>Hora de Finalización</th>
+                            <th>Observaciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {inspections.map(inspection => (
+                            <tr key={inspection.id}>
+                              <td>{inspection.id}</td>
+                              <td>{inspection.date}</td>
+                              <td>{inspection.time}</td>
+                              <td>{inspection.exit_time}</td>
+                              <td>{inspection.observations}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    ) : (
+                      <p>No hay inspecciones registradas para este servicio.</p>
+                    )}
+                    <Button variant="link" className="text-success" onClick={handleShowModal}>Añadir Inspección</Button>
+                  </div>
+                ) : (
+                  <p className="text-center mt-4">Seleccione un servicio para ver los detalles</p>
+                )}
+              </div>
+            </Collapse>
+          </Col>
+        )}
+      </Row>
+  
+      {/* Modal para añadir una nueva inspección */}
+      <Modal show={showModal} onHide={handleCloseModal}>
         <Modal.Header closeButton>
           <Modal.Title>Añadir Inspección</Modal.Title>
         </Modal.Header>
@@ -823,6 +915,231 @@ const filteredTechniciansForCompanion = technicians.filter(
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
+  <Modal.Header closeButton>
+    <Modal.Title>Editar Servicio</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    {editService && (
+      <Form>
+<Form.Group className="mt-3">
+  <Form.Label
+    onClick={() => setShowServiceType((prev) => !prev)}
+    style={{ cursor: "pointer", fontWeight: "bold", display: "block" }}
+  >
+    Tipo de Servicio
+  </Form.Label>
+  <Collapse in={showServiceType}>
+    <div>
+      {serviceOptions.map((option, index) => (
+        <Form.Check
+          key={option}
+          type="checkbox"
+          label={option}
+          value={option}
+          id={`edit_service_option_${index}`}
+          checked={editService.service_type.includes(option)} // Verifica si la opción está en el array
+          onChange={(e) => {
+            const { value, checked } = e.target;
+
+            // Mostrar el valor del checkbox que se está seleccionando/deseleccionando
+            console.log("Checkbox changed:", value, "Checked:", checked);
+
+            setEditService((prevService) => {
+              // Verificar el estado antes de actualizar
+              console.log("Previous service_type:", prevService.service_type);
+
+              const updatedServiceType = checked
+                ? [...prevService.service_type, value]
+                : prevService.service_type.filter((type) => type !== value);
+
+              // Mostrar el estado actualizado
+              console.log("Updated service_type:", updatedServiceType);
+
+              setVisiblePestOptions(Array.from(new Set(updatedServiceType.flatMap(type => pestOptions[type] || []))));
+
+              return {
+                ...prevService,
+                service_type: updatedServiceType,
+                pest_to_control: [], // Limpia las plagas seleccionadas al cambiar el tipo de servicio
+              };
+            });
+          }}
+        />
+      ))}
+    </div>
+  </Collapse>
+</Form.Group>
+
+        <Form.Group className="mt-3">
+  <Form.Label>Descripción</Form.Label>
+  <Form.Control
+    as="textarea"
+    rows={3}
+    value={editService.description}
+    onChange={(e) => setEditService({ ...editService, description: e.target.value })}
+  />
+</Form.Group>
+
+<Form.Group controlId="formPestToControl" className="mt-3">
+  <Form.Label>Plaga a Controlar</Form.Label>
+  <div>
+    {visiblePestOptions.map((pest) => (
+      <Form.Check
+        key={pest}
+        type="checkbox"
+        label={pest}
+        value={pest}
+        checked={editService.pest_to_control.includes(pest)}
+        onChange={(e) => {
+          const { value, checked } = e.target;
+          setEditService((prevService) => ({
+            ...prevService,
+            pest_to_control: checked
+              ? [...prevService.pest_to_control, value]
+              : prevService.pest_to_control.filter((p) => p !== value),
+          }));
+        }}
+      />
+    ))}
+  </div>
+</Form.Group>
+
+<Form.Group className="mt-3">
+  <Form.Label>Áreas de Intervención</Form.Label>
+  <div>
+    {interventionAreaOptions.map((area, index) => (
+      <Form.Check
+        key={area}
+        type="checkbox"
+        label={area}
+        value={area}
+        checked={editService.intervention_areas.includes(area)} // Verifica si el área está en el array
+        onChange={(e) => {
+          const { value, checked } = e.target;
+
+          // Mostrar el valor del área y su estado de checked
+          console.log("Área changed:", value, "Checked:", checked);
+
+          setEditService((prevService) => {
+            // Verificar el estado de editService y editService.intervention_areas antes de actualizar
+            console.log("Previous editService:", prevService);
+            console.log("Previous editService.intervention_areas:", prevService.intervention_areas);
+
+            const updatedInterventionAreas = checked
+              ? [...prevService.intervention_areas, value]
+              : prevService.intervention_areas.filter((area) => area !== value);
+
+            // Mostrar el estado actualizado de intervention_areas
+            console.log("Updated intervention_areas:", updatedInterventionAreas);
+
+            return {
+              ...prevService,
+              intervention_areas: updatedInterventionAreas,
+            };
+          });
+        }}
+      />
+    ))}
+  </div>
+</Form.Group>
+
+        <Form.Group className="mt-3">
+          <Form.Label>Responsable</Form.Label>
+          <Form.Control
+            as="select"
+            name="responsible"
+            value={editService.responsible}
+            onChange={(e) => setEditService({ ...editService, responsible: e.target.value })}
+          >
+            <option value="">Seleccione un técnico</option>
+            {technicians.map((technician) => (
+              <option key={technician.id} value={technician.id}>
+                {technician.name}
+              </option>
+            ))}
+          </Form.Control>
+        </Form.Group>
+
+        <Form.Group className="mt-3">
+          <Form.Label>Categoría</Form.Label>
+          <Form.Control
+            as="select"
+            name="category"
+            value={editService.category}
+            onChange={(e) => {
+              const value = e.target.value;
+              setEditService((prevService) => ({
+                ...prevService,
+                category: value,
+                quantity_per_month: value === 'Periódico' ? prevService.quantity_per_month : '',
+              }));
+            }}
+          >
+            <option value="">Seleccione una categoría</option>
+            <option value="Puntual">Puntual</option>
+            <option value="Periódico">Periódico</option>
+          </Form.Control>
+        </Form.Group>
+
+        {editService.category === 'Periódico' && (
+          <Form.Group controlId="formQuantityPerMonth" className="mt-3">
+            <Form.Label>Cantidad al Mes</Form.Label>
+            <Form.Control
+              type="number"
+              name="quantity_per_month"
+              value={editService.quantity_per_month || ''}
+              onChange={(e) => setEditService({ ...editService, quantity_per_month: e.target.value })}
+            />
+          </Form.Group>
+        )}
+
+        <Form.Group controlId="formValue" className="mt-3">
+          <Form.Label>Valor</Form.Label>
+          <Form.Control
+            type="number"
+            name="value"
+            value={editService.value}
+            onChange={(e) => setEditService({ ...editService, value: e.target.value })}
+          />
+        </Form.Group>
+
+        <Form.Group className="mt-3">
+          <Form.Label>Acompañante</Form.Label>
+          <div>
+            {filteredTechniciansForCompanion.map((technician) => (
+              <Form.Check
+                key={technician.id}
+                type="checkbox"
+                label={technician.name}
+                value={technician.id}
+                checked={editService.companion.includes(technician.id)}
+                onChange={(e) => {
+                  const { value, checked } = e.target;
+                  setEditService((prevService) => ({
+                    ...prevService,
+                    companion: checked
+                      ? [...prevService.companion, value]
+                      : prevService.companion.filter((companionId) => companionId !== value),
+                  }));
+                }}
+              />
+            ))}
+          </div>
+        </Form.Group>
+      </Form>
+    )}
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+      Cancelar
+    </Button>
+    <Button variant="primary" onClick={handleSaveChanges}>
+      Guardar Cambios
+    </Button>
+  </Modal.Footer>
+</Modal>
     </div>
   );
 }

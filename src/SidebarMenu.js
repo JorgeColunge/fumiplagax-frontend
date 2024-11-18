@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUnsavedChanges } from './UnsavedChangesContext';
-import { List, Person, People, Calendar3, Clipboard, FileText, BarChart, ClipboardCheck, BoxArrowRight, Search, Megaphone, CurrencyDollar, Gear, CalendarDate, CalendarEvent, Eyedropper, PersonFillGear, GraphUp, ChatLeftDots } from 'react-bootstrap-icons';
+import { List, Person, People, Calendar3, Clipboard, FileText, BarChart, ClipboardCheck, BoxArrowRight, Search, Megaphone, CurrencyDollar, Gear, CalendarDate, CalendarEvent, Eyedropper, PersonFillGear, GraphUp, ChatLeftDots, BoxArrowInUpRight } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './SidebarMenu.css';
 
@@ -32,8 +32,6 @@ function SidebarMenu({ onLogout, userInfo, onToggle }) {
     setIsOpen(!isOpen);
     onToggle(!isOpen); // Llama a la función pasada como prop
   };
-
-  console.log(userInfo);
 
   const [profilePic, setProfilePic] = useState('/'); // Imagen predeterminada
 
@@ -97,6 +95,12 @@ function SidebarMenu({ onLogout, userInfo, onToggle }) {
         <button className="nav-link btn btn-link" onClick={() => handleNavigation('/services')}>
           <ClipboardCheck size={20} />
           {isOpen && <span>Servicios</span>}
+        </button>
+      </div>
+      <div className="nav-item">
+        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/myservices')}>
+          <BoxArrowInUpRight size={20} />
+          {isOpen && <span>Mis Servicios</span>}
         </button>
       </div>
       <div className="nav-item">
