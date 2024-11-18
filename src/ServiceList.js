@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
+import { useNavigate } from 'react-router-dom'; // Asegúrate de tener configurado react-router
 import { FaEdit, FaTrash } from 'react-icons/fa';
 import { Card, Col, Row, Collapse, Button, Table, Modal, Form } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -20,7 +21,14 @@ function ServiceList() {
 
   const [showEditServiceType, setShowEditServiceType] = useState(false); // Nuevo estado para el colapso en edición
 
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+
   const [clientNames, setClientNames] = useState({});
+
+  const [showPestOptions, setShowPestOptions] = useState(false);
+
+  const [showInterventionAreasOptions, setShowInterventionAreasOptions] = useState(false);
+  
 
   const [editService, setEditService] = useState({
     service_type: [],
@@ -136,6 +144,13 @@ const handleInterventionAreasChange = (e) => {
       : prevService.intervention_areas.filter((area) => area !== value),
   }));
 };
+  const navigate = useNavigate();
+
+  const handleInspectionClick = (inspection) => {
+    console.log("Clicked inspection:", inspection);
+    // Redirigir a la página de Detalles de Inspección con el ID seleccionado
+    navigate(`/inspection/${inspection.id}`);
+  };
 
 const handleDropdownToggle = (isOpen, event) => {
   // Verificar si el evento es un clic en un checkbox
@@ -149,13 +164,31 @@ const handleDropdownToggle = (isOpen, event) => {
 const handleEditClick = (service) => {
   console.log("Clicked Edit for service:", service); // <-- Log para verificar clic en Editar
 
+  const parseServiceField = (field) => {
+    if (!field) return [];
+    try {
+      return field
+        .replace(/[\{\}"]/g, '') // Elimina caracteres extraños
+        .split(',') // Divide por comas
+        .map((item) => item.trim()); // Limpia espacios en blanco
+    } catch (error) {
+      console.error("Error parsing field:", field, error);
+      return [];
+    }
+  };  
+  
   setEditService({
     ...service,
-    service_type: service.service_type ? service.service_type.split(',') : [],
-    pest_to_control: service.pest_to_control ? service.pest_to_control.split(',') : [],
-    intervention_areas: service.intervention_areas ? service.intervention_areas.split(',') : [],
-    companion: service.companion ? service.companion.split(',') : []
-  });
+    service_type: parseServiceField(service.service_type),
+    pest_to_control: parseServiceField(service.pest_to_control),
+    intervention_areas: parseServiceField(service.intervention_areas).filter((area) =>
+      interventionAreaOptions.includes(area)
+    ),    
+    companion: parseServiceField(service.companion).filter((id) =>
+      technicians.some((tech) => tech.id === id)
+    ),
+    
+  });  
 
   console.log("Initial editService after setting:", {
     ...service,
@@ -164,7 +197,13 @@ const handleEditClick = (service) => {
     intervention_areas: service.intervention_areas ? service.intervention_areas.split(',') : [],
     companion: service.companion ? service.companion.split(',') : []
   }); // <-- Log para verificar estado inicial de editService
-  setVisiblePestOptions(pestOptions[service.service_type] || []);
+  const parsedServiceType = Array.isArray(service.service_type)
+  ? service.service_type
+  : parseServiceField(service.service_type);
+
+setVisiblePestOptions(
+  Array.from(new Set(parsedServiceType.flatMap((type) => pestOptions[type.trim()] || [])))
+);
   setShowEditModal(true);
 };
 
@@ -327,12 +366,21 @@ const handleEditClick = (service) => {
   const fetchInspections = async (serviceId) => {
     try {
       const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
-      const formattedInspections = response.data.sort((a, b) => b.datetime - a.datetime);
+      const formattedInspections = response.data
+        .filter((inspection) => inspection.service_id === serviceId) // Filtra por `service_id`
+        .map((inspection) => ({
+          ...inspection,
+          date: moment(inspection.date).format("DD/MM/YYYY"), // Formato legible para la fecha
+          time: inspection.time ? moment(inspection.time, "HH:mm:ss").format("HH:mm") : "No disponible",
+          exit_time: inspection.exit_time ? moment(inspection.exit_time, "HH:mm:ss").format("HH:mm") : "No disponible",
+          observations: inspection.observations || "Sin observaciones",
+        }))
+        .sort((a, b) => b.datetime - a.datetime); // Ordena por fecha y hora
       setInspections(formattedInspections);
     } catch (error) {
       console.error("Error fetching inspections:", error);
     }
-  };
+  };  
 
   const handleSearchChange = (e) => {
     const input = e.target.value;
@@ -350,11 +398,10 @@ const handleEditClick = (service) => {
   };
 
   const handleServiceClick = (service) => {
-      setSelectedService(service);
-      setOpen(true);
-      fetchInspections(service.id);
-    }
-  };
+    setSelectedService(service); // Establece el servicio seleccionado
+    fetchInspections(service.id); // Pasa el `service.id` a la función para filtrar las inspecciones
+    setShowDetailsModal(true); // Abre el modal
+  };    
 
   const handleShowModal = () => {
     setNewInspection({
@@ -533,6 +580,7 @@ const filteredTechniciansForCompanion = technicians.filter(
   style={{ cursor: "pointer", minHeight: "280px", height: "280px" }}
   onClick={() => handleServiceClick(service)}
 >
+
   <Card.Body>
     <div className="d-flex align-items-center justify-content-between">
       <div>
@@ -875,34 +923,28 @@ const filteredTechniciansForCompanion = technicians.filter(
   </Form.Label>
   <Collapse in={showServiceType}>
     <div>
-      {serviceOptions.map((option, index) => (
-        <Form.Check
-          key={option}
-          type="checkbox"
-          label={option}
-          value={option}
-          id={`edit_service_option_${index}`}
-          checked={editService.service_type.includes(option)} // Verifica si la opción está en el array
-          onChange={(e) => {
-            const { value, checked } = e.target;
+    {serviceOptions.map((option, index) => (
+      <Form.Check
+  key={option}
+  type="checkbox"
+  label={option}
+  value={option}
+  checked={editService.service_type.includes(option)} // Refleja correctamente los valores procesados
+  onChange={(e) => {
+    const { value, checked } = e.target;
+    setEditService((prevService) => {
+      const updatedServiceType = checked
+        ? [...prevService.service_type, value]
+        : prevService.service_type.filter((type) => type !== value);
+      return {
+        ...prevService,
+        service_type: updatedServiceType
+      };
+    });
+  }}
+/>
 
-            setEditService((prevService) => {
-              // Verificar el estado antes de actualizar
-              console.log("Previous service_type:", prevService.service_type);
-
-              const updatedServiceType = checked
-                ? [...prevService.service_type, value]
-                : prevService.service_type.filter((type) => type !== value);
-
-              return {
-                ...prevService,
-                service_type: updatedServiceType,
-                pest_to_control: [], // Limpia las plagas seleccionadas al cambiar el tipo de servicio
-              };
-            });
-          }}
-        />
-      ))}
+))}
     </div>
   </Collapse>
 </Form.Group>
@@ -918,66 +960,65 @@ const filteredTechniciansForCompanion = technicians.filter(
 </Form.Group>
 
 <Form.Group controlId="formPestToControl" className="mt-3">
-  <Form.Label>Plaga a Controlar</Form.Label>
-  <div>
-    {visiblePestOptions.map((pest) => (
-      <Form.Check
-        key={pest}
-        type="checkbox"
-        label={pest}
-        value={pest}
-        checked={editService.pest_to_control.includes(pest)}
-        onChange={(e) => {
-          const { value, checked } = e.target;
-          setEditService((prevService) => ({
-            ...prevService,
-            pest_to_control: checked
-              ? [...prevService.pest_to_control, value]
-              : prevService.pest_to_control.filter((p) => p !== value),
-          }));
-        }}
-      />
-    ))}
-  </div>
+  <Form.Label
+    onClick={() => setShowPestOptions((prev) => !prev)}
+    style={{ cursor: "pointer", fontWeight: "bold", display: "block" }}
+  >
+    Plaga a Controlar
+  </Form.Label>
+  <Collapse in={showPestOptions}>
+    <div>
+      {visiblePestOptions.map((pest) => (
+        <Form.Check
+          key={pest}
+          type="checkbox"
+          label={pest}
+          value={pest}
+          checked={editService.pest_to_control.includes(pest)}
+          onChange={(e) => {
+            const { value, checked } = e.target;
+            setEditService((prevService) => ({
+              ...prevService,
+              pest_to_control: checked
+                ? [...prevService.pest_to_control, value]
+                : prevService.pest_to_control.filter((p) => p !== value),
+            }));
+          }}
+        />
+      ))}
+    </div>
+  </Collapse>
 </Form.Group>
 
 <Form.Group className="mt-3">
-  <Form.Label>Áreas de Intervención</Form.Label>
-  <div>
-    {interventionAreaOptions.map((area, index) => (
-      <Form.Check
-        key={area}
-        type="checkbox"
-        label={area}
-        value={area}
-        checked={editService.intervention_areas.includes(area)} // Verifica si el área está en el array
-        onChange={(e) => {
-          const { value, checked } = e.target;
-
-          // Mostrar el valor del área y su estado de checked
-          console.log("Área changed:", value, "Checked:", checked);
-
-          setEditService((prevService) => {
-            // Verificar el estado de editService y editService.intervention_areas antes de actualizar
-            console.log("Previous editService:", prevService);
-            console.log("Previous editService.intervention_areas:", prevService.intervention_areas);
-
-            const updatedInterventionAreas = checked
-              ? [...prevService.intervention_areas, value]
-              : prevService.intervention_areas.filter((area) => area !== value);
-
-            // Mostrar el estado actualizado de intervention_areas
-            console.log("Updated intervention_areas:", updatedInterventionAreas);
-
-            return {
+  <Form.Label
+    onClick={() => setShowInterventionAreasOptions((prev) => !prev)}
+    style={{ cursor: "pointer", fontWeight: "bold", display: "block" }}
+  >
+    Áreas de Intervención
+  </Form.Label>
+  <Collapse in={showInterventionAreasOptions}>
+    <div>
+      {interventionAreaOptions.map((area, index) => (
+        <Form.Check
+          key={area}
+          type="checkbox"
+          label={area}
+          value={area}
+          checked={editService.intervention_areas.includes(area)}
+          onChange={(e) => {
+            const { value, checked } = e.target;
+            setEditService((prevService) => ({
               ...prevService,
-              intervention_areas: updatedInterventionAreas,
-            };
-          });
-        }}
-      />
-    ))}
-  </div>
+              intervention_areas: checked
+                ? [...prevService.intervention_areas, value]
+                : prevService.intervention_areas.filter((a) => a !== value),
+            }));
+          }}
+        />
+      ))}
+    </div>
+  </Collapse>
 </Form.Group>
 
         <Form.Group className="mt-3">
@@ -1041,28 +1082,36 @@ const filteredTechniciansForCompanion = technicians.filter(
         </Form.Group>
 
         <Form.Group className="mt-3">
-          <Form.Label>Acompañante</Form.Label>
-          <div>
-            {filteredTechniciansForCompanion.map((technician) => (
-              <Form.Check
-                key={technician.id}
-                type="checkbox"
-                label={technician.name}
-                value={technician.id}
-                checked={editService.companion.includes(technician.id)}
-                onChange={(e) => {
-                  const { value, checked } = e.target;
-                  setEditService((prevService) => ({
-                    ...prevService,
-                    companion: checked
-                      ? [...prevService.companion, value]
-                      : prevService.companion.filter((companionId) => companionId !== value),
-                  }));
-                }}
-              />
-            ))}
-          </div>
-        </Form.Group>
+  <Form.Label
+    onClick={() => setShowCompanionOptions((prev) => !prev)}
+    style={{ cursor: "pointer", fontWeight: "bold", display: "block" }}
+  >
+    Acompañante
+  </Form.Label>
+  <Collapse in={showCompanionOptions}>
+    <div>
+      {filteredTechniciansForCompanion.map((technician) => (
+        <Form.Check
+          key={technician.id}
+          type="checkbox"
+          label={technician.name}
+          value={technician.id}
+          checked={editService.companion.includes(technician.id)}
+          onChange={(e) => {
+            const { value, checked } = e.target;
+            setEditService((prevService) => ({
+              ...prevService,
+              companion: checked
+                ? [...prevService.companion, value]
+                : prevService.companion.filter((companionId) => companionId !== value),
+            }));
+          }}
+        />
+      ))}
+    </div>
+  </Collapse>
+</Form.Group>
+
       </Form>
     )}
   </Modal.Body>
@@ -1075,7 +1124,78 @@ const filteredTechniciansForCompanion = technicians.filter(
     </Button>
   </Modal.Footer>
 </Modal>
+<Modal
+  show={showDetailsModal}
+  onHide={() => setShowDetailsModal(false)}
+  size="lg"
+  centered
+>
+  <Modal.Header closeButton>
+    <Modal.Title>Detalles del Servicio</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    {selectedService && (
+      <div>
+        <p><strong>ID del servicio:</strong> {selectedService.id}</p>
+        <p>
+  <strong>Tipo de Servicio:</strong>{" "}
+  {selectedService.service_type
+    .replace(/[\{\}"]/g, "") // Elimina las llaves y comillas
+    .split(",") // Divide por comas
+    .join(", ")} {/* Vuelve a unir con un espacio después de las comas */}
+</p>
+        <p><strong>Descripción:</strong> {selectedService.description}</p>
+        <p><strong>Categoría:</strong> {selectedService.category}</p>
+        {selectedService.category === 'Periódico' && (
+          <p><strong>Cantidad al mes:</strong> {selectedService.quantity_per_month}</p>
+        )}
+        <p><strong>Valor:</strong> ${selectedService.value}</p>
+        <h5 className="mt-4">Inspecciones</h5>
+        {inspections.length > 0 ? (
+          <Table striped bordered hover size="sm" className="mt-3">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Fecha</th>
+      <th>Hora de Inicio</th>
+      <th>Hora de Finalización</th>
+      <th>Observaciones</th>
+    </tr>
+  </thead>
+  <tbody>
+  {inspections.map((inspection) => (
+    <tr
+      key={inspection.id}
+      onClick={() => handleInspectionClick(inspection)}
+      style={{ cursor: 'pointer' }} // Cambia el cursor a pointer para indicar interactividad
+    >
+      <td>{inspection.id}</td>
+      <td>{inspection.date}</td>
+      <td>{inspection.time}</td>
+      <td>{inspection.exit_time}</td>
+      <td>{inspection.observations}</td>
+    </tr>
+  ))}
+</tbody>
+
+</Table>
+        ) : (
+          <p>No hay inspecciones registradas para este servicio.</p>
+        )}
+        <Button variant="link" className="text-success" onClick={handleShowModal}>
+          Añadir Inspección
+        </Button>
+      </div>
+    )}
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>
+      Cerrar
+    </Button>
+  </Modal.Footer>
+</Modal>
     </div>
+    
   );
 }
 export default ServiceList;

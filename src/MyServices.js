@@ -312,56 +312,64 @@ function MyServices() {
 
       {/* Modal para mostrar los detalles del servicio */}
       <Modal show={showServiceModal} onHide={handleCloseServiceModal} size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>Detalles del Servicio</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {selectedService && (
-            <>
-              <h4>Servicio: {selectedService.service_type}</h4>
-              <p><strong>ID del servicio:</strong> {selectedService.id}</p>
-              <p><strong>Descripción:</strong> {selectedService.description}</p>
-              <p><strong>Fecha:</strong> {selectedService.date}</p>
-              <p><strong>Hora:</strong> {selectedService.time}</p>
-              <h5>Tipos de Servicio:</h5>
-              <ul>
-                {parseServiceType(selectedService.service_type).map((type, idx) => (
-                  <li key={idx}>{type}</li>
-                ))}
-              </ul>
+  <Modal.Header closeButton>
+    <Modal.Title>Detalles del Servicio</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    {selectedService && (
+      <>
+      <h4>
+  Servicio: {selectedService.service_type.replace(/[\{\}"]/g, "").split(",").join(", ")}
+</h4>
+        <p><strong>ID del servicio:</strong> {selectedService.id}</p>
+        <p><strong>Descripción:</strong> {selectedService.description}</p>
+        <p><strong>Fecha:</strong> {selectedService.date}</p>
+        <p><strong>Hora:</strong> {selectedService.time}</p>
+        <h5>Tipos de Servicio:</h5>
+<ul>
+  {parseServiceType(selectedService.service_type).map((type, idx) => (
+    <li key={idx}>{type.replace(/"/g, "")}</li>
+  ))}
+</ul>
 
-              <h5 className="mt-4">Inspecciones</h5>
-              {inspections.length > 0 ? (
-                <Table striped bordered hover size="sm" className="mt-3">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Fecha</th>
-                      <th>Hora de Inicio</th>
-                      <th>Hora de Finalización</th>
-                      <th>Observaciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inspections.map(inspection => (
-                      <tr key={inspection.id}>
-                        <td>{inspection.id}</td>
-                        <td>{inspection.date}</td>
-                        <td>{inspection.time}</td>
-                        <td>{inspection.exit_time}</td>
-                        <td>{inspection.observations}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              ) : (
-                <p>No hay inspecciones registradas para este servicio.</p>
-              )}
-              <Button variant="link" className="text-success" onClick={handleShowAddInspectionModal}>Añadir Inspección</Button>
-            </>
-          )}
-        </Modal.Body>
-      </Modal>
+        <h5 className="mt-4">Inspecciones</h5>
+        {inspections.length > 0 ? (
+          <Table striped bordered hover size="sm" className="mt-3">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Fecha</th>
+                <th>Hora de Inicio</th>
+                <th>Hora de Finalización</th>
+                <th>Observaciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inspections.map((inspection) => (
+                <tr
+                  key={inspection.id}
+                  onClick={() => navigate(`/inspection/${inspection.id}`)}
+                  style={{ cursor: 'pointer' }} // Cambia el cursor a pointer para indicar que es clicable
+                >
+                  <td>{inspection.id}</td>
+                  <td>{inspection.date}</td>
+                  <td>{inspection.time}</td>
+                  <td>{inspection.exit_time}</td>
+                  <td>{inspection.observations}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        ) : (
+          <p>No hay inspecciones registradas para este servicio.</p>
+        )}
+        <Button variant="link" className="text-success" onClick={handleShowAddInspectionModal}>
+          Añadir Inspección
+        </Button>
+      </>
+    )}
+  </Modal.Body>
+</Modal>
 
       {/* Modal para añadir una nueva inspección */}
       <Modal show={showAddInspectionModal} onHide={handleCloseAddInspectionModal}>
