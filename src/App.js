@@ -27,10 +27,46 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
 function App() {
+  const [syncCount, setSyncCount] = useState(parseInt(localStorage.getItem('sync') || '0', 10));
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(window.innerWidth > 768);
+
+  useEffect(() => {
+    const handleSyncUpdate = (event) => {
+      setSyncCount(event.detail); // Actualiza el estado con el nuevo valor
+    };
+  
+    window.addEventListener('syncUpdate', handleSyncUpdate);
+  
+    return () => {
+      window.removeEventListener('syncUpdate', handleSyncUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Inicializar el contador de sincronización en 0 al montar la aplicación
+    console.log('🔄 Inicializando contador de sincronización...');
+    localStorage.setItem('sync', '0');
+  
+    // Emitir evento manual para reflejar el cambio
+    const syncEvent = new CustomEvent('syncUpdate', { detail: 0 });
+    window.dispatchEvent(syncEvent);
+  }, []);
+
+    // Manejar el cambio de tamaño de ventana
+    useEffect(() => {
+      const handleResize = () => {
+        setIsSidebarVisible(window.innerWidth > 768); // Cambia la visibilidad del Sidebar según el tamaño
+      };
+  
+      window.addEventListener('resize', handleResize); // Detecta cambios en el tamaño de la ventana
+      return () => {
+        window.removeEventListener('resize', handleResize); // Limpia el evento al desmontar
+      };
+    }, []);
 
   const handleSidebarToggle = (isOpen) => {
     setIsSidebarOpen(isOpen);
@@ -117,46 +153,49 @@ function App() {
             <SidebarMenu 
               userInfo={userInfo} 
               onLogout={handleLogout} 
-              onToggle={handleSidebarToggle} // Pasamos la función para cambiar el estado
+              onToggle={handleSidebarToggle}
+              isSidebarVisible={isSidebarVisible}
             />
             <TopBar 
               userName={userInfo?.name || "User"} 
               onSync={handleSync} 
               notifications={notifications} 
-              setNotifications={setNotifications} // Pasamos `setNotifications` como prop
+              setNotifications={setNotifications}
               isSidebarOpen={isSidebarOpen}
+              isSidebarVisible={isSidebarVisible}
+              toggleSidebar={() => setIsSidebarVisible((prev) => !prev)} 
+              syncCount={syncCount}
             />
-                      </>
-                    )}
-                    <div 
-                      className={`main-content flex-grow-1 ${isLoggedIn ? '' : 'w-100'}`} 
-                      style={{ 
-                        marginTop: '60px',
-                        marginLeft: isSidebarOpen ? '200px' : '60px' // Ajusta el margen izquierdo según el estado del Sidebar
-                      }}
-                    >
-                <Routes>
-                  <Route path="/" element={isLoggedIn ? <Navigate to="/profile" /> : <Navigate to="/login" />} />
-                  <Route path="/login" element={isLoggedIn ? <Navigate to="/profile" /> : <Login onLogin={handleLogin} />} />
-                  <Route path="/register" element={isLoggedIn ? <Navigate to="/profile" /> : <Register />} />
-                  <Route path="/profile" element={isLoggedIn ? <UserProfile userInfo={userInfo} /> : <Navigate to="/login" />} />
-                  <Route path="/edit-profile/:id" element={isLoggedIn ? <EditProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
-                  <Route path="/edit-my-profile/:id" element={isLoggedIn ? <EditMyProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
-                  <Route path="/users" element={isLoggedIn ? <UserList /> : <Navigate to="/login" />} />
-                  <Route path="/inspections" element={isLoggedIn ? <Inspections /> : <Navigate to="/login" />} />
-                  <Route path="/inspection/:inspectionId" element={isLoggedIn ? <Inspection /> : <Navigate to="/login" />} />
-                  <Route path="/products" element={isLoggedIn ? <ProductList /> : <Navigate to="/login" />} />
-                  <Route path="/services-calendar" element={isLoggedIn ? <InspectionCalendar /> : <Navigate to="/login" />} />
-                  <Route path="/myservices-calendar" element={isLoggedIn ? <MyServicesCalendar /> : <Navigate to="/login" />} />
-                  <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
-                  <Route path="/show-profile/:id" element={<ShowProfile />} />
-                  <Route path="/services" element={isLoggedIn ? <ServiceList /> : <Navigate to="/login" />} />
-                  <Route path="/myservices" element={isLoggedIn ? <MyServices /> : <Navigate to="/login" />} />
-                  <Route path="/stations/client/:client_id" element={isLoggedIn ? <CompanyStations /> : <Navigate to="/login" />} />
-                </Routes>
-                
-              </div>
-            </div>
+            </>
+        )}
+        <div 
+          className={`main-content flex-grow-1 ${isLoggedIn ? '' : 'w-100'}`} 
+          style={{ 
+          marginTop: '60px',
+          marginLeft: isSidebarVisible ? (isSidebarOpen ? '200px' : '60px') : '0px' // Ajusta el margen izquierdo según el estado del Sidebar
+          }}
+        >
+        <Routes>
+          <Route path="/" element={isLoggedIn ? <Navigate to="/profile" /> : <Navigate to="/login" />} />
+          <Route path="/login" element={isLoggedIn ? <Navigate to="/profile" /> : <Login onLogin={handleLogin} />} />
+          <Route path="/register" element={isLoggedIn ? <Navigate to="/profile" /> : <Register />} />
+          <Route path="/profile" element={isLoggedIn ? <UserProfile userInfo={userInfo} /> : <Navigate to="/login" />} />
+          <Route path="/edit-profile/:id" element={isLoggedIn ? <EditProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
+          <Route path="/edit-my-profile/:id" element={isLoggedIn ? <EditMyProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
+          <Route path="/users" element={isLoggedIn ? <UserList /> : <Navigate to="/login" />} />
+          <Route path="/inspections" element={isLoggedIn ? <Inspections /> : <Navigate to="/login" />} />
+          <Route path="/inspection/:inspectionId" element={isLoggedIn ? <Inspection /> : <Navigate to="/login" />} />
+          <Route path="/products" element={isLoggedIn ? <ProductList /> : <Navigate to="/login" />} />
+          <Route path="/services-calendar" element={isLoggedIn ? <InspectionCalendar /> : <Navigate to="/login" />} />
+          <Route path="/myservices-calendar" element={isLoggedIn ? <MyServicesCalendar /> : <Navigate to="/login" />} />
+          <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
+          <Route path="/show-profile/:id" element={<ShowProfile />} />
+          <Route path="/services" element={isLoggedIn ? <ServiceList /> : <Navigate to="/login" />} />
+          <Route path="/myservices" element={isLoggedIn ? <MyServices /> : <Navigate to="/login" />} />
+          <Route path="/stations/client/:client_id" element={isLoggedIn ? <CompanyStations /> : <Navigate to="/login" />} />
+        </Routes>       
+        </div>
+      </div>
     </Router>
     </UnsavedChangesProvider>
   );

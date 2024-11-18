@@ -41,6 +41,15 @@ api.interceptors.request.use(async (config) => {
       body: serializableBody,
     });
 
+    // Incrementar el contador de solicitudes pendientes en localStorage
+    const currentSyncCount = parseInt(localStorage.getItem('sync') || '0', 10);
+    const newSyncCount = currentSyncCount + 1;
+    localStorage.setItem('sync', newSyncCount.toString());
+
+    // Notificar manualmente sobre el cambio
+    const syncEvent = new CustomEvent('syncUpdate', { detail: newSyncCount });
+    window.dispatchEvent(syncEvent);
+
     return Promise.reject({ message: 'Offline: la solicitud se guardó localmente' });
   } else {
     console.log('🌐 [ONLINE] Enviando solicitud online:', {

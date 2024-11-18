@@ -1,11 +1,12 @@
 // TopBar.js
 import React from 'react';
 import { Navbar, Nav, Button, Dropdown, Badge } from 'react-bootstrap';
-import { FaSyncAlt, FaBell } from 'react-icons/fa';
+import { FaSyncAlt, FaBell, FaBars } from 'react-icons/fa';
 import axios from 'axios';
 import './TopBar.css';
+import { Arrow90degRight, ArrowLeftSquareFill, ArrowRightSquareFill } from 'react-bootstrap-icons';
 
-function TopBar({ userName, onSync, notifications, setNotifications, isSidebarOpen }) {
+function TopBar({ userName, onSync, notifications, setNotifications, isSidebarOpen, isSidebarVisible, toggleSidebar, syncCount }) {
   const userInitial = userName ? userName.charAt(0).toUpperCase() : '';
 
   // Maneja el clic en una notificación para marcarla como leída
@@ -28,61 +29,96 @@ function TopBar({ userName, onSync, notifications, setNotifications, isSidebarOp
   const unreadCount = notifications.filter((notification) => !notification.is_read).length;
 
   return (
-    <Navbar 
-      bg="light" 
-      expand="lg" 
+    <Navbar
+      bg="light"
+      expand="lg"
       className="top-bar shadow-sm px-3"
-      style={{ marginLeft: isSidebarOpen ? '240px' : '60px', width: isSidebarOpen ? 'calc(100% - 240px)' : 'calc(100% - 60px)'}}
+      style={{
+        marginLeft: isSidebarVisible ? (isSidebarOpen ? '240px' : '60px') : '0px',
+        width: isSidebarVisible
+          ? isSidebarOpen
+            ? 'calc(100% - 240px)'
+            : 'calc(100% - 60px)'
+          : '100%',
+      }}
     >
-      <Navbar.Brand href="#" className="d-flex align-items-center">
+
+      {/* Contenedor del logo */}
+      <div className="d-flex align-items-center">
+        <Button
+          variant="link"
+          className="arrows me-2"
+          onClick={toggleSidebar} // Controla la visibilidad del SidebarMenu
+        >
         <img
           src="/images/Logo FumiPlagax.png"
           alt="Logo"
-          width="60"
-          className="d-inline-block align-top mr-2"
+          className="d-inline-block align-top topbar-logo"
         />
-        <span>Fumiplagax Services</span>
-      </Navbar.Brand>
-
-      <Nav className="ml-auto d-flex align-items-center">
-        {/* Botón de sincronización */}
-        <Button variant="link" onClick={onSync} className="sync-icon">
-          <FaSyncAlt size={20} />
         </Button>
+        <img
+          src="/images/Logo FumiPlagax.png"
+          alt="Logo"
+          className=" align-top topbar-logo"
+        />
+        <span className='mx-2'>Fumiplagax Services</span>
+      </div>
 
-        {/* Dropdown para las notificaciones */}
-        <Dropdown alignRight>
-          <Dropdown.Toggle as={Button} variant="link" className="notify-icon ml-2">
-            <FaBell size={20} />
-            {unreadCount > 0 && (
+      {/* Contenedor de los íconos */}
+      <div className="ml-auto  align-items-center" 
+      style={{
+        display: isSidebarOpen && window.innerWidth < 600 ? 'none' : 'flex',
+      }}>
+        {/* Botón de sincronización */}
+        <div className="icon-container d-flex align-items-center">
+          <Button variant="link" onClick={onSync} className="sync-icon">
+            <FaSyncAlt size={20} />
+            {syncCount > 0 && (
               <Badge pill variant="danger" className="notification-count">
-                {unreadCount}
+                {syncCount}
               </Badge>
             )}
-          </Dropdown.Toggle>
-
-          <Dropdown.Menu className="notification-dropdown-menu">
-            {notifications.length > 0 ? (
-              notifications.map((notification, index) => (
-                <Dropdown.Item 
-                  key={index} 
-                  className={`notification-item ${notification.is_read ? '' : 'font-weight-bold'}`}
-                  onClick={() => handleNotificationClick(notification.id)}
-                >
-                  {notification.notification}
-                </Dropdown.Item>
-              ))
-            ) : (
-              <Dropdown.Item className="text-muted">No hay notificaciones</Dropdown.Item>
-            )}
-          </Dropdown.Menu>
-        </Dropdown>
-
-        <div className="user-initial-circle bg-success text-white ml-3 d-flex align-items-center justify-content-center">
-          {userInitial}
+          </Button>
         </div>
-      </Nav>
-    </Navbar>
+
+        {/* Dropdown de notificaciones */}
+        <div className="icon-container d-flex align-items-center">
+          <Dropdown align="end">
+            <Dropdown.Toggle as={Button} variant="link" className="notify-icon">
+              <FaBell size={20} />
+              {unreadCount > 0 && (
+                <Badge pill variant="danger" className="notification-count">
+                  {unreadCount}
+                </Badge>
+              )}
+            </Dropdown.Toggle>
+
+            <Dropdown.Menu className="notification-dropdown-menu">
+              {notifications.length > 0 ? (
+                notifications.map((notification, index) => (
+                  <Dropdown.Item
+                    key={index}
+                    className={`notification-item ${notification.is_read ? '' : 'font-weight-bold'}`}
+                    onClick={() => handleNotificationClick(notification.id)}
+                  >
+                    {notification.notification}
+                  </Dropdown.Item>
+                ))
+              ) : (
+                <Dropdown.Item className="text-muted">No hay notificaciones</Dropdown.Item>
+              )}
+            </Dropdown.Menu>
+          </Dropdown>
+        </div>
+
+        {/* Iniciales del usuario */}
+        <div className="icon-container d-flex align-items-center">
+          <div className="user-initial-circle bg-success text-white d-flex align-items-center justify-content-center">
+            {userInitial}
+          </div>
+        </div>
+      </div>
+</Navbar>
   );
 }
 

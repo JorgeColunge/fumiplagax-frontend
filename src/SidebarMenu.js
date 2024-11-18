@@ -5,7 +5,7 @@ import { List, Person, People, Calendar3, Clipboard, FileText, BarChart, Clipboa
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './SidebarMenu.css';
 
-function SidebarMenu({ onLogout, userInfo, onToggle }) {
+function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
   const {
@@ -42,12 +42,18 @@ function SidebarMenu({ onLogout, userInfo, onToggle }) {
   }, [userInfo]);  
 
   return (
-    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+    <div
+  className={`sidebar ${isSidebarVisible ? 'visible' : 'hidden'} ${
+    isOpen ? 'open' : 'collapsed'
+  }`}
+>
       <div className="menu-toggle" onClick={toggleMenu}>
         <List size={30} />
       </div>
       <div className="logo-container">
-      <img src={profilePic} alt="User" className="logo" />
+      <div className="logo-mask">
+        <img src={profilePic} alt="User" className="logo" />
+      </div>
         {isOpen && (
           <div className="user-info">
             <h5>{userInfo?.name || 'Usuario'}</h5>
