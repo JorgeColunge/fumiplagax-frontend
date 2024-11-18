@@ -13,6 +13,24 @@
   padding-top: 10px;
   overflow-y: auto;
   z-index: 1000; /* Asegura que esté debajo de la TopBar */
+  overflow-y: auto; /* Activar scroll vertical */
+  overflow-x: hidden; /* Ocultar scroll horizontal */
+  scrollbar-width: none; /* Para navegadores compatibles con esta propiedad */
+  -ms-overflow-style: none; /* Ocultar en Internet Explorer */
+}
+
+.sidebar::-webkit-scrollbar {
+  display: none; /* Ocultar barra de scroll en navegadores basados en WebKit */
+}
+
+/* Sidebar visible */
+.sidebar.visible {
+  display: block;
+}
+
+/* Sidebar oculto */
+.sidebar.hidden {
+  width: 0px; /* Oculta completamente el Sidebar */
 }
 
 .sidebar.open {
@@ -29,13 +47,28 @@
   text-align: center;
   width: 100%;
   margin-top: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.logo-mask {
+  width: 60px; /* Tamaño del área visible */
+  height: 60px; /* Tamaño del área visible (1:1) */
+  border-radius: 50%; /* Convierte el contenedor en un círculo */
+  overflow: hidden; /* Recorta la imagen fuera del círculo */
+  display: flex; /* Centra la imagen dentro del círculo */
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.5); /* Opcional: añade sombra */
 }
 
 .logo {
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  object-fit: cover;
+  width: 150%; /* Asegura que la imagen ocupe todo el contenedor */
+  height: 150%; /* Asegura que la imagen llena el contenedor */
+  object-fit: cover; /* Recorta la imagen manteniendo la proporción */
+  object-position: center; /* Centra la imagen dentro del círculo */
 }
 
 .user-info {

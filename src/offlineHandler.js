@@ -186,6 +186,11 @@ export const syncRequests = async () => {
 
   if (requests.length === 0) {
     console.log('✅ No hay solicitudes para sincronizar.');
+    localStorage.setItem('sync', '0');
+
+    // Emitir evento manual para reflejar el cambio
+    const syncEvent = new CustomEvent('syncUpdate', { detail: 0 });
+    window.dispatchEvent(syncEvent);
     return;
   }
 
@@ -211,6 +216,13 @@ export const syncRequests = async () => {
       }
 
       console.log(`✅ Solicitud sincronizada correctamente: ${req.url}`);
+      // Reducir el contador en localStorage
+      const currentSyncCount = parseInt(localStorage.getItem('sync') || '0', 10);
+      const newSyncCount = Math.max(0, currentSyncCount - 1); // Asegurarnos de que no sea negativo
+      localStorage.setItem('sync', newSyncCount.toString());
+      // Emitir evento manual para reflejar el cambio
+      const syncEvent = new CustomEvent('syncUpdate', { detail: newSyncCount });
+      window.dispatchEvent(syncEvent);
     } catch (error) {
       console.error(`❌ Error al sincronizar la solicitud ${req.url}:`, error);
     }

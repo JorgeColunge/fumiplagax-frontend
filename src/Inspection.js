@@ -114,6 +114,9 @@ function Inspection() {
       ...prevData,
       [field]: value,
     }));
+    // Marcar cambios detectados
+    setHasUnsavedChanges(true);
+    setUnsavedRoute(location.pathname);
   };
 
   useEffect(() => {
@@ -318,6 +321,10 @@ const handleSaveChanges = async () => {
     });
 
     alert("Cambios guardados exitosamente.");
+
+    // Resetear el estado de cambios no guardados
+    setHasUnsavedChanges(false);
+    setUnsavedRoute(null); // Opcional: Resetear la ruta de cambios
   } catch (error) {
     console.error("Error guardando los cambios:", error);
 
@@ -399,6 +406,9 @@ const dataURLtoBlob = (dataURL) => {
         photo: photoURL, // Nueva URL para previsualización
         photoBlob: file, // Nuevo archivo seleccionado
       };
+      // Marcar cambios detectados
+      setHasUnsavedChanges(true);
+      setUnsavedRoute(location.pathname);
       return { ...prevFindings, [type]: updatedFindings };
     });
   };    
@@ -408,6 +418,9 @@ const dataURLtoBlob = (dataURL) => {
       ...prevProducts,
       [type]: { ...prevProducts[type], [field]: value },
     }));
+    // Marcar cambios detectados
+    setHasUnsavedChanges(true);
+    setUnsavedRoute(location.pathname);
   };
 
   const getFilteredProducts = (type) => {
@@ -496,6 +509,9 @@ const dataURLtoBlob = (dataURL) => {
         [field]: value,
         id: prevFinding.id || Date.now(), // Asegurar que cada hallazgo tenga un id único
       };
+      // Marcar cambios detectados
+      setHasUnsavedChanges(true);
+      setUnsavedRoute(location.pathname);
       console.log(`Hallazgo para estación id asignado: ${updatedFinding.id}`);
       return updatedFinding; // Retornar el nuevo estado
     });
@@ -525,6 +541,10 @@ const dataURLtoBlob = (dataURL) => {
         photoBlob: file, // Nuevo archivo seleccionado (Blob)
       };
     });
+
+    // Marcar cambios detectados
+    setHasUnsavedChanges(true);
+    setUnsavedRoute(location.pathname);
   
     console.log('Nueva imagen seleccionada:', file);
   };  
@@ -593,6 +613,9 @@ const dataURLtoBlob = (dataURL) => {
         [field]: value,
         id: prevFinding.id || Date.now(), // Generar un id único si no existe
       };
+      // Marcar cambios detectados
+      setHasUnsavedChanges(true);
+      setUnsavedRoute(location.pathname);
       console.log(`Hallazgo de desinsectación id asignado: ${updatedFinding.id}`);
       return updatedFinding; // Retornar el estado actualizado
     });
@@ -613,6 +636,9 @@ const dataURLtoBlob = (dataURL) => {
       photo: photoURL, // URL para previsualización
       photoBlob: file, // Blob para guardar offline o enviar online
     }));
+    // Marcar cambios detectados
+    setHasUnsavedChanges(true);
+    setUnsavedRoute(location.pathname);
   };
 
   const saveStationFindingOffline = async (stationId, finding) => {
@@ -708,7 +734,7 @@ const handleDeleteFinding = (type, index) => {
       <h2 className="text-success mb-4">Detalles de la Inspección</h2>
 
       {/* Sección General */}
-      <div className="card border-dark mb-3" style={{ minHeight: 0, height: 'auto' }}>
+      <div className="card border-success mb-3" style={{ minHeight: 0, height: 'auto' }}>
         <div className="card-header">General</div>
         <div className="card-body">
           <p><strong>Inspección:</strong> {inspectionId}</p>
@@ -716,14 +742,23 @@ const handleDeleteFinding = (type, index) => {
           <p><strong>Hora:</strong> {time}</p>
           <p><strong>Servicio:</strong> {service_id}</p>
           <div className="mt-3">
-            <textarea
-              id="generalObservations"
-              className="form-control"
-              rows="4"
-              value={generalObservations}
-              onChange={(e) => setGeneralObservations(e.target.value)}
-              placeholder="Ingrese sus observaciones generales aquí"
-            ></textarea>
+          <textarea
+            id="generalObservations"
+            className="form-control"
+            rows="4"
+            value={generalObservations}
+            onChange={(e) => {
+              const newValue = e.target.value;
+              setGeneralObservations(newValue);
+
+              // Detectar cambios en las observaciones generales
+              if (newValue !== (inspectionData?.observations || '')) {
+                setHasUnsavedChanges(true);
+                setUnsavedRoute(location.pathname);
+              }
+            }}
+            placeholder="Ingrese sus observaciones generales aquí"
+          ></textarea>
           </div>
         </div>
       </div>
@@ -1297,7 +1332,7 @@ const handleDeleteFinding = (type, index) => {
       ))}
 
       {/* Sección de Firma */}
-      <div className="card border-primary mt-4">
+      <div className="card border-success mt-4">
         <div className="card-header">Firmas</div>
         <div className="card-body">
           {/* Mostrar solo el botón si no hay firmas */}

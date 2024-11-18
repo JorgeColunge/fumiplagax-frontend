@@ -1,15 +1,21 @@
 .top-bar {
   position: fixed;
   top: 0;
-  z-index: 10; /* Cambiado a un valor más bajo */
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
   background-color: #f8f9fa;
-  transition: width 0.3s ease;
-  height: 60px;
+  transition: margin-left 0.3s ease, width 0.3s ease; /* Animación de transición */
+  height: 70px;
   box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-}  
+  transform-origin: right center; /* Define el punto de transformación en el lado derecho */
+} 
+
+.topbar-logo {
+  width: 100px; /* Tamaño aún más reducido del logo */
+}
+
   
   .user-initial-circle {
     width: 40px;
@@ -36,7 +42,7 @@
     padding: 10px;
     font-size: 14px;
     color: #333;
-  }  
+  } 
 
   .notification-count {
     position: absolute;
@@ -47,4 +53,149 @@
     font-size: 12px;
     padding: 2px 5px;
     border-radius: 50%;
-  }  
+  } 
+
+  /* Botón de hamburguesa */
+.arrows {
+  color: #000;
+  text-decoration: none;
+}
+
+.arrows:hover {
+  color: green;
+}
+
+.arrows {
+  display: none; /* Oculta el botón en tabletas y escritorios */
+}
+
+/* Ajustes responsivos para tablet (menor a 768px) */
+@media (max-width: 768px) {
+  .top-bar {
+    height: 60px; /* Reduce un poco la altura del TopBar */
+  }
+
+  .topbar-logo {
+    width: 75px;
+    display: none;
+  }
+
+  .top-bar .navbar-brand {
+    display: flex; /* Asegura que el logo y el texto estén en fila */
+    align-items: center; /* Centra verticalmente el logo y el texto */
+  }
+
+  .top-bar .navbar-brand img {
+    width: 50px; /* Reduce el tamaño del logo */
+  }
+
+  .top-bar .navbar-brand span {
+    font-size: 14px; /* Ajusta el tamaño del texto */
+  }
+
+  .top-bar .user-initial-circle {
+    width: 35px; /* Ajusta el tamaño del círculo del usuario */
+    height: 35px;
+    font-size: 16px;
+  }
+
+  .top-bar .notify-icon {
+    display: flex; /* Asegura que los íconos también se mantengan en fila */
+    align-items: center;
+    justify-content: center;
+  }
+
+  .top-bar .notify-icon svg {
+    width: 18px; /* Reduce el tamaño de los íconos */
+    height: 18px;
+  }
+
+  .top-bar .sync-icon svg {
+    width: 18px; /* Reduce aún más el tamaño de los íconos */
+    height: 18px;
+    margin-bottom: 2.3px;
+  }
+
+  .arrows {
+    display: flex; /* Oculta el botón en tabletas y escritorios */
+    margin: 0px;
+    padding: 0px;
+  }
+}
+
+/* Ajustes específicos para móviles (menor a 600px) */
+@media (max-width: 600px) {
+  .top-bar {
+    height: 55px; /* Reduce aún más la altura del TopBar */
+  }
+
+  .top-bar span {
+    display: none; /* Oculta el texto "Fumiplagax Services" */
+  }
+
+  .topbar-logo {
+    width: 70px; /* Tamaño aún más reducido del logo */
+    display: none;
+  }
+
+  .top-bar .navbar-brand img {
+    width: 40px; /* Reduce aún más el tamaño del logo */
+  }
+
+  .top-bar .user-initial-circle {
+    width: 30px; /* Ajusta el tamaño del círculo del usuario */
+    height: 30px;
+    font-size: 14px;
+  }
+
+  .top-bar .notify-icon svg {
+    width: 15px; /* Reduce aún más el tamaño de los íconos */
+    height: 15px;
+  }
+
+  .top-bar .sync-icon svg {
+    width: 15px; /* Reduce aún más el tamaño de los íconos */
+    height: 15px;
+    margin-bottom: 2.3px;
+  }
+}
+
+/* Ajustes específicos para móviles (menor a 600px) */
+@media (max-width: 300px) {
+  .top-bar {
+    height: 55px; /* Reduce aún más la altura del TopBar */
+  }
+
+  .top-bar span {
+    display: none; /* Oculta el texto "Fumiplagax Services" */
+  }
+
+  .topbar-logo {
+    width: 70px; /* Tamaño aún más reducido del logo */
+    display: none;
+  }
+
+  .top-bar .navbar-brand img {
+    width: 40px; /* Reduce aún más el tamaño del logo */
+  }
+
+  .top-bar .user-initial-circle {
+    width: 30px; /* Ajusta el tamaño del círculo del usuario */
+    height: 30px;
+    font-size: 14px;
+    display: none;
+  }
+
+  .top-bar .notify-icon svg {
+    width: 15px; /* Reduce aún más el tamaño de los íconos */
+    height: 15px;
+    display: none;
+  }
+
+  .top-bar .sync-icon svg {
+    width: 15px; /* Reduce aún más el tamaño de los íconos */
+    height: 15px;
+    margin-bottom: 2.3px;
+    display: none;
+  }
+}
