@@ -190,6 +190,11 @@ function Inspection() {
           );
           setStations(stationsResponse.data);
         }
+
+        // Consultar productos disponibles
+        const productsResponse = await api.get(`http://localhost:10000/api/products`);
+        console.log("Productos obtenidos desde la API:", productsResponse.data);
+        setAvailableProducts(productsResponse.data);
   
         setLoading(false);
       } catch (error) {
@@ -199,7 +204,7 @@ function Inspection() {
     };
   
     fetchInspectionData();
-  }, [inspectionId]);  
+  }, [inspectionId]); 
 
   useEffect(() => {
     return () => {
@@ -425,37 +430,63 @@ const dataURLtoBlob = (dataURL) => {
 
   const getFilteredProducts = (type) => {
     if (!availableProducts || !type) {
-      console.log("No hay productos disponibles o el tipo está vacío.");
+      console.log("No hay productos disponibles o el tipo de inspección está vacío.");
       return [];
     }
   
+    console.log("Filtrando productos para el tipo de inspección:", type);
+    console.log("Productos disponibles antes del filtrado:", availableProducts);
+  
     return availableProducts.filter((product) => {
-      console.log("Producto evaluado:", product);
+      console.log("Evaluando producto:", product);
   
       if (!product.category) {
-        console.log("Producto omitido porque no tiene categoría:", product);
-        return false; // Si el producto no tiene categoría, lo omitimos
+        console.warn(
+          `Producto omitido (${product.name}) porque no tiene categoría definida.`,
+          product
+        );
+        return false; // Omitimos productos sin categoría
       }
   
       try {
-        // Limpiar las llaves y comillas en la categoría
-        const cleanedCategory = product.category.replace(/[\{\}"]/g, "").split(",").map((cat) => cat.trim());
-        console.log("Categorías procesadas:", cleanedCategory);
+        // Limpiar las categorías y dividir en un array
+        const cleanedCategory = product.category
+          .replace(/[\{\}"]/g, "")
+          .split(",")
+          .map((cat) => cat.trim());
+  
+        console.log(
+          `Categorías procesadas del producto (${product.name}):`,
+          cleanedCategory
+        );
   
         // Verificar si alguna categoría coincide con el tipo de inspección
-        return cleanedCategory.some(
-          (category) => category.toLowerCase() === type.toLowerCase()
+        const match = cleanedCategory.some((category) => {
+          const isMatch = category.toLowerCase() === type.toLowerCase();
+          console.log(
+            `Comparando categoría (${category.toLowerCase()}) con tipo (${type.toLowerCase()}):`,
+            isMatch ? "Coincide" : "No coincide"
+          );
+          return isMatch;
+        });
+  
+        console.log(
+          `Resultado del filtrado para el producto (${product.name}):`,
+          match ? "Incluido" : "Excluido"
         );
+  
+        return match;
       } catch (error) {
         console.error(
-          "Error al procesar la categoría del producto:",
+          `Error al procesar las categorías del producto (${product.name}):`,
           product.category,
           error
         );
-        return false; // Si ocurre un error, omitimos el producto
+        return false; // Omitir producto en caso de error
       }
     });
   };
+  
 
   const handleOpenStationModal = (stationId) => {
     setCurrentStationId(stationId);
