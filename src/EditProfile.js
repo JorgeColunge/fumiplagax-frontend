@@ -4,8 +4,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function EditProfile() {
-  const { id } = useParams(); // Obtén el id del usuario desde la URL
-  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [lastname, setLastname] = useState('');
   const [email, setEmail] = useState('');
@@ -14,7 +12,6 @@ function EditProfile() {
   const [profilePic, setProfilePic] = useState('/images/default-profile.png');
 
   useEffect(() => {
-    // Llama al backend para obtener la información del usuario por su id
     const fetchUserInfo = async () => {
       try {
         const response = await axios.get(`http://localhost:10000/api/users/${id}`);
@@ -31,7 +28,6 @@ function EditProfile() {
         alert("No se pudo cargar la información del usuario.");
       }
     };
-
     fetchUserInfo();
   }, [id]);
 
@@ -50,16 +46,11 @@ function EditProfile() {
 
     try {
       const response = await axios.post('http://localhost:10000/api/updateProfile', formData);
-
       if (response.status === 200) {
-        console.log("Perfil actualizado exitosamente:", response.data);
         alert("Perfil actualizado exitosamente!");
       } else {
-        console.warn("Error al actualizar el perfil:", response);
         alert("Error al actualizar el perfil");
       }
-
-      navigate(`/show-profile/${id}`); // Redirige de vuelta al perfil
     } catch (error) {
       console.error("Error updating profile:", error);
       alert("Error al actualizar el perfil");

@@ -88,7 +88,6 @@ function ProductList() {
 
     // Cierra el modal
     handleCloseModal();
-
     try {
         const formData = new FormData();
         formData.append("name", newProduct.name);
@@ -96,24 +95,22 @@ function ProductList() {
         formData.append("dose", newProduct.dose);
         formData.append("residual_duration", newProduct.residual_duration);
 
-        if (safetyDataSheetFile) formData.append("safety_data_sheet", safetyDataSheetFile);
-        if (technicalSheetFile) formData.append("technical_sheet", technicalSheetFile);
-        if (healthRegistrationFile) formData.append("health_registration", healthRegistrationFile);
-        if (emergencyCardFile) formData.append("emergency_card", emergencyCardFile);
-
-        let response;
-        if (editingProduct) {
-            response = await axios.put(
-                `http://localhost:10000/api/products/${editingProduct.id}`,
-                formData,
-                { headers: { "Content-Type": "multipart/form-data" } }
-            );
-            setProducts(products.map((product) => (product.id === editingProduct.id ? response.data.product : product)));
-        } else {
-            response = await axios.post('http://localhost:10000/api/products', formData, {
-                headers: { "Content-Type": "multipart/form-data" }
-            });
-            setProducts([...products, response.data.product]);
+      if (safetyDataSheetFile) formData.append("safety_data_sheet", safetyDataSheetFile);
+      if (technicalSheetFile) formData.append("technical_sheet", technicalSheetFile);
+      if (healthRegistrationFile) formData.append("health_registration", healthRegistrationFile);
+      if (emergencyCardFile) formData.append("emergency_card", emergencyCardFile);
+  
+      let response;
+      if (editingProduct) {
+        response = await axios.put(
+          `http://localhost:10000/api/products/${editingProduct.id}`,
+          formData,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
+      } else {
+        response = await axios.post('http://localhost:10000/api/products', formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
         }
 
         // Muestra la alerta de éxito una vez se complete el registro
@@ -122,8 +119,6 @@ function ProductList() {
         console.error("Error al guardar el producto:", error);
         alert("Hubo un error al guardar el producto.");
     }
-};
-
   const deleteProduct = async (id) => {
     if (window.confirm("¿Estás seguro de que deseas eliminar este producto?")) {
       try {
@@ -139,13 +134,6 @@ function ProductList() {
 
   if (loading) return <div>Cargando productos...</div>;
 
-  const groupedProducts = products.reduce((acc, product) => {
-    const { description_type } = product;
-    if (!acc[description_type]) acc[description_type] = [];
-    acc[description_type].push(product);
-    return acc;
-  }, {});
-
   return (
     <div className="container mt-4">
       <h2 className="text-primary mb-4">Productos</h2>
@@ -159,11 +147,6 @@ function ProductList() {
     </div>
 )}
 
-      <div className="row">
-        {Object.keys(groupedProducts).map(descriptionType => (
-          <div key={descriptionType} className="col-md-4 mb-4">
-  <h4>{descriptionType || "Sin Tipo de Descripción"}</h4>
-  {groupedProducts[descriptionType].map((product) => (
     <Card key={product.id} className="mb-3" onClick={() => handleShowDetailModal(product)} style={{ cursor: 'pointer' }}>
 <Card.Body className="d-flex flex-column align-items-center position-relative" style={{ height: '250px' }}>
   <div className="text-center mb-4">
@@ -177,13 +160,19 @@ function ProductList() {
     <Button variant="link" size="sm" onClick={(event) => { event.stopPropagation(); handleShowModal(product); }}>
       <BsPencilSquare style={{ color: 'green', fontSize: '1.5em' }} />
     </Button>
-    <Button variant="link" size="sm" onClick={(event) => { event.stopPropagation(); deleteProduct(product.id); }}>
-      <BsTrash style={{ color: 'red', fontSize: '1.5em' }} />
-    </Button>
-  </div>
-</Card.Body>
-</Card>
-  ))}
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      deleteProduct(product.id);
+                    }}
+                  >
+                    <BsTrash style={{ color: "red", fontSize: "1.5em" }} />
+                  </Button>
+                </div>
+              </Card.Body>
+            </Card>
 </div>
         ))}
       </div>
