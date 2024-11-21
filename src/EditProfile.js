@@ -10,6 +10,11 @@ function EditProfile() {
   const [phone, setPhone] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [profilePic, setProfilePic] = useState('/images/default-profile.png');
+  const [profileColor, setProfileColor] = useState('#ffffff'); // Agregar el estado del color
+
+  const { id } = useParams(); // Agregar esta línea
+  const navigate = useNavigate(); // Agregar esta línea
+
 
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -23,11 +28,14 @@ function EditProfile() {
         if (userData.image) {
           setProfilePic(`http://localhost:10000${userData.image}`);
         }
+        if (userData.color) {
+          setProfileColor(userData.color); // Cargar el color desde el backend
+        }
       } catch (error) {
         console.error("Error al obtener información del usuario:", error);
         alert("No se pudo cargar la información del usuario.");
       }
-    };
+    };    
     fetchUserInfo();
   }, [id]);
 
@@ -39,15 +47,17 @@ function EditProfile() {
     formData.append('lastname', lastname);
     formData.append('email', email);
     formData.append('phone', phone);
-    formData.append('userId', id); // Usa el ID del usuario de los parámetros de la URL
+    formData.append('userId', id);
+    formData.append('color', profileColor); // Incluir el color
     if (selectedFile) {
-      formData.append('image', selectedFile); // Agrega el archivo de imagen si se seleccionó uno
+      formData.append('image', selectedFile);
     }
-
+  
     try {
       const response = await axios.post('http://localhost:10000/api/updateProfile', formData);
       if (response.status === 200) {
         alert("Perfil actualizado exitosamente!");
+        navigate(`/show-profile/${id}`);
       } else {
         alert("Error al actualizar el perfil");
       }
@@ -55,7 +65,7 @@ function EditProfile() {
       console.error("Error updating profile:", error);
       alert("Error al actualizar el perfil");
     }
-  };
+  };  
 
   return (
     <div className="container mt-5">
@@ -117,9 +127,42 @@ function EditProfile() {
                   onChange={handleFileChange}
                 />
               </div>
+              <div className="mb-3">
+  <label className="form-label">Color</label>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+    <input
+      type="color"
+      className="form-control"
+      style={{ width: '50px', height: '50px', padding: '0', border: 'none' }}
+      value={profileColor}
+      onChange={(e) => setProfileColor(e.target.value)}
+    />
+    <span style={{
+      display: 'block',
+      width: '50px',
+      height: '50px',
+      backgroundColor: profileColor,
+      border: '1px solid #ccc',
+      borderRadius: '5px',
+    }}></span>
+  </div>
+  <small className="text-muted">Color seleccionado: {profileColor}</small>
+</div>
               <div className="text-center">
-                <button type="button" onClick={handleSave} className="btn btn-primary me-2">Guardar cambios</button>
-                <button type="button" onClick={() => navigate(`/show-profile/${id}`)} className="btn btn-secondary">Cancelar</button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="btn btn-primary me-2"
+                >
+                  Guardar cambios
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/show-profile/${id}`)}
+                  className="btn btn-secondary"
+                >
+                  Cancelar
+                </button>
               </div>
             </form>
           </div>

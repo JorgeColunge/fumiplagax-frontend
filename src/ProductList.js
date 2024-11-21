@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Button, Card, Modal, Form } from 'react-bootstrap';
+import { Button, Card, Modal, Form, Collapse } from 'react-bootstrap';
 import { BsPencilSquare, BsTrash, BsEye, BsPlusCircle } from 'react-icons/bs';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function ProductList() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false); // Nuevo estado para el modal de detalles
   const [editingProduct, setEditingProduct] = useState(null);
@@ -19,8 +20,24 @@ function ProductList() {
     safety_data_sheet: '',
     technical_sheet: '',
     health_registration: '',
-    emergency_card: ''
-  });
+    emergency_card: '',
+    category: [] // Inicializa la categoría como un arreglo vacío
+  });  
+
+  const categoryOptions = [
+    "Desinsectación",
+    "Desratización",
+    "Desinfección",
+    "Roceria",
+    "Limpieza y aseo de archivos",
+    "Lavado shut basura",
+    "Encarpado",
+    "Lavado de tanque",
+    "Inspección",
+    "Diagnostico"
+  ];
+  
+  const [showCategoryOptions, setShowCategoryOptions] = useState(false); // Controlar el colapso de categorías  
 
   const [safetyDataSheetFile, setSafetyDataSheetFile] = useState(null);
   const [technicalSheetFile, setTechnicalSheetFile] = useState(null);
@@ -29,11 +46,20 @@ function ProductList() {
 
   const [pendingAlert, setPendingAlert] = useState(false);
 
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(searchText.toLowerCase()) ||
+    product.category.some(cat => cat.toLowerCase().includes(searchText.toLowerCase()))
+  );   
+
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const response = await axios.get('http://localhost:10000/api/products');
-        setProducts(response.data);
+        const productsWithCategories = response.data.map(product => ({
+          ...product,
+          category: product.category || []
+        }));
+        setProducts(productsWithCategories);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching products:", error);
@@ -41,12 +67,28 @@ function ProductList() {
       }
     };
     fetchProducts();
-  }, []);
+  }, []);  
+
+  const handleCategoryChange = (e) => {
+    const { value, checked } = e.target;
+    setNewProduct((prevProduct) => {
+      const currentCategories = prevProduct.category || [];
+      const updatedCategories = checked
+        ? [...currentCategories, value] // Agrega categoría seleccionada
+        : currentCategories.filter((cat) => cat !== value); // Elimina categoría deseleccionada
+  
+      console.log("Categorías actualizadas:", updatedCategories); // Depura las categorías seleccionadas
+      return { ...prevProduct, category: updatedCategories };
+    });
+  };  
 
   const handleShowModal = (product = null) => {
     setEditingProduct(product);
     if (product) {
-      setNewProduct(product);
+      setNewProduct({
+        ...product,
+        category: product.category || []
+      });
     } else {
       setNewProduct({
         name: '',
@@ -56,11 +98,12 @@ function ProductList() {
         safety_data_sheet: '',
         technical_sheet: '',
         health_registration: '',
-        emergency_card: ''
+        emergency_card: '',
+        category: [] // Inicializa la categoría como un arreglo vacío
       });
     }
     setShowModal(true);
-  };
+  };  
 
   const handleShowDetailModal = (product) => {
     setSelectedProduct(product);
@@ -83,18 +126,22 @@ function ProductList() {
   };
 
   const handleAddOrEditProduct = async () => {
-    // Muestra la primera alerta de "en breve"
-    alert("El registro del producto estará listo en breve");
-
-    // Cierra el modal
-    handleCloseModal();
+    console.log("Categorías seleccionadas antes de enviar:", newProduct.category); // Verifica el valor actual de las categorías
+  
+    if (!newProduct.category || newProduct.category.length === 0) {
+      alert("Debes seleccionar al menos una categoría.");
+      return;
+    }
+  
     try {
-        const formData = new FormData();
-        formData.append("name", newProduct.name);
-        formData.append("description_type", newProduct.description_type);
-        formData.append("dose", newProduct.dose);
-        formData.append("residual_duration", newProduct.residual_duration);
-
+      const formData = new FormData();
+      formData.append("name", newProduct.name);
+      formData.append("description_type", newProduct.description_type);
+      formData.append("dose", newProduct.dose);
+      formData.append("residual_duration", newProduct.residual_duration);
+      formData.append("category", JSON.stringify(newProduct.category)); // Envía las categorías como JSON
+  
+      // Archivos opcionales
       if (safetyDataSheetFile) formData.append("safety_data_sheet", safetyDataSheetFile);
       if (technicalSheetFile) formData.append("technical_sheet", technicalSheetFile);
       if (healthRegistrationFile) formData.append("health_registration", healthRegistrationFile);
@@ -111,14 +158,15 @@ function ProductList() {
         response = await axios.post('http://localhost:10000/api/products', formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
-        }
-
-        // Muestra la alerta de éxito una vez se complete el registro
-        alert("El registro del producto se realizó con éxito");
+      }
+  
+      alert("Producto registrado correctamente.");
     } catch (error) {
-        console.error("Error al guardar el producto:", error);
-        alert("Hubo un error al guardar el producto.");
+      console.error("Error al guardar el producto:", error);
+      alert("Error al registrar el producto.");
     }
+  };  
+
   const deleteProduct = async (id) => {
     if (window.confirm("¿Estás seguro de que deseas eliminar este producto?")) {
       try {
@@ -137,29 +185,63 @@ function ProductList() {
   return (
     <div className="container mt-4">
       <h2 className="text-primary mb-4">Productos</h2>
-
+  
+      <Form.Group controlId="searchProducts" className="mb-4">
+        <Form.Control
+          type="text"
+          placeholder="Buscar por nombre o categoría..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+        />
+      </Form.Group>
+  
       <Button variant="primary" className="mb-4" onClick={() => handleShowModal()}>
         Agregar Producto
       </Button>
+  
       {pendingAlert && (
-    <div className="alert alert-info">
-        El registro del producto estará listo en breve
-    </div>
-)}
-
-    <Card key={product.id} className="mb-3" onClick={() => handleShowDetailModal(product)} style={{ cursor: 'pointer' }}>
-<Card.Body className="d-flex flex-column align-items-center position-relative" style={{ height: '250px' }}>
-  <div className="text-center mb-4">
-    <Card.Title>{product.name}</Card.Title>
-    <Card.Text>
-      <strong>Dosis:</strong> {product.dose}<br />
-      <strong>Duración Residual:</strong> {product.residual_duration}
-    </Card.Text>
-  </div>
-  <div className="position-absolute bottom-0 end-0 mb-2 me-2">
-    <Button variant="link" size="sm" onClick={(event) => { event.stopPropagation(); handleShowModal(product); }}>
-      <BsPencilSquare style={{ color: 'green', fontSize: '1.5em' }} />
-    </Button>
+        <div className="alert alert-info">El registro del producto estará listo en breve</div>
+      )}
+  
+      <div className="row">
+        {filteredProducts.map((product) => (
+          <div key={product.id} className="col-md-4 mb-4">
+            <Card
+              className="mb-3"
+              style={{ cursor: "pointer" }}
+              onClick={() => handleShowDetailModal(product)}
+            >
+              <Card.Body className="d-flex flex-column align-items-center position-relative" style={{ height: "250px" }}>
+                <div className="text-center mb-4">
+                  <Card.Title>{product.name}</Card.Title>
+                  <Card.Text>
+  <strong>Categoría:</strong> {
+    (() => {
+      try {
+        const parsedCategory = JSON.parse(product.category); // Intentar parsear el JSON
+        return Array.isArray(parsedCategory) ? parsedCategory.join(", ") : parsedCategory;
+      } catch (e) {
+        return product.category || "Sin categoría"; // Si no es JSON válido, mostrar directamente
+      }
+    })()
+  }
+  <br />
+  <strong>Dosis:</strong> {product.dose}
+  <br />
+  <strong>Duración Residual:</strong> {product.residual_duration}
+</Card.Text>
+                </div>
+                <div className="position-absolute bottom-0 end-0 mb-2 me-2">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleShowModal(product);
+                    }}
+                  >
+                    <BsPencilSquare style={{ color: "green", fontSize: "1.5em" }} />
+                  </Button>
                   <Button
                     variant="link"
                     size="sm"
@@ -173,7 +255,7 @@ function ProductList() {
                 </div>
               </Card.Body>
             </Card>
-</div>
+          </div>
         ))}
       </div>
 
@@ -189,9 +271,32 @@ function ProductList() {
               <Form.Control type="text" name="name" value={newProduct.name} onChange={handleInputChange} />
             </Form.Group>
             <Form.Group controlId="formDescriptionType" className="mb-3">
-              <Form.Label>Tipo de Descripción</Form.Label>
+              <Form.Label>Descripción</Form.Label>
               <Form.Control type="text" name="description_type" value={newProduct.description_type} onChange={handleInputChange} />
             </Form.Group>
+            <Form.Group className="mt-3">
+  <Form.Label
+    onClick={() => setShowCategoryOptions((prev) => !prev)}
+    style={{ cursor: "pointer", fontWeight: "bold", display: "block" }}
+  >
+    Categoría
+  </Form.Label>
+  <Collapse in={showCategoryOptions}>
+    <div>
+    {categoryOptions.map((option, index) => (
+    <Form.Check
+        key={option}
+        type="checkbox"
+        label={option}
+        value={option}
+        id={`category_option_${index}`}
+        checked={newProduct.category?.includes(option) || false}
+        onChange={handleCategoryChange}
+    />
+))}
+    </div>
+  </Collapse>
+</Form.Group>
             <Form.Group controlId="formDose" className="mb-3">
               <Form.Label>Dosis</Form.Label>
               <Form.Control type="text" name="dose" value={newProduct.dose} onChange={handleInputChange} />
@@ -364,6 +469,13 @@ function ProductList() {
   {selectedProduct && (
     <>
       <p><strong>Nombre:</strong> {selectedProduct.name}</p>
+      <p><strong>Categoría:</strong> 
+  {Array.isArray(selectedProduct.category) // Verifica si es un arreglo
+    ? selectedProduct.category.join(', ') // Si es un arreglo, únelos con comas
+    : typeof selectedProduct.category === 'string' // Si no, verifica si es un string
+    ? JSON.parse(selectedProduct.category).join(', ') // Convierte el string JSON a un arreglo y únelos
+    : "Sin categoría"} {/* Mensaje por defecto */}
+</p>
       <p><strong>Dosis:</strong> {selectedProduct.dose}</p>
       <p><strong>Duración Residual:</strong> {selectedProduct.residual_duration}</p>
 
