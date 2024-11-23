@@ -243,6 +243,7 @@ const InspectionCalendar = () => {
         const { serviceType, clientName } = eventInfo.event.extendedProps;
         const { start, end } = eventInfo.event;
     
+        const cleanServiceType = serviceType.replace(/[\{\}"]/g, ''); // Elimina {} y ""
         const startTime = moment(start).format('h:mm A');
         const endTime = moment(end).format('h:mm A');
     
@@ -251,7 +252,7 @@ const InspectionCalendar = () => {
                 placement="top"
                 overlay={
                     <Tooltip>
-                        <div>{serviceType}</div>
+                        <div>{cleanServiceType}</div> {/* Ahora muestra solo el texto limpio */}
                         <div>{clientName}</div>
                     </Tooltip>
                 }
@@ -566,7 +567,7 @@ const InspectionCalendar = () => {
                     {selectedEvent && (
                         <div>
                             <p><strong>ID del servicio:</strong> {selectedEvent.id}</p>
-                            <p><strong>Tipo de servicio:</strong> {selectedEvent.serviceType}</p>
+                            <p><strong>Tipo de servicio:</strong> {selectedEvent.serviceType.replace(/[\{\}"]/g, '')}</p>
                             <p><strong>Descripción del servicio:</strong> {selectedEvent.description}</p>
                             <p><strong>Responsable:</strong> {selectedEvent.responsibleName}</p>
                             <p><strong>Empresa:</strong> {selectedEvent.clientName}</p>

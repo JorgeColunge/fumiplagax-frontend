@@ -10,6 +10,7 @@ function ProductList() {
   const [searchText, setSearchText] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false); // Nuevo estado para el modal de detalles
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null); // Nuevo estado para el producto seleccionado  
   const [newProduct, setNewProduct] = useState({
@@ -47,9 +48,9 @@ function ProductList() {
   const [pendingAlert, setPendingAlert] = useState(false);
 
   const filteredProducts = products.filter((product) =>
-    product.name.toLowerCase().includes(searchText.toLowerCase()) ||
-    product.category.some(cat => cat.toLowerCase().includes(searchText.toLowerCase()))
-  );   
+    (product.name || '').toLowerCase().includes(searchText.toLowerCase()) ||
+    product.category.some(cat => (cat || '').toLowerCase().includes(searchText.toLowerCase()))
+  );  
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -126,44 +127,55 @@ function ProductList() {
   };
 
   const handleAddOrEditProduct = async () => {
-    console.log("Categorías seleccionadas antes de enviar:", newProduct.category); // Verifica el valor actual de las categorías
+    console.log("Categorías seleccionadas antes de enviar:", newProduct.category);
+  
+    if (!newProduct.name || newProduct.name.trim() === '') {
+      alert('El campo "Nombre" es obligatorio.');
+      return;
+    }
   
     if (!newProduct.category || newProduct.category.length === 0) {
-      alert("Debes seleccionar al menos una categoría.");
+      alert('Debes seleccionar al menos una categoría.');
       return;
     }
   
     try {
       const formData = new FormData();
-      formData.append("name", newProduct.name);
-      formData.append("description_type", newProduct.description_type);
-      formData.append("dose", newProduct.dose);
-      formData.append("residual_duration", newProduct.residual_duration);
-      formData.append("category", JSON.stringify(newProduct.category)); // Envía las categorías como JSON
+      formData.append('name', newProduct.name);
+      formData.append('description_type', newProduct.description_type);
+      formData.append('dose', newProduct.dose);
+      formData.append('residual_duration', newProduct.residual_duration);
+      formData.append('category', JSON.stringify(newProduct.category));
   
       // Archivos opcionales
-      if (safetyDataSheetFile) formData.append("safety_data_sheet", safetyDataSheetFile);
-      if (technicalSheetFile) formData.append("technical_sheet", technicalSheetFile);
-      if (healthRegistrationFile) formData.append("health_registration", healthRegistrationFile);
-      if (emergencyCardFile) formData.append("emergency_card", emergencyCardFile);
+      if (safetyDataSheetFile) formData.append('safety_data_sheet', safetyDataSheetFile);
+      if (technicalSheetFile) formData.append('technical_sheet', technicalSheetFile);
+      if (healthRegistrationFile) formData.append('health_registration', healthRegistrationFile);
+      if (emergencyCardFile) formData.append('emergency_card', emergencyCardFile);
   
       let response;
       if (editingProduct) {
         response = await axios.put(
           `http://localhost:10000/api/products/${editingProduct.id}`,
           formData,
-          { headers: { "Content-Type": "multipart/form-data" } }
+          { headers: { 'Content-Type': 'multipart/form-data' } }
         );
       } else {
         response = await axios.post('http://localhost:10000/api/products', formData, {
-          headers: { "Content-Type": "multipart/form-data" },
+          headers: { 'Content-Type': 'multipart/form-data' },
         });
       }
   
-      alert("Producto registrado correctamente.");
+      alert('Producto registrado correctamente.');
+      setShowConfirmationModal(false);
+      handleCloseModal();
+  
+      // Actualiza la lista de productos
+      const updatedProducts = await axios.get('http://localhost:10000/api/products');
+      setProducts(updatedProducts.data);
     } catch (error) {
-      console.error("Error al guardar el producto:", error);
-      alert("Error al registrar el producto.");
+      console.error('Error al guardar el producto:', error);
+      alert('Error al registrar el producto.');
     }
   };  
 
@@ -454,9 +466,12 @@ function ProductList() {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>Cancelar</Button>
-          <Button variant="primary" onClick={handleAddOrEditProduct}>
-            {editingProduct ? "Guardar Cambios" : "Registrar Producto"}
-          </Button>
+          <Button
+  variant="primary"
+  onClick={() => setShowConfirmationModal(true)}
+>
+  {editingProduct ? "Guardar Cambios" : "Registrar Producto"}
+</Button>
         </Modal.Footer>
       </Modal>
       {/* Modal para ver detalles del producto */}
@@ -520,6 +535,30 @@ function ProductList() {
 
   <Modal.Footer>
     <Button variant="secondary" onClick={handleCloseDetailModal}>Cerrar</Button>
+  </Modal.Footer>
+</Modal>
+{/* Modal para confirmar el registro del producto */}
+<Modal show={showConfirmationModal} onHide={() => setShowConfirmationModal(false)}>
+  <Modal.Header closeButton>
+    <Modal.Title>Confirmación</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    ¿Estás seguro de que quieres registrar este producto?
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={() => setShowConfirmationModal(false)}>
+      Cancelar
+    </Button>
+    <Button
+      variant="primary"
+      onClick={() => {
+        handleAddOrEditProduct(); // Llama a la función de registro
+        setShowConfirmationModal(false); // Cierra el modal de confirmación
+        handleCloseModal(); // Cierra el modal principal
+      }}
+    >
+      Confirmar
+    </Button>
   </Modal.Footer>
 </Modal>
 

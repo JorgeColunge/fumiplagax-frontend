@@ -261,16 +261,17 @@ function MyServices() {
                         </div>
 
                         {/* Áreas de Intervención */}
-                        <div className="mt-2">
-                            <span className="text-muted small">Áreas: </span>
-                            <span className="text-dark">
-                            {Array.isArray(service.intervention_areas)
-                                ? service.intervention_areas.join(", ")
-                                : typeof service.intervention_areas === "string"
-                                ? service.intervention_areas.replace(/[\{\}]/g, "").split(",").join(", ")
-                                : "No especificadas"}
-                            </span>
-                        </div>
+{/* Áreas de Intervención */}
+<div className="mt-2">
+    <span className="text-muted small">Áreas: </span>
+    <span className="text-dark">
+    {Array.isArray(service.intervention_areas)
+        ? service.intervention_areas.join(", ")
+        : typeof service.intervention_areas === "string"
+        ? service.intervention_areas.replace(/["']/g, "").replace(/[\{\}]/g, "").split(",").join(", ")
+        : "No especificadas"}
+    </span>
+</div>
 
                         {/* Nombre del Cliente */}
                         <div className="mt-3">

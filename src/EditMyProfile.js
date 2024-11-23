@@ -46,11 +46,17 @@ function EditMyProfile({ userInfo }) { // Asegúrate de recibir `userInfo` con e
     if (selectedFile) {
       formData.append('image', selectedFile);
     }
-
+  
     try {
       const response = await axios.post('http://localhost:10000/api/updateProfile', formData);
       if (response.status === 200) {
         console.log("Perfil actualizado exitosamente:", response.data);
+        
+        // Actualiza la URL de la imagen si se subió correctamente
+        if (response.data.imageUrl) { // Asegúrate de que el backend envíe la nueva URL de la imagen
+          setProfilePic(`http://localhost:10000${response.data.imageUrl}`);
+        }
+  
         alert("Perfil actualizado exitosamente!");
       } else {
         console.warn("Error al actualizar el perfil:", response);
@@ -61,7 +67,7 @@ function EditMyProfile({ userInfo }) { // Asegúrate de recibir `userInfo` con e
       console.error("Error updating profile:", error);
       alert("Error al actualizar el perfil");
     }
-  };
+  };  
 
   const isEditable = userInfo?.rol === 'Administrador' || userInfo?.rol === 'Superadministrador';
 

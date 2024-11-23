@@ -12,6 +12,7 @@ function ServiceList() {
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState(null);
   const [inspections, setInspections] = useState([]);
+  const [showAddInspectionModal, setShowAddInspectionModal] = useState(false);
   const [open, setOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
@@ -273,14 +274,11 @@ setVisiblePestOptions(
   };  
 
   const [newInspection, setNewInspection] = useState({
-    date: '',
-    time: '',
-    duration: '',
-    observations: '',
-    service_type: '',
-    exit_time: '',
+    inspection_type: [], // Tipos de inspección seleccionados
+    inspection_sub_type: "", // Opcional, para subtipos como en Desratización
+    service_type: "", // Tipo de servicio del servicio seleccionado
   });
-
+  
   useEffect(() => {
     // Configura el nuevo servicio inicial con el ID del usuario logueado
     setNewService((prevService) => ({
@@ -433,28 +431,54 @@ setVisiblePestOptions(
     });
   };
 
+  const handleCloseAddInspectionModal = () => {
+    setShowAddInspectionModal(false);
+  };
+
   const handleSaveInspection = async () => {
-    try {
-      const response = await axios.post('http://localhost:10000/api/inspections', {
-        ...newInspection,
-        service_id: selectedService.id,
-      });
-      
-      if (response.data.success) {
-        const savedInspection = response.data.inspection;
-      
-        setInspections(prevInspections => 
-          [newInspectionFormatted, ...prevInspections].sort((a, b) => b.datetime - a.datetime)
-        );
-      
-        handleCloseModal();
-      } else {
-        console.error("Error: No se pudo guardar la inspección correctamente.", response.data.message);
-      }      
-    } catch (error) {
-      console.error("Error saving inspection:", error);
+    if (!Array.isArray(newInspection.inspection_type) || newInspection.inspection_type.length === 0) {
+        alert("Debe seleccionar al menos un tipo de inspección.");
+        return;
     }
-  };  
+
+    if (
+        newInspection.inspection_type.includes("Desratización") &&
+        !newInspection.inspection_sub_type
+    ) {
+        alert("Debe seleccionar un Sub tipo para Desratización.");
+        return;
+    }
+
+    const inspectionData = {
+        inspection_type: newInspection.inspection_type,
+        inspection_sub_type: newInspection.inspection_type.includes("Desratización")
+        ? newInspection.inspection_sub_type
+        : null, // Enviar null si no aplica
+        service_id: selectedService.id,
+        date: moment().format("YYYY-MM-DD"), // Fecha actual
+        time: moment().format("HH:mm:ss"), // Hora actual
+    };
+
+    try {
+        const response = await axios.post("http://localhost:10000/api/inspections", inspectionData);
+
+        if (response.data.success) {
+        alert("Inspección guardada con éxito");
+        fetchInspections(selectedService.id);
+        handleCloseAddInspectionModal();
+
+        // Redirigir al componente de inspección con el ID
+        navigate(`/inspection/${response.data.inspection.id}`);
+        } else {
+        console.error(
+            "Error: No se pudo guardar la inspección correctamente.",
+            response.data.message
+        );
+        }
+    } catch (error) {
+        console.error("Error saving inspection:", error);
+    }
+    };  
 
   const handleShowAddServiceModal = () => {
     setNewService((prevService) => ({
@@ -576,53 +600,53 @@ const filteredTechniciansForCompanion = technicians.filter(
     </div>
     <hr />
     <div>
-      <span className="text-muted small">Plagas: </span>
-      <span className="text-dark">
-        {(() => {
-          const pestMatches = service.pest_to_control.match(/"([^"]+)"/g);
-          const pests = pestMatches ? pestMatches.map(item => item.replace(/"/g, '')) : [];
-          return pests.length > 0 ? pests.join(', ') : "No especificado";
-        })()}
-      </span>
+    <span className="text-muted small">Plagas: </span>
+<span className="text-dark">
+  {(() => {
+    const pestMatches = service.pest_to_control.match(/"([^"]+)"/g);
+    const pests = pestMatches ? pestMatches.map(item => item.replace(/"/g, '')).join(', ') : "No especificado";
+    return pests.length > 20 ? `${pests.slice(0, 20)}...` : pests;
+  })()}
+</span>
     </div>
     <div className="mt-2">
-      <span className="text-muted small">Áreas: </span>
-      <span className="text-dark">
-        {(() => {
-          const areaMatches = service.intervention_areas.match(/"([^"]+)"/g);
-          const areas = areaMatches ? areaMatches.map(item => item.replace(/"/g, '')) : [];
-          return areas.length > 0 ? areas.join(', ') : "No especificadas";
-        })()}
-      </span>
+    <span className="text-muted small">Áreas: </span>
+<span className="text-dark">
+  {(() => {
+    const areaMatches = service.intervention_areas.match(/"([^"]+)"/g);
+    const areas = areaMatches ? areaMatches.map(item => item.replace(/"/g, '')).join(', ') : "No especificadas";
+    return areas.length > 20 ? `${areas.slice(0, 20)}...` : areas;
+  })()}
+</span>
     </div>
     <div className="mt-3">
       <h5 className="text-primary">
         {clientNames[service.client_id] || "Cliente Desconocido"}
       </h5>
     </div>
-    <div className="d-flex justify-content-end mt-3">
-      <Button
-        variant="outline-success"
-        size="sm"
-        onClick={(e) => {
-          e.stopPropagation();
-          handleEditClick(service);
-        }}
-        className="me-2"
-      >
-        <FaEdit size={18} />
-      </Button>
-      <Button
-        variant="outline-danger"
-        size="sm"
-        onClick={(e) => {
-          e.stopPropagation();
-          handleDeleteClick(service.id);
-        }}
-      >
-        <FaTrash size={18} />
-      </Button>
-    </div>
+    <div className="card-buttons">
+  <Button
+    variant="outline-success"
+    size="sm"
+    onClick={(e) => {
+      e.stopPropagation();
+      handleEditClick(service);
+    }}
+  >
+    <FaEdit size={18} />
+  </Button>
+  <Button
+    variant="outline-danger"
+    size="sm"
+    onClick={(e) => {
+      e.stopPropagation();
+      handleDeleteClick(service.id);
+    }}
+  >
+    <FaTrash size={18} />
+  </Button>
+</div>
+
   </Card.Body>
 </Card>
 
@@ -635,38 +659,68 @@ const filteredTechniciansForCompanion = technicians.filter(
   
       {/* Modal para añadir una nueva inspección */}
       <Modal show={showModal} onHide={handleCloseModal}>
-        <Modal.Header closeButton>
-          <Modal.Title>Añadir Inspección</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group controlId="formDate">
-              <Form.Label>Fecha</Form.Label>
-              <Form.Control type="date" name="date" value={newInspection.date} onChange={handleInputChange} />
-            </Form.Group>
-            <Form.Group controlId="formStartTime" className="mt-3">
-              <Form.Label>Hora de Inicio</Form.Label>
-              <Form.Control type="time" name="time" value={newInspection.time} onChange={handleInputChange} />
-            </Form.Group>
-            <Form.Group controlId="formEndTime" className="mt-3">
-              <Form.Label>Hora de Finalización</Form.Label>
-              <Form.Control type="time" name="exit_time" value={newInspection.exit_time} onChange={handleInputChange} />
-            </Form.Group>
-            <Form.Group controlId="formDuration" className="mt-3">
-              <Form.Label>Duración (horas)</Form.Label>
-              <Form.Control type="number" name="duration" value={newInspection.duration} onChange={handleInputChange} />
-            </Form.Group>
-            <Form.Group controlId="formObservations" className="mt-3">
-              <Form.Label>Observaciones</Form.Label>
-              <Form.Control as="textarea" rows={3} name="observations" value={newInspection.observations} onChange={handleInputChange} />
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseModal}>Cancelar</Button>
-          <Button variant="primary" onClick={handleSaveInspection}>Guardar cambios</Button>
-        </Modal.Footer>
-      </Modal>
+  <Modal.Header closeButton>
+    <Modal.Title>Añadir Inspección</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    <Form>
+      <Form.Group controlId="formInspectionType">
+        <Form.Label>Tipo de Inspección</Form.Label>
+        <div>
+          {selectedService?.service_type
+            ?.replace(/[\{\}"]/g, "")
+            .split(",")
+            .map((type, index) => (
+              <Form.Check
+                key={index}
+                type="checkbox"
+                label={type.trim()}
+                value={type.trim()}
+                checked={newInspection.inspection_type?.includes(type.trim())}
+                onChange={(e) => {
+                  const { value, checked } = e.target;
+                  setNewInspection((prevInspection) => ({
+                    ...prevInspection,
+                    inspection_type: checked
+                      ? [...(prevInspection.inspection_type || []), value]
+                      : prevInspection.inspection_type.filter((t) => t !== value),
+                  }));
+                }}
+              />
+            ))}
+        </div>
+      </Form.Group>
+      {Array.isArray(newInspection.inspection_type) &&
+        newInspection.inspection_type.includes("Desratización") && (
+          <Form.Group controlId="formInspectionSubType" className="mt-3">
+            <Form.Label>Sub tipo</Form.Label>
+            <Form.Control
+              as="select"
+              value={newInspection.inspection_sub_type}
+              onChange={(e) =>
+                setNewInspection((prevInspection) => ({
+                  ...prevInspection,
+                  inspection_sub_type: e.target.value,
+                }))
+              }
+            >
+              <option value="">Seleccione una opción</option>
+              <option value="Control">Control</option>
+              <option value="Seguimiento">Seguimiento</option>
+            </Form.Control>
+          </Form.Group>
+        )}
+    </Form>
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={handleCloseModal}>
+      Cancelar
+    </Button>
+    <Button variant="primary" onClick={handleSaveInspection}>
+      Guardar Inspección
+    </Button>
+  </Modal.Footer>
+</Modal> {/* Cierre del Modal */}
 
       {/* Modal para añadir un nuevo servicio */}
       <Modal show={showAddServiceModal} onHide={() => setShowAddServiceModal(false)}>
@@ -812,20 +866,21 @@ const filteredTechniciansForCompanion = technicians.filter(
                 onFocus={() => setShowSuggestions(true)} // Muestra sugerencias al enfocar
               />
               {showSuggestions && (
-                <div className="suggestions-list" style={{ border: '1px solid #ddd', borderRadius: '4px', maxHeight: '150px', overflowY: 'auto', position: 'absolute', zIndex: '10', backgroundColor: '#fff', width: '100%' }}>
-                  {filteredClients.map((client) => (
-                    <div
-                      key={client.id}
-                      onClick={() => handleClientSelect(client)}
-                      style={{ padding: '8px', cursor: 'pointer' }}
-                    >
-                      {client.name}
-                    </div>
-                  ))}
-                  {filteredClients.length === 0 && (
-                    <div style={{ padding: '8px', color: '#999' }}>Sin coincidencias</div>
-                  )}
-                </div>
+               <div className="suggestions-list" style={{ maxHeight: '150px', overflowY: 'auto', position: 'absolute', zIndex: 10, backgroundColor: '#fff', width: '100%', border: '1px solid #ddd', borderRadius: '4px' }}>
+  {filteredClients.map((client) => (
+    <div
+      key={client.id}
+      onClick={() => handleClientSelect(client)}
+      style={{ padding: '8px', cursor: 'pointer' }}
+    >
+      {client.name}
+    </div>
+  ))}
+  {filteredClients.length === 0 && (
+    <div style={{ padding: '8px', color: '#999' }}>Sin coincidencias</div>
+  )}
+</div>
+
               )}
             </Form.Group>
 
@@ -1130,6 +1185,29 @@ const filteredTechniciansForCompanion = technicians.filter(
     .join(", ")} {/* Vuelve a unir con un espacio después de las comas */}
 </p>
         <p><strong>Descripción:</strong> {selectedService.description}</p>
+              {/* Nueva sección: Plagas */}
+      <p>
+        <strong>Plagas:</strong>{" "}
+        {(() => {
+          const pestMatches = selectedService.pest_to_control.match(/"([^"]+)"/g);
+          const pests = pestMatches
+            ? pestMatches.map((item) => item.replace(/"/g, '')).join(', ')
+            : "No especificado";
+          return pests;
+        })()}
+      </p>
+
+      {/* Nueva sección: Áreas */}
+      <p>
+        <strong>Áreas:</strong>{" "}
+        {(() => {
+          const areaMatches = selectedService.intervention_areas.match(/"([^"]+)"/g);
+          const areas = areaMatches
+            ? areaMatches.map((item) => item.replace(/"/g, '')).join(', ')
+            : "No especificadas";
+          return areas;
+        })()}
+      </p>
         <p><strong>Categoría:</strong> {selectedService.category}</p>
         {selectedService.category === 'Periódico' && (
           <p><strong>Cantidad al mes:</strong> {selectedService.quantity_per_month}</p>

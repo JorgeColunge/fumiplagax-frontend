@@ -1,14 +1,16 @@
 .service-card {
   border-radius: 8px;
-  background-color: #007bff; /* Fondo estilo botón */
-  color: #fff; /* Texto blanco */
-  border: none; /* Sin bordes */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Sombra básica */
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   padding: 16px;
   text-align: center;
   transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
-  cursor: pointer; /* Cursor tipo botón */
-  min-height: 200px; /* Establece una altura mínima */
+  cursor: pointer;
+  min-height: 280px; /* Incrementa la altura mínima */
+  position: relative; /* Necesario para posicionar los botones */
+  overflow: hidden; /* Asegura que el contenido no desborde */
 }
 
 .service-card:hover {
@@ -33,10 +35,13 @@
   color: #f8f9fa; /* Texto de descripción */
 }
 
-.service-card-actions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 16px;
+.card-buttons {
+  position: absolute; /* Fija los botones respecto a la tarjeta */
+  bottom: 16px; /* Márgen inferior */
+  right: 16px; /* Márgen derecho */
+  display: flex; /* Alineación horizontal de los botones */
+  gap: 8px; /* Espaciado entre botones */
+  z-index: 10; /* Asegura que estén encima de otros elementos */
 }
 
 .mb-4 {
