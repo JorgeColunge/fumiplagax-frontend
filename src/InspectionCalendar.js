@@ -239,7 +239,6 @@ const InspectionCalendar = () => {
         }
     };
     
-
     const renderEventContent = (eventInfo) => {
         const { serviceType, clientName } = eventInfo.event.extendedProps;
         const { start, end } = eventInfo.event;

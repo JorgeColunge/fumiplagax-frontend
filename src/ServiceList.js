@@ -433,12 +433,6 @@ setVisiblePestOptions(
     });
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewInspection({ ...newInspection, [name]: value });
-  };
-
-
   const handleSaveInspection = async () => {
     try {
       const response = await axios.post('http://localhost:10000/api/inspections', {
@@ -448,14 +442,6 @@ setVisiblePestOptions(
       
       if (response.data.success) {
         const savedInspection = response.data.inspection;
-        const newInspectionFormatted = {
-          id: savedInspection.id,
-          date: moment(savedInspection.date).format('DD/MM/YYYY'),
-          time: savedInspection.time ? moment(savedInspection.time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
-          exit_time: savedInspection.exit_time ? moment(savedInspection.exit_time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
-          observations: savedInspection.observations || 'Sin observaciones',
-          datetime: moment(`${savedInspection.date} ${savedInspection.time}`, 'YYYY-MM-DD HH:mm')
-        };
       
         setInspections(prevInspections => 
           [newInspectionFormatted, ...prevInspections].sort((a, b) => b.datetime - a.datetime)
@@ -468,8 +454,7 @@ setVisiblePestOptions(
     } catch (error) {
       console.error("Error saving inspection:", error);
     }
-  };
-  
+  };  
 
   const handleShowAddServiceModal = () => {
     setNewService((prevService) => ({
