@@ -576,7 +576,6 @@ const filteredTechniciansForCompanion = technicians.filter(
       <Button variant="primary" onClick={handleShowAddServiceModal} className="mb-4">
         Añadir Servicio
       </Button>
-  
       <Row>
         <Col md={open ? 5 : 12}>
           <div className="service-list">

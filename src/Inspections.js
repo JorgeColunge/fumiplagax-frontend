@@ -242,11 +242,6 @@ function Inspections() {
               <strong>Servicio ID:</strong> {inspection.service_id || 'Desconocido'}
             </p>
             <p>{formatDateTime(inspection.date, inspection.time)}</p>
-            <div className="d-flex justify-content-between mt-3">
-            <Button variant="link" className="text-success" onClick={(e) => { e.stopPropagation(); /* Acciones aquí */ }}>Generar Informe</Button>
-            <Button variant="link" className="text-success" onClick={(e) => { e.stopPropagation(); /* Acciones aquí */ }}>Novedad en Estación</Button>
-
-            </div>
           </Card.Body>
         </Card>
       </Col>
@@ -255,13 +250,6 @@ function Inspections() {
     <p className="text-muted">No hay inspecciones registradas.</p>
   )}
 </Row>
-      
-      <Button
-        onClick={() => handleShowModal()}
-        className="mt-4 btn btn-success"
-      >
-        Agregar Nueva Inspección
-      </Button>
   
       {/* Modal para agregar/editar inspección */}
       <Modal show={showModal} onHide={handleCloseModal}>
