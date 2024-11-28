@@ -198,18 +198,19 @@ function ProductList() {
     <div className="container mt-4">
       <h2 className="text-primary mb-4">Productos</h2>
   
-      <Form.Group controlId="searchProducts" className="mb-4">
-        <Form.Control
-          type="text"
-          placeholder="Buscar por nombre o categoría..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-        />
-      </Form.Group>
-  
-      <Button variant="primary" className="mb-4" onClick={() => handleShowModal()}>
-        Agregar Producto
-      </Button>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+  <Form.Group controlId="searchProducts" className="mb-0 flex-grow-1 me-3">
+    <Form.Control
+      type="text"
+      placeholder="Buscar por nombre o categoría..."
+      value={searchText}
+      onChange={(e) => setSearchText(e.target.value)}
+    />
+  </Form.Group>
+  <Button variant="success" onClick={() => handleShowModal()}>
+    Agregar Producto
+  </Button>
+</div>
   
       {pendingAlert && (
         <div className="alert alert-info">El registro del producto estará listo en breve</div>

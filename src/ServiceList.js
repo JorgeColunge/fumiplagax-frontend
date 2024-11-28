@@ -552,30 +552,52 @@ const filteredTechniciansForCompanion = technicians.filter(
   return (
     <div className="container mt-4">
       <h2 className="text-primary mb-4">Servicios Pendientes</h2>
-      <Form.Group controlId="formServiceSearch" className="mb-4">
-        <Form.Control
-          type="text"
-          placeholder="Buscar servicios..."
-          value={searchServiceText}
-          onChange={handleServiceSearchChange}
-        />
-      </Form.Group>
-  
-      <Form.Group controlId="userFilter" className="mb-4">
-        <Form.Label>Filtrar por Usuario</Form.Label>
-        <Form.Control as="select" value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
-          <option value="">Todos los usuarios</option>
-          {technicians.map((technician) => (
-            <option key={technician.id} value={technician.id}>
-              {technician.name}
-            </option>
-          ))}
-        </Form.Control>
-      </Form.Group>
-  
-      <Button variant="primary" onClick={handleShowAddServiceModal} className="mb-4">
-        Añadir Servicio
-      </Button>
+      <Row className="align-items-center mb-4" style={{ minHeight: 0, height: 'auto' }}>
+  {/* Campo de búsqueda */}
+  <Col xs={12} md={5}>
+    <Form.Group controlId="formServiceSearch">
+      <Form.Control
+        type="text"
+        placeholder="Buscar servicios..."
+        value={searchServiceText}
+        onChange={handleServiceSearchChange}
+        style={{ height: '38px' }} // Asegura una altura uniforme
+      />
+    </Form.Group>
+  </Col>
+
+  {/* Filtro por usuario */}
+  <Col xs={12} md={4}>
+    <Form.Group controlId="userFilter">
+      <Form.Control
+        as="select"
+        value={selectedUser}
+        onChange={(e) => setSelectedUser(e.target.value)}
+        style={{ height: '38px' }} // Asegura la misma altura
+      >
+        <option value="">Todos los usuarios</option>
+        {technicians.map((technician) => (
+          <option key={technician.id} value={technician.id}>
+            {technician.name}
+          </option>
+        ))}
+      </Form.Control>
+    </Form.Group>
+  </Col>
+
+  {/* Botón Añadir Servicio */}
+  <Col xs={12} md={3} className="text-md-end">
+    <Button
+      variant="success"
+      onClick={handleShowAddServiceModal}
+      style={{ height: '38px', width: '100%' }} // Mantiene proporciones
+    >
+      Añadir Servicio
+    </Button>
+  </Col>
+</Row>
+
+
       <Row>
         <Col md={open ? 5 : 12}>
           <div className="service-list">
@@ -940,7 +962,7 @@ const filteredTechniciansForCompanion = technicians.filter(
           <Button variant="secondary" onClick={() => setShowAddServiceModal(false)}>
             Cancelar
           </Button>
-          <Button variant="primary" onClick={() => handleSaveNewService()}>
+          <Button variant="success" onClick={() => handleSaveNewService()}>
             Guardar Servicio
           </Button>
         </Modal.Footer>
@@ -1158,7 +1180,7 @@ const filteredTechniciansForCompanion = technicians.filter(
     <Button variant="secondary" onClick={() => setShowEditModal(false)}>
       Cancelar
     </Button>
-    <Button variant="primary" onClick={handleSaveChanges}>
+    <Button variant="success" onClick={handleSaveChanges}>
       Guardar Cambios
     </Button>
   </Modal.Footer>

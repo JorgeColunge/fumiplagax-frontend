@@ -233,7 +233,7 @@ const handleSearch = (e) => {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>Cancelar</Button>
-          <Button variant="primary" onClick={handleAddOrEditClient}>
+          <Button variant="success" onClick={handleAddOrEditClient}>
             {editingClient ? "Guardar Cambios" : "Registrar Cliente"}
           </Button>
         </Modal.Footer>

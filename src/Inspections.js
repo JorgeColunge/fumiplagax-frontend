@@ -187,8 +187,8 @@ function Inspections() {
       <h2 className="text-center mb-5">Consulta de Inspecciones</h2>
       <Row className="w-100" style={{ height: 'auto', alignItems: 'flex-start' }}>
         {/* Filtros */}
-<Row className="mb-4">
-  <Col xs={12} md={4}>
+        <Row className="mb-1" style={{ minHeight: 0, height: 'auto' }}>
+  <Col xs={12} md={3}>
     <Form.Group controlId="filterClient">
       <Form.Label>Filtrar por Cliente</Form.Label>
       <Form.Select
@@ -202,7 +202,7 @@ function Inspections() {
       </Form.Select>
     </Form.Group>
   </Col>
-  <Col xs={12} md={4}>
+  <Col xs={12} md={3}>
     <Form.Group controlId="filterService">
       <Form.Label>Filtrar por Servicio</Form.Label>
       <Form.Select
@@ -216,7 +216,7 @@ function Inspections() {
       </Form.Select>
     </Form.Group>
   </Col>
-  <Col xs={12} md={4}>
+  <Col xs={12} md={3}>
     <Form.Group controlId="filterDate">
       <Form.Label>Filtrar por Fecha</Form.Label>
       <Form.Control
@@ -226,7 +226,16 @@ function Inspections() {
       />
     </Form.Group>
   </Col>
+  <Col xs={12} md={3} className="text-md-end mt-2 mt-md-0">
+    <Button
+      onClick={() => handleShowModal()}
+      className="btn btn-success"
+    >
+      Agregar Nueva Inspección
+    </Button>
+  </Col>
 </Row>
+
 {filteredInspections.length > 0 ? (
   filteredInspections.map(inspection => (
     <Col key={inspection.id} xs={12} sm={6} md={4} lg={3} className="mb-3">
@@ -242,6 +251,11 @@ function Inspections() {
               <strong>Servicio ID:</strong> {inspection.service_id || 'Desconocido'}
             </p>
             <p>{formatDateTime(inspection.date, inspection.time)}</p>
+            <div className="d-flex justify-content-between mt-3">
+            <Button variant="link" className="text-success" onClick={(e) => { e.stopPropagation(); /* Acciones aquí */ }}>Generar Informe</Button>
+            <Button variant="link" className="text-success" onClick={(e) => { e.stopPropagation(); /* Acciones aquí */ }}>Novedad en Estación</Button>
+
+            </div>
           </Card.Body>
         </Card>
       </Col>

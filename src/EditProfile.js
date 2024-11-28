@@ -152,7 +152,7 @@ function EditProfile() {
                 <button
                   type="button"
                   onClick={handleSave}
-                  className="btn btn-primary me-2"
+                  className="btn btn-success me-2"
                 >
                   Guardar cambios
                 </button>
