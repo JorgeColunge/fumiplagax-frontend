@@ -137,9 +137,9 @@ function App() {
   };
 
   const handleProfileUpdate = (updatedUserInfo) => {
-    setUserInfo(updatedUserInfo);
-    localStorage.setItem("user_info", JSON.stringify(updatedUserInfo));
-  };
+    setUserInfo(updatedUserInfo); // Actualiza el estado global
+    localStorage.setItem('user_info', JSON.stringify(updatedUserInfo)); // Opcional: actualiza localStorage
+  };  
 
   if (loading) return <div className="text-center mt-5">Cargando...</div>;
 
@@ -181,7 +181,19 @@ function App() {
           <Route path="/register" element={isLoggedIn ? <Navigate to="/profile" /> : <Register />} />
           <Route path="/profile" element={isLoggedIn ? <UserProfile userInfo={userInfo} /> : <Navigate to="/login" />} />
           <Route path="/edit-profile/:id" element={isLoggedIn ? <EditProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
-          <Route path="/edit-my-profile/:id" element={isLoggedIn ? <EditMyProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
+          <Route
+  path="/edit-my-profile/:id"
+  element={
+    isLoggedIn ? (
+      <EditMyProfile
+        userInfo={userInfo}
+        onProfileUpdate={handleProfileUpdate} // Pasa la función
+      />
+    ) : (
+      <Navigate to="/login" />
+    )
+  }
+/>
           <Route path="/users" element={isLoggedIn ? <UserList /> : <Navigate to="/login" />} />
           <Route path="/inspections" element={isLoggedIn ? <Inspections /> : <Navigate to="/login" />} />
           <Route path="/inspection/:inspectionId" element={isLoggedIn ? <Inspection /> : <Navigate to="/login" />} />

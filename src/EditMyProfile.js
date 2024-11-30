@@ -3,7 +3,8 @@ import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-function EditMyProfile({ userInfo }) { // Asegúrate de recibir `userInfo` con el rol del usuario
+function EditMyProfile({ userInfo, onProfileUpdate }) { 
+  // Asegúrate de recibir `userInfo` con el rol del usuario
   const { id } = useParams();
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -50,19 +51,26 @@ function EditMyProfile({ userInfo }) { // Asegúrate de recibir `userInfo` con e
     try {
       const response = await axios.post('http://localhost:10000/api/updateProfile', formData);
       if (response.status === 200) {
-        console.log("Perfil actualizado exitosamente:", response.data);
-        
-        // Actualiza la URL de la imagen si se subió correctamente
-        if (response.data.imageUrl) { // Asegúrate de que el backend envíe la nueva URL de la imagen
-          setProfilePic(`http://localhost:10000${response.data.imageUrl}`);
-        }
+        const updatedUserInfo = {
+          ...userInfo,
+          name,
+          lastname,
+          email,
+          phone,
+          image: response.data.imageUrl || userInfo.image,
+        };
+  
+        // Llama a onProfileUpdate para actualizar el estado global
+        onProfileUpdate(updatedUserInfo);
+  
+        // Actualiza localStorage
+        localStorage.setItem("user_info", JSON.stringify(updatedUserInfo));
   
         alert("Perfil actualizado exitosamente!");
+        navigate(`/profile`);
       } else {
-        console.warn("Error al actualizar el perfil:", response);
         alert("Error al actualizar el perfil");
       }
-      navigate(`/profile`);
     } catch (error) {
       console.error("Error updating profile:", error);
       alert("Error al actualizar el perfil");

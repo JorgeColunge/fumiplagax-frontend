@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUnsavedChanges } from './UnsavedChangesContext';
 import { List, Person, People, Calendar3, Clipboard, FileText, BarChart, ClipboardCheck, BoxArrowRight, Search, Megaphone, CurrencyDollar, Gear, CalendarDate, CalendarEvent, Eyedropper, PersonFillGear, GraphUp, ChatLeftDots, BoxArrowInUpRight } from 'react-bootstrap-icons';
+import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './SidebarMenu.css';
 
@@ -14,10 +15,34 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
     setShowUnsavedModal,
   } = useUnsavedChanges();
 
+  const [user, setUser] = useState(null); // Estado para manejar los datos del usuario
+
   const handleLogout = () => {
     onLogout();
     navigate('/login');
   };
+
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem("user_info"));
+    if (storedUser) {
+      setUser(storedUser); // Actualiza el estado con los datos de localStorage
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!userInfo?.id_usuario) return;
+  
+    const fetchUser = async () => {
+      try {
+        const response = await axios.get(`http://localhost:10000/api/users/${userInfo.id_usuario}`);
+        setUser(response.data); // Actualiza el estado del usuario
+      } catch (error) {
+        console.error("Error al obtener los datos del usuario:", error);
+      }
+    };
+  
+    fetchUser();
+  }, [userInfo?.id_usuario, userInfo]);  
 
   const handleNavigation = (path) => {
     if (hasUnsavedChanges) {
@@ -32,17 +57,12 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
     setIsOpen(!isOpen);
     onToggle(!isOpen); // Llama a la función pasada como prop
   };
+  
 
   const [profilePic, setProfilePic] = useState('/'); // Imagen predeterminada
 
-  useEffect(() => {
-    if (userInfo && userInfo.image) {
-      setProfilePic(`http://localhost:10000${userInfo.image}`); // Cambia la URL base según sea necesario
-    }
-  }, [userInfo]);  
-
   return (
-    <div
+<div
   className={`sidebar ${isSidebarVisible ? 'visible' : 'hidden'} ${
     isOpen ? 'open' : 'collapsed'
   }`}
@@ -52,12 +72,16 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
       </div>
       <div className="logo-container">
       <div className="logo-mask">
-        <img src={profilePic} alt="User" className="logo" />
+      <img
+  src={`http://localhost:10000${user?.image || '/images/default-profile.png'}?t=${Date.now()}`}
+  alt="User"
+  className="logo"
+/>
       </div>
         {isOpen && (
           <div className="user-info">
             <h5>{userInfo?.name || 'Usuario'}</h5>
-            <span>{userInfo?.rol || 'Cargo'}</span>
+<span>{user?.rol || 'Cargo'}</span>
           </div>
         )}
       </div>
@@ -130,5 +154,4 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
     </div>
   );
 }
-
 export default SidebarMenu;
