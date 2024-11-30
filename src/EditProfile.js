@@ -48,7 +48,6 @@ function EditProfile() {
     formData.append('email', email);
     formData.append('phone', phone);
     formData.append('userId', id);
-    formData.append('color', profileColor); // Incluir el color
     if (selectedFile) {
       formData.append('image', selectedFile);
     }

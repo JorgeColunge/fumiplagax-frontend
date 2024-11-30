@@ -59,10 +59,8 @@ function EditMyProfile({ userInfo }) { // Asegúrate de recibir `userInfo` con e
   
         alert("Perfil actualizado exitosamente!");
       } else {
-        console.warn("Error al actualizar el perfil:", response);
         alert("Error al actualizar el perfil");
       }
-      navigate(`/profile`);
     } catch (error) {
       console.error("Error updating profile:", error);
       alert("Error al actualizar el perfil");
