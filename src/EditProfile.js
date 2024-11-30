@@ -41,6 +41,10 @@ function EditProfile() {
 
   const handleFileChange = (e) => setSelectedFile(e.target.files[0]);
 
+  const userInfo = JSON.parse(localStorage.getItem("user_info"));
+  const isEditable = userInfo?.rol === 'Administrador' || userInfo?.rol === 'Superadministrador';
+
+
   const handleSave = async () => {
     const formData = new FormData();
     formData.append('name', name);
@@ -55,6 +59,13 @@ function EditProfile() {
     try {
       const response = await axios.post('http://localhost:10000/api/updateProfile', formData);
       if (response.status === 200) {
+        // Actualiza la URL de la imagen si se subió correctamente
+        const updatedUserInfo = { ...userInfo, ...response.data };
+        localStorage.setItem("user_info", JSON.stringify(updatedUserInfo)); // Sobrescribe `localStorage`
+        
+        if (response.data.imageUrl) {
+          setProfilePic(`http://localhost:10000${response.data.imageUrl}`);
+        }
         alert("Perfil actualizado exitosamente!");
         navigate(`/show-profile/${id}`);
       } else {
