@@ -5,6 +5,20 @@ import { useNavigate } from 'react-router-dom';
 import './ClientList.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { BuildingFill, GeoAltFill, PhoneFill, TelephoneFill } from 'react-bootstrap-icons';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+const customIcon = new L.Icon({
+  iconUrl: 'https://leafletjs.com/examples/custom-icons/leaf-red.png', // URL del icono
+  iconSize: [25, 41], // Tamaño del icono
+  iconAnchor: [12, 41], // Punto de anclaje
+  popupAnchor: [1, -34], // Punto de apertura del popup
+  shadowUrl: 'https://leafletjs.com/examples/custom-icons/leaf-shadow.png', // Sombra del icono
+  shadowSize: [41, 41],
+});
+
 
 function ClientList() {
   const [clients, setClients] = useState([]);
@@ -15,17 +29,44 @@ function ClientList() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [confirmationCallback, setConfirmationCallback] = useState(null);
+  const [notificationMessage, setNotificationMessage] = useState("");
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [actionType, setActionType] = useState(""); // "call" o "whatsapp"
+  const [selectedNumber, setSelectedNumber] = useState(null);
+  const [airStations, setAirStations] = useState([]);
+  const [rodentStations, setRodentStations] = useState([]);
   const [newClient, setNewClient] = useState({
     name: '',
     address: '',
+    department: 'Nariño', // Valor predeterminado
+    city: 'Pasto', // Valor predeterminado
     phone: '',
     email: '',
     representative: '',
-    document_type: '',
+    document_type: 'NIT', // Valor predeterminado
     document_number: '',
     contact_name: '',
     contact_phone: '',
     rut: '',
+  });
+
+  const [showAddAirStationModal, setShowAddAirStationModal] = useState(false);
+  const [newAirStation, setNewAirStation] = useState({
+    description: '',
+    type: 'Aéreas',
+    control_method: 'Lámina',
+    client_id: null, // Se llenará automáticamente con el cliente seleccionado
+  });
+  const [showAddRodentStationModal, setShowAddRodentStationModal] = useState(false);
+  const [newRodentStation, setNewRodentStation] = useState({
+    description: '',
+    category: 'Roedores',
+    type: 'Caja Beta', // Valor predeterminado
+    control_method: 'Lámina', // Valor predeterminado
+    client_id: null, // Se llenará automáticamente con el cliente seleccionado
   });
 
   const navigate = useNavigate();
@@ -66,10 +107,12 @@ const handleSearch = (e) => {
       setNewClient({
         name: '',
         address: '',
+        department: 'Nariño', // Valor predeterminado
+        city: 'Pasto', // Valor predeterminado
         phone: '',
         email: '',
         representative: '',
-        document_type: '',
+        document_type: 'NIT', // Valor predeterminado
         document_number: '',
         contact_name: '',
         contact_phone: '',
@@ -89,40 +132,184 @@ const handleSearch = (e) => {
     setNewClient({ ...newClient, [name]: value });
   };
 
+  // Función para abrir el modal de agregar estación de roedores
+const handleShowAddRodentStationModal = () => {
+  const nextNumber = rodentStations.length + 1; // Calcula el siguiente número de estación
+  setNewRodentStation({
+    description: `${nextNumber}`,
+    category: 'Roedores',
+    type: 'Caja Beta', // Predeterminado
+    control_method: 'Lámina', // Predeterminado
+    client_id: selectedClient.id,
+  });
+  setShowAddRodentStationModal(true);
+};
+
+// Función para cerrar el modal de agregar estación de roedores
+const handleCloseAddRodentStationModal = () => {
+  setShowAddRodentStationModal(false);
+};
+
+// Función para manejar cambios en el formulario del modal de roedores
+const handleNewRodentStationInputChange = (e) => {
+  const { name, value } = e.target;
+  setNewRodentStation({ ...newRodentStation, [name]: value });
+};
+
+// Función para guardar una nueva estación de roedores
+const handleSaveNewRodentStation = async () => {
+  try {
+    const response = await axios.post('http://localhost:10000/api/stations', newRodentStation);
+    const addedStation = response.data.station;
+
+    // Actualizar la tabla de estaciones de roedores
+    setRodentStations([...rodentStations, addedStation]);
+
+    handleShowNotification('Estación de roedores agregada exitosamente');
+    handleCloseAddRodentStationModal();
+  } catch (error) {
+    console.error('Error al guardar la estación de roedores:', error);
+    handleShowNotification('Hubo un error al guardar la estación de roedores');
+  }
+};
+
+  // Función para abrir el modal de agregar estación aérea
+const handleShowAddAirStationModal = () => {
+  const nextNumber = airStations.length + 1; // Calcula el siguiente número de estación
+  setNewAirStation({
+    description: `${nextNumber}`,
+    category: 'Aéreas',
+    control_method: 'Lámina',
+    client_id: selectedClient.id,
+  });
+  setShowAddAirStationModal(true);
+};
+
+// Función para cerrar el modal de agregar estación aérea
+const handleCloseAddAirStationModal = () => {
+  setShowAddAirStationModal(false);
+};
+
+// Función para manejar cambios en el formulario del modal
+const handleNewAirStationInputChange = (e) => {
+  const { name, value } = e.target;
+  setNewAirStation({ ...newAirStation, [name]: value });
+};
+
+// Función para guardar una nueva estación aérea
+const handleSaveNewAirStation = async () => {
+  try {
+    const response = await axios.post('http://localhost:10000/api/stations', newAirStation);
+    const addedStation = response.data.station;
+
+    // Actualizar la tabla de estaciones aéreas
+    setAirStations([...airStations, addedStation]);
+
+    handleShowNotification('Estación aérea agregada exitosamente');
+    handleCloseAddAirStationModal();
+  } catch (error) {
+    console.error('Error al guardar la estación aérea:', error);
+    handleShowNotification('Hubo un error al guardar la estación aérea');
+  }
+};
+
+  const handleShowActionModal = (type) => {
+    setActionType(type);
+    setShowActionModal(true);
+  };
+  
+  const handleCloseActionModal = () => {
+    setShowActionModal(false);
+    setActionType("");
+    setSelectedNumber(null);
+  };
+
+  const handleShowNotification = (message) => {
+    setNotificationMessage(message);
+    setShowNotificationModal(true);
+  };
+  
+  const handleCloseNotification = () => {
+    setShowNotificationModal(false);
+  };
+  
+  const handleShowConfirmation = (callback) => {
+    setConfirmationCallback(() => callback);
+    setShowConfirmationModal(true);
+  };
+  
+  const handleCloseConfirmation = () => {
+    setShowConfirmationModal(false);
+    setConfirmationCallback(null);
+  };
+
+  const fetchStationsByClient = async (clientId) => {
+    try {
+      const response = await axios.get(`http://localhost:10000/api/stations/client/${clientId}`);
+      const stations = response.data;
+  
+      // Filtrar las estaciones por categoría
+      const air = stations.filter(station => station.category === 'Aéreas');
+      const rodents = stations.filter(station => station.category === 'Roedores');
+  
+      setAirStations(air);
+      setRodentStations(rodents);
+    } catch (error) {
+      console.error("Error fetching stations by client:", error);
+      setAirStations([]);
+      setRodentStations([]);
+    }
+  };  
+
   const handleAddOrEditClient = async () => {
     try {
       if (editingClient) {
-        await axios.put(`http://localhost:10000/api/clients/${editingClient.id}`, newClient);
-        setClients(clients.map((client) => (client.id === editingClient.id ? newClient : client)));
-        alert("Cliente actualizado exitosamente");
+        // Actualizar cliente existente
+        const response = await axios.put(
+          `http://localhost:10000/api/clients/${editingClient.id}`,
+          newClient
+        );
+        const updatedClient = response.data.client;
+  
+        // Actualizar el estado directamente
+        setClients(clients.map(client => (client.id === editingClient.id ? updatedClient : client)));
+        setFilteredClients(filteredClients.map(client => (client.id === editingClient.id ? updatedClient : client)));
+  
+        handleShowNotification("Cliente actualizado exitosamente");
       } else {
+        // Crear nuevo cliente
         const response = await axios.post('http://localhost:10000/api/clients', newClient);
-        setClients([...clients, response.data.client]);
-        alert("Cliente agregado exitosamente");
+        const newClientData = response.data.client;
+  
+        // Agregar el nuevo cliente al estado
+        setClients([...clients, newClientData]);
+        setFilteredClients([...filteredClients, newClientData]);
+  
+        handleShowNotification("Cliente agregado exitosamente");
       }
-      handleCloseModal();
+      handleCloseModal(); // Cierra el modal después de guardar
     } catch (error) {
       console.error("Error al guardar el cliente:", error);
-      alert("Hubo un error al guardar el cliente.");
+      handleShowNotification("Hubo un error al guardar el cliente.");
     }
-  };
+  };  
 
   const deleteClient = async (id) => {
-    if (window.confirm("¿Estás seguro de que deseas eliminar este cliente?")) {
-      try {
-        await axios.delete(`http://localhost:10000/api/clients/${id}`);
-        setClients(clients.filter(client => client.id !== id));
-        alert("Cliente eliminado exitosamente.");
-      } catch (error) {
-        console.error("Error al eliminar cliente:", error);
-        alert("Hubo un error al eliminar el cliente.");
-      }
+    try {
+      await axios.delete(`http://localhost:10000/api/clients/${id}`);
+      setClients(clients.filter(client => client.id !== id));
+      setFilteredClients(filteredClients.filter(client => client.id !== id)); // Asegura actualizar el listado filtrado
+      handleShowNotification("Cliente eliminado exitosamente.");
+    } catch (error) {
+      console.error("Error al eliminar cliente:", error);
+      handleShowNotification("Hubo un error al eliminar el cliente.");
     }
-  };
+  };  
 
   // Función para manejar la visualización del modal de detalles
   const handleShowDetails = (client) => {
   setSelectedClient(client);
+  fetchStationsByClient(client.id);
   setShowDetailsModal(true);
   };
 
@@ -136,57 +323,87 @@ const handleSearch = (e) => {
   return (
     <div className="container mt-4">
       <h2 className="mb-4" style={{ color: 'black' }}>Listado de Clientes</h2>
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <InputGroup className="w-25">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <InputGroup className="w-100 me-3">
         <FormControl 
-  placeholder="Buscar" 
-  aria-label="Buscar" 
-  value={searchText}
-  onChange={handleSearch} // Evento para manejar la búsqueda
-/>
+        placeholder="Buscar" 
+        aria-label="Buscar" 
+        value={searchText}
+        onChange={handleSearch} // Evento para manejar la búsqueda
+      />
         </InputGroup>
-        <Button variant="success" onClick={() => handleShowModal()}>
+        <Button className='w-25' variant="success" onClick={() => handleShowModal()}>
           Agregar Cliente
         </Button>
       </div>
   
       <div className="card-container">
-      {filteredClients.map((client) => (
+        {filteredClients.map((client) => (
           <div
             key={client.id}
             className="client-card"
-            onClick={() => handleShowDetails(client)}
+            onClick={() => handleShowDetails(client)} // Abre el modal al hacer clic en la tarjeta
             style={{ cursor: 'pointer' }}
           >
-            <div className="map-placeholder">
-            </div>
             <h5>{client.name}</h5>
-            <p>{client.phone}</p>
-            <div className="actions">
-              <i
-                className="fas fa-edit text-success"
-                onClick={(e) => {
-                  e.stopPropagation(); // Evita que el evento de clic abra los detalles
-                  handleShowModal(client);
-                }}
-                style={{ cursor: 'pointer', fontSize: '1.2em' }}
-                title="Editar"
-              ></i>
-              <i
-                className="fas fa-trash text-danger"
-                onClick={(e) => {
-                  e.stopPropagation(); // Evita que el evento de clic abra los detalles
-                  deleteClient(client.id);
-                }}
-                style={{ cursor: 'pointer', fontSize: '1.2em' }}
-                title="Eliminar"
-              ></i>
+            <p className='mt-2'> <TelephoneFill/> {client.phone}</p>
+            <p className='mb-1'> <BuildingFill/> {client.address}, {client.department}, {client.city}</p>
+            <div
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation(); // Evita que se abra el modal al hacer clic en el mapa
+                window.open(
+                  `https://www.google.com/maps?q=${encodeURIComponent(client.address)},${client.city},${client.department}&ll=${client.latitude},${client.longitude}`,
+                  '_blank'
+                ); // Abre Google Maps en una nueva pestaña
+              }}
+              style={{ cursor: 'pointer', zIndex: '1'}}
+            >
+              {client.latitude && client.longitude ? (
+                <div className="map-container">
+                  <MapContainer
+                    center={[client.latitude, client.longitude]}
+                    zoom={17}
+                    style={{ height: '150px', width: '100%' }}
+                    zoomControl={false}
+                    dragging={false}
+                    scrollWheelZoom={false}
+                    doubleClickZoom={false}
+                    attributionControl={false}
+                    interactive={false}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+                    />
+                    <Marker
+                      position={[client.latitude, client.longitude]}
+                      icon={L.divIcon({
+                        className: 'custom-marker',
+                        html: `<div style="color: red; font-size: 24px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-geo-alt-fill" viewBox="0 0 16 16">
+                                  <path d="M12 11c0 1.105-1.511 2-3.5 2S5 12.105 5 11c0-.638.41-1.164 1-1.44V5.5c0-.276.224-.5.5-.5h3a.5.5 0 0 1 .5.5v4.06c.59.276 1 .802 1 1.44z"/>
+                                  <path fill-rule="evenodd" d="M8 16s6-5.686 6-10A6 6 0 1 0 2 6c0 4.314 6 10 6 10z"/>
+                                </svg>
+                              </div>`,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 24],
+                      })}
+                    >
+                      <Popup>
+                        {client.name} - {client.address}
+                      </Popup>
+                    </Marker>
+                  </MapContainer>
+                </div>
+              ) : (
+                <p>No hay ubicación disponible</p>
+              )}
             </div>
           </div>
         ))}
       </div>
   
-      {/* Modal para agregar/editar cliente */}
       <Modal show={showModal} onHide={handleCloseModal}>
         <Modal.Header closeButton>
           <Modal.Title>{editingClient ? "Editar Cliente" : "Agregar Cliente"}</Modal.Title>
@@ -195,77 +412,563 @@ const handleSearch = (e) => {
           <Form>
             <Form.Group controlId="formClientName" className="mb-3">
               <Form.Label>Nombre</Form.Label>
-              <Form.Control type="text" name="name" value={newClient.name} onChange={handleInputChange} />
+              <Form.Control
+                type="text"
+                name="name"
+                value={newClient.name || ""}
+                onChange={handleInputChange}
+                required
+              />
             </Form.Group>
             <Form.Group controlId="formClientAddress" className="mb-3">
               <Form.Label>Dirección</Form.Label>
-              <Form.Control type="text" name="address" value={newClient.address} onChange={handleInputChange} />
+              <Form.Control
+                type="text"
+                name="address"
+                value={newClient.address || ""}
+                onChange={handleInputChange}
+                required
+              />
+            </Form.Group>
+            <Form.Group controlId="formClientDepartment" className="mb-3">
+              <Form.Label>Departamento</Form.Label>
+              <Form.Select
+                name="department"
+                value={newClient.department || "Nariño"} // Valor inicial
+                onChange={(e) =>
+                  setNewClient({ ...newClient, department: e.target.value })
+                }
+                required
+              >
+                {[
+                  "Amazonas",
+                  "Antioquia",
+                  "Arauca",
+                  "Atlántico",
+                  "Bolívar",
+                  "Boyacá",
+                  "Caldas",
+                  "Caquetá",
+                  "Casanare",
+                  "Cauca",
+                  "Cesar",
+                  "Chocó",
+                  "Córdoba",
+                  "Cundinamarca",
+                  "Guainía",
+                  "Guaviare",
+                  "Huila",
+                  "La Guajira",
+                  "Magdalena",
+                  "Meta",
+                  "Nariño",
+                  "Norte de Santander",
+                  "Putumayo",
+                  "Quindío",
+                  "Risaralda",
+                  "San Andrés y Providencia",
+                  "Santander",
+                  "Sucre",
+                  "Tolima",
+                  "Valle del Cauca",
+                  "Vaupés",
+                  "Vichada",
+                ].map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+            <Form.Group controlId="formClientCity" className="mb-3">
+              <Form.Label>Ciudad</Form.Label>
+              <Form.Control
+                type="text"
+                name="city"
+                value={newClient.city || "Pasto"} // Valor inicial
+                onChange={(e) =>
+                  setNewClient({ ...newClient, city: e.target.value })
+                }
+                required
+              />
             </Form.Group>
             <Form.Group controlId="formClientPhone" className="mb-3">
               <Form.Label>Teléfono</Form.Label>
-              <Form.Control type="text" name="phone" value={newClient.phone} onChange={handleInputChange} />
+              <Form.Control
+                type="number"
+                name="phone"
+                value={newClient.phone || ""}
+                onChange={handleInputChange}
+                required
+              />
             </Form.Group>
             <Form.Group controlId="formClientEmail" className="mb-3">
               <Form.Label>Correo</Form.Label>
-              <Form.Control type="email" name="email" value={newClient.email} onChange={handleInputChange} />
+              <Form.Control
+                type="email"
+                name="email"
+                value={newClient.email || ""}
+                onChange={handleInputChange}
+                required
+              />
             </Form.Group>
             <Form.Group controlId="formClientDocumentType" className="mb-3">
               <Form.Label>Tipo de Documento</Form.Label>
-              <Form.Control type="text" name="document_type" value={newClient.document_type} onChange={handleInputChange} />
+              <Form.Select
+                name="document_type"
+                value={newClient.document_type || "NIT"} // Valor inicial
+                onChange={(e) =>
+                  setNewClient({ ...newClient, document_type: e.target.value })
+                }
+                required
+              >
+                <option value="Cédula">Cédula</option>
+                <option value="NIT">NIT</option>
+              </Form.Select>
             </Form.Group>
             <Form.Group controlId="formClientDocumentNumber" className="mb-3">
               <Form.Label>Número de Documento</Form.Label>
-              <Form.Control type="text" name="document_number" value={newClient.document_number} onChange={handleInputChange} />
+              <Form.Control
+                type="number"
+                name="document_number"
+                value={newClient.document_number || ""}
+                onChange={handleInputChange}
+                required
+              />
             </Form.Group>
             <Form.Group controlId="formClientContactName" className="mb-3">
               <Form.Label>Nombre de Contacto</Form.Label>
-              <Form.Control type="text" name="contact_name" value={newClient.contact_name} onChange={handleInputChange} />
+              <Form.Control
+                type="text"
+                name="contact_name"
+                value={newClient.contact_name || ""}
+                onChange={handleInputChange}
+              />
             </Form.Group>
             <Form.Group controlId="formClientContactPhone" className="mb-3">
               <Form.Label>Teléfono de Contacto</Form.Label>
-              <Form.Control type="text" name="contact_phone" value={newClient.contact_phone} onChange={handleInputChange} />
+              <Form.Control
+                type="text"
+                name="contact_phone"
+                value={newClient.contact_phone || ""}
+                onChange={handleInputChange}
+              />
             </Form.Group>
             <Form.Group controlId="formClientRUT" className="mb-3">
               <Form.Label>RUT</Form.Label>
-              <Form.Control type="text" name="rut" value={newClient.rut} onChange={handleInputChange} />
+              <Form.Control
+                type="text"
+                name="rut"
+                value={newClient.rut || ""}
+                onChange={handleInputChange}
+              />
             </Form.Group>
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseModal}>Cancelar</Button>
-          <Button variant="success" onClick={handleAddOrEditClient}>
+          <Button variant="secondary" onClick={handleCloseModal}>
+            Cancelar
+          </Button>
+          <Button
+            variant="success"
+            onClick={handleAddOrEditClient}
+            disabled={
+              !newClient.name ||
+              !newClient.address ||
+              !newClient.department ||
+              !newClient.city ||
+              !newClient.phone ||
+              !newClient.email ||
+              !newClient.document_type ||
+              !newClient.document_number
+            }
+          >
             {editingClient ? "Guardar Cambios" : "Registrar Cliente"}
           </Button>
         </Modal.Footer>
       </Modal>
 
-{/* Modal para mostrar detalles del cliente */}
-<Modal show={showDetailsModal} onHide={handleCloseDetailsModal}>
-  <Modal.Header closeButton>
-    <Modal.Title>Detalles del Cliente</Modal.Title>
-  </Modal.Header>
-  <Modal.Body>
-    {selectedClient && (
-      <div>
-        <p><strong>Nombre:</strong> {selectedClient.name}</p>
-        <p><strong>Dirección:</strong> {selectedClient.address}</p>
-        <p><strong>Teléfono:</strong> {selectedClient.phone}</p>
-        <p><strong>Correo:</strong> {selectedClient.email}</p>
-        <p><strong>Tipo de Documento:</strong> {selectedClient.document_type}</p>
-        <p><strong>Número de Documento:</strong> {selectedClient.document_number}</p>
-        <p><strong>Nombre de Contacto:</strong> {selectedClient.contact_name}</p>
-        <p><strong>Teléfono de Contacto:</strong> {selectedClient.contact_phone}</p>
-        <p><strong>RUT:</strong> {selectedClient.rut}</p>
-      </div>
-    )}
-  </Modal.Body>
-  <Modal.Footer>
-    <Button variant="secondary" onClick={handleCloseDetailsModal}>Cerrar</Button>
-    <Button variant="success" onClick={() => console.log("Agregar estación clickeado")}>
-      Agregar Estación
-    </Button>
-  </Modal.Footer>
-</Modal>
+
+      {/* Modal para mostrar detalles del cliente */}
+    <Modal show={showDetailsModal} onHide={handleCloseDetailsModal}>
+      <Modal.Header closeButton>
+        <Modal.Title>
+          {selectedClient ? `Detalles de ${selectedClient.name}` : "Detalles del Cliente"}
+        </Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {selectedClient ? (
+          <div className="client-details-container">
+            <div className="client-info">
+              <p>
+                <i className="fas fa-map-marker-alt"></i>{" "}
+                <strong>Dirección:</strong> {selectedClient.address || "No disponible"},{" "}
+                {selectedClient.department || "No disponible"},{" "}
+                {selectedClient.city || "No disponible"}
+              </p>
+              <p>
+                <i className="fas fa-phone"></i>{" "}
+                <strong>Teléfono Empresa:</strong> {selectedClient.phone || "No disponible"}
+              </p>
+              <p>
+                <i className="fas fa-user"></i>{" "}
+                <strong>Nombre de Contacto:</strong> {selectedClient.contact_name || "No disponible"}
+              </p>
+              <p>
+                <i className="fas fa-mobile-alt"></i>{" "}
+                <strong>Teléfono Contacto:</strong> {selectedClient.contact_phone || "No disponible"}
+              </p>
+              <p>
+                <i className="fas fa-envelope"></i>{" "}
+                <strong>Correo:</strong> {selectedClient.email || "No disponible"}
+              </p>
+              <p>
+                <i className="fas fa-id-card"></i>{" "}
+                <strong>Tipo de Documento:</strong> {selectedClient.document_type || "No disponible"}
+              </p>
+              <p>
+                <i className="fas fa-hashtag"></i>{" "}
+                <strong>Número de Documento:</strong> {selectedClient.document_number || "No disponible"}
+              </p>
+              <p>
+                <i className="fas fa-file-alt"></i>{" "}
+                <strong>RUT:</strong> {selectedClient.rut || "No disponible"}
+              </p>
+            </div>
+            <hr />
+
+            {/* Tabla de Estaciones Aéreas */}
+            <h5>Estaciones Aéreas</h5>
+            {airStations.length > 0 ? (
+              <table className="table table-bordered">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Método de Control</th>
+                    <th>QR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {airStations.map((station) => (
+                    <tr key={station.id}>
+                      <td>{station.description}</td>
+                      <td>{station.control_method}</td>
+                      <td>{station.qr_code || 'No disponible'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p>No hay estaciones aéreas registradas.</p>
+            )}
+            <div className="d-flex justify-content-end">
+              <Button
+                variant="outline-success"
+                className="mb-2  px-2 pt-0 pb-1"
+                onClick={handleShowAddAirStationModal}
+              >
+                +
+              </Button>
+            </div>
+            
+            <hr />
+
+            {/* Tabla de Estaciones Roedores */}
+            <h5>Estaciones Roedores</h5>
+            {rodentStations.length > 0 ? (
+              <table className="table table-bordered">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Tipo</th>
+                    <th>Método de Control</th>
+                    <th>QR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rodentStations.map((station) => (
+                    <tr key={station.id}>
+                      <td>{station.description}</td>
+                      <td>{station.type}</td>
+                      <td>{station.control_method}</td>
+                      <td>{station.qr_code || 'No disponible'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p>No hay estaciones de roedores registradas.</p>
+            )}
+            <div className="d-flex justify-content-end">
+              <Button
+                variant="outline-success"
+                className="mb-2 px-2 pt-0 pb-1"
+                onClick={handleShowAddRodentStationModal}
+              >
+                +
+              </Button>
+            </div>
+            <hr />
+            <div className="action-buttons d-flex justify-content-around">
+              <Button
+                className="ms-auto me-2 w-100"
+                variant="outline-primary"
+                onClick={() => handleShowActionModal("call")}
+              >
+                <i className="fas fa-phone"></i>
+              </Button>
+              <Button
+                variant="outline-success mx-2 w-100"
+                onClick={() => handleShowActionModal("whatsapp")}
+              >
+                <i className="fab fa-whatsapp"></i>
+              </Button>
+              <Button
+                variant="outline-dark mx-2 w-100"
+                onClick={() => window.open(`mailto:${selectedClient.email}`)}
+              >
+                <i className="fas fa-envelope"></i>
+              </Button>
+              <Button
+                variant="outline-danger mx-2 w-100"
+                onClick={() =>
+                  window.open(
+                    `https://www.google.com/maps?q=${encodeURIComponent(
+                      `${selectedClient.address || ""}, ${selectedClient.city || ""}, ${selectedClient.department || ""}`
+                    )}`,
+                    "_blank"
+                  )
+                }
+              >
+                <i className="fas fa-map-marker-alt"></i>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p>Cargando datos del cliente...</p>
+        )}
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="d-flex justify-content-between w-100">
+          <Button
+            className="me-2 w-100"
+            variant="success"
+            onClick={() => {
+              handleShowModal(selectedClient); // Abre el modal para editar el cliente
+              handleCloseDetailsModal(); // Cierra el modal de detalles
+            }}
+          >
+            Editar
+          </Button>
+          <Button
+            className="me-2 w-100"
+            variant="danger"
+            onClick={() => {
+              handleShowConfirmation(() => deleteClient(selectedClient.id));
+              handleCloseDetailsModal();
+            }}
+          >
+            Eliminar
+          </Button>
+          <Button
+            className='w-100'
+            variant="secondary"
+            onClick={handleCloseDetailsModal}
+          >
+            Cerrar
+          </Button>
+        </div>
+      </Modal.Footer>
+    </Modal>;
+
+    {/* Modal de confirmación para llamar o enviar WhatsApp */}
+    <Modal show={showActionModal} onHide={handleCloseActionModal}>
+      <Modal.Header closeButton>
+        <Modal.Title>Selecciona una opción</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <p>¿Quieres realizar esta acción para el teléfono de la empresa o del contacto?</p>
+        <div className="d-flex justify-content-around">
+          <Button
+            variant="primary"
+            onClick={() => {
+              if (actionType === "call") {
+                window.open(`tel:${selectedClient?.phone || ""}`);
+              } else if (actionType === "whatsapp") {
+                window.open(`https://wa.me/${selectedClient?.phone?.replace(/\D/g, "")}`, "_blank");
+              }
+              handleCloseActionModal();
+            }}
+          >
+            Teléfono Empresa
+          </Button>
+          <Button
+            variant="success"
+            onClick={() => {
+              if (actionType === "call") {
+                window.open(`tel:${selectedClient?.contact_phone || ""}`);
+              } else if (actionType === "whatsapp") {
+                window.open(`https://wa.me/${selectedClient?.contact_phone?.replace(/\D/g, "")}`, "_blank");
+              }
+              handleCloseActionModal();
+            }}
+            disabled={!selectedClient?.contact_phone}
+          >
+            Teléfono Contacto
+          </Button>
+        </div>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={handleCloseActionModal}>
+          Cancelar
+        </Button>
+      </Modal.Footer>
+    </Modal>;
+
+      {/* Modal de confirmación */}
+      <Modal show={showConfirmationModal} onHide={handleCloseConfirmation}>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirmación</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          ¿Estás seguro de que deseas realizar esta acción?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseConfirmation}>
+            Cancelar
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              if (confirmationCallback) confirmationCallback();
+              handleCloseConfirmation();
+            }}
+          >
+            Confirmar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de notificación */}
+      <Modal show={showNotificationModal} onHide={handleCloseNotification}>
+        <Modal.Header closeButton>
+          <Modal.Title>Notificación</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>{notificationMessage}</Modal.Body>
+        <Modal.Footer>
+          <Button variant="success" onClick={handleCloseNotification}>
+            Cerrar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={showAddAirStationModal} onHide={handleCloseAddAirStationModal}>
+        <Modal.Header closeButton>
+          <Modal.Title>Agregar Estación Aérea</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group controlId="formAirStationType" className="mb-3">
+            <Form.Label>Tipo</Form.Label>
+              <Form.Control
+                type="text"
+                name="category"
+                value={newAirStation.category}
+                onChange={handleNewAirStationInputChange}
+                disabled
+              />
+              <Form.Label>#</Form.Label>
+              <Form.Control
+                type="text"
+                name="description"
+                value={newAirStation.description}
+                onChange={handleNewAirStationInputChange}
+                disabled
+              />
+            </Form.Group>
+            <Form.Group controlId="formAirStationControlMethod" className="mb-3">
+              <Form.Label>Método de Control</Form.Label>
+              <Form.Control
+                type="text"
+                name="control_method"
+                value={newAirStation.control_method}
+                onChange={handleNewAirStationInputChange}
+                disabled
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseAddAirStationModal}>
+            Cancelar
+          </Button>
+          <Button variant="success" onClick={handleSaveNewAirStation}>
+            Guardar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={showAddRodentStationModal} onHide={handleCloseAddRodentStationModal}>
+        <Modal.Header closeButton>
+          <Modal.Title>Agregar Estación de Roedores</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group controlId="formRodentStationCategory" className="mb-3">
+              <Form.Label>Tipo</Form.Label>
+              <Form.Control
+                type="text"
+                name="category"
+                value={newRodentStation.category}
+                onChange={handleNewRodentStationInputChange}
+                disabled
+              />
+              <Form.Label>#</Form.Label>
+              <Form.Control
+                type="text"
+                name="description"
+                value={newRodentStation.description}
+                onChange={handleNewRodentStationInputChange}
+                disabled
+              />
+            </Form.Group>
+            <Form.Group controlId="formRodentStationType" className="mb-3">
+              <Form.Label>Tipo de Estación</Form.Label>
+              <Form.Select
+                name="type"
+                value={newRodentStation.type}
+                onChange={handleNewRodentStationInputChange}
+              >
+                <option value="Caja Beta">Caja Beta</option>
+                <option value="Tubo">Tubo</option>
+              </Form.Select>
+            </Form.Group>
+            <Form.Group controlId="formRodentStationControlMethod" className="mb-3">
+              <Form.Label>Método de Control</Form.Label>
+              <Form.Select
+                name="control_method"
+                value={newRodentStation.control_method}
+                onChange={handleNewRodentStationInputChange}
+              >
+                <option value="Lámina">Lámina</option>
+                <option value="Cebo">Cebo</option>
+                <option value="Impacto">Impacto</option>
+                <option value="Bebedero">Bebedero</option>
+              </Form.Select>
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseAddRodentStationModal}>
+            Cancelar
+          </Button>
+          <Button variant="success" onClick={handleSaveNewRodentStation}>
+            Guardar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+
     </div>
   );  
 }

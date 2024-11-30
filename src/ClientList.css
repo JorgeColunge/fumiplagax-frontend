@@ -38,4 +38,26 @@
     margin-top: 10px;
   }
   
+  .map-container {
+    margin-top: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    overflow: hidden;
+    pointer-events: none; /* Desactiva la interacción del mapa */
+    z-index: 50;
+  }  
+
+  .map-snapshot-container {
+    margin-top: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  
+  .map-snapshot {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 5px;
+  }
   
