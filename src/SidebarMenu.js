@@ -72,11 +72,16 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
       </div>
       <div className="logo-container">
       <div className="logo-mask">
-      <img
-  src={`http://localhost:10000${user?.image || '/images/default-profile.png'}?t=${Date.now()}`}
-  alt="User"
-  className="logo"
-/>
+      <div className="text-center mb-3">
+  <img
+    src={`http://localhost:10000${user?.image || '/images/default-profile.png'}`}
+    alt="Profile"
+    className="rounded-circle"
+    width="100"
+    height="100"
+  />
+</div>
+
       </div>
         {isOpen && (
           <div className="user-info">
