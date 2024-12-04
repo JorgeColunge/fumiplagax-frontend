@@ -18,23 +18,12 @@
 
 /* Estilo de los días */
 .custom-calendar .fc-daygrid-day {
-    @apply border-l border-r border-gray-200; /* Solo bordes verticales */
+    color: #177000;
     border-top: none; /* Quitar bordes superiores */
     border-bottom: none; /* Quitar bordes inferiores */
 }
 
-/* Resaltar el día actual */
-.custom-calendar .fc-day-today {
-    @apply bg-fuchsia-50;
-    font-weight: bold;
-}
 
-.custom-calendar .fc-day-today .day-number {
-    @apply text-fuchsia-500;
-    font-size: 28px; /* Número más grande para el día actual */
-    font-weight: bold;
-    margin: 0;
-}
 
 /* Estilo del encabezado del día */
 .custom-calendar .day-header {
@@ -76,9 +65,7 @@
     align-items: center;
 }
 
-.fc .fc-daygrid-day.fc-day-today{
-    @apply bg-fuchsia-50;
-}
+
 
 
 /* Para eventos en la vista semanal */
@@ -116,6 +103,7 @@
     height: 100%; /* Asegúrate de que el evento mismo también tenga una altura reducida */
     padding: 0; /* Elimina el relleno para que el evento sea solo un punto o una barra */
     margin: 0;
+    width: 95%;
 }
 
 .custom-calendar .dot {
@@ -129,11 +117,7 @@
     display: none;
 }
 
-/* Ajustar la altura de los eventos de todo el día */
-.custom-calendar .fc-daygrid-event {
-    height: 17px; /* Ajusta esto según tus necesidades */
-    line-height: 17px; /* Alinea el texto verticalmente */
-}
+
 
 
 .custom-calendar .fc-daygrid-block-event .fc-event-main {
@@ -146,22 +130,53 @@
 
 /* Cambiar el color de toda la columna del día actual en la vista de semana */
 .custom-calendar .fc-col-today {
-    @apply bg-fuchsia-50;
-    opacity: 0.3; /* Ajusta la opacidad para hacer más visible el contenido */
+    background-color: rgb(226, 255, 226);
+    opacity: 0.5; /* Ajusta la opacidad para hacer más visible el contenido */
 }
 
 /* Cambiar también el color de la parte horaria si es necesario */
 .custom-calendar .fc-timegrid-col.fc-day-today {
-    @apply bg-fuchsia-50;
-    opacity: 0.3; /* Ajusta la opacidad para hacer más visible el contenido */
+    background-color: rgb(226, 255, 226);
+    opacity: 1; /* Ajusta la opacidad para hacer más visible el contenido */
 }
 
-/* Opcional: estilo del encabezado del día actual */
-.custom-calendar .fc-day-today .fc-daygrid-day-number,
-.custom-calendar .fc-day-today .fc-daygrid-day-top {
-    color: #000; /* Cambia el color del número del día y el encabezado */
-    font-weight: bold; /* Negrita para resaltar */
+.day-header{
+    color: green; /* Cambia el color a verde */
+    font-weight: bold; /* Opcional: hacer el texto más destacado */
+    text-decoration: none;
+    text-decoration: none !important; /* Asegúrate de sobrescribir cualquier estilo heredado */
+    border: none; /* Por si el subrayado es un borde */
+    outline: none; /* Por si el subrayado es un outline */
 }
+
+a {
+    text-decoration: none !important;
+}
+
+/* Ocultar la barra de desplazamiento en Chrome, Safari y Opera */
+.fc-scroller::-webkit-scrollbar {
+    display: none;
+}
+
+/* Ocultar la barra de desplazamiento en IE, Edge y Firefox */
+.fc-scroller {
+    -ms-overflow-style: none;  /* IE y Edge */
+    scrollbar-width: none;     /* Firefox */
+}
+
+
+.fc .fc-daygrid-day.fc-day-today{
+    background-color: rgb(226, 255, 226); /* Fondo azul claro */
+    color: white;
+    border-radius: 5px; /* Opcional: bordes redondeados */
+    padding: 5px; /* Opcional: espaciado interno */
+}
+
+.custom-today-cell {
+    background-color: rgba(240, 120, 240, 0.2); /* Color con opacidad */
+    font-weight: bold;
+}
+
 
 /* Estructura de la cabecera personalizada */
 .header-row {
@@ -294,6 +309,7 @@
 /* Estilo de las horas */
 .event-time {
     font-size: 12px; /* Tamaño más pequeño para las horas */
+    width: 150px;
 }
 
 /* Para bordes más suaves de todos los eventos */
@@ -323,6 +339,7 @@
     align-items: center;
     padding: 10px;
     background-color: #ffffff;
+    border-width: 1.7px;
     border: 1px solid #e9ecef;
     margin-bottom: 5px;
     transition: background-color 0.2s ease, box-shadow 0.2s ease;
@@ -330,15 +347,19 @@
 
 .user-item.selected,
 .user-item-all.selected {
-    background-color: #145e013f;
+    background-color: #ffffff;
     color: #ffffff;
-    border-color: #1871015d;
+    border-width: 1.7px;
+    border-color: #177000;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 .user-item:hover,
 .user-item-all:hover {
-    background-color: #1c820252;
+    border-color: #177000;
+    border-width: 1.7px;
+    background-color: #bfecb580;
     cursor: pointer;
+
 }
 

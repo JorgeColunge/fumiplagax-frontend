@@ -779,7 +779,7 @@ const handleSaveNewAirStation = async () => {
           </Button>
         </div>
       </Modal.Footer>
-    </Modal>;
+    </Modal>
 
     {/* Modal de confirmación para llamar o enviar WhatsApp */}
     <Modal show={showActionModal} onHide={handleCloseActionModal}>
@@ -823,7 +823,7 @@ const handleSaveNewAirStation = async () => {
           Cancelar
         </Button>
       </Modal.Footer>
-    </Modal>;
+    </Modal>
 
       {/* Modal de confirmación */}
       <Modal show={showConfirmationModal} onHide={handleCloseConfirmation}>

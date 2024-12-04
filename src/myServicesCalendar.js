@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
-import { Button, Modal, Form } from 'react-bootstrap';
+import { Button, Modal, Form, Table } from 'react-bootstrap';
 import { ChevronLeft, ChevronRight, Plus } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './InspectionCalendar.css';
 import moment from 'moment-timezone';
 import Tooltip from 'react-bootstrap/Tooltip';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
+import { useNavigate } from 'react-router-dom';
+import { useSocket } from './SocketContext';
 
 const MyServicesCalendar = () => {
     const [events, setEvents] = useState([]);
@@ -25,6 +28,40 @@ const MyServicesCalendar = () => {
     const [scheduleDate, setScheduleDate] = useState(moment().format('YYYY-MM-DD')); // Fecha inicial: Hoy
     const [scheduleStartTime, setScheduleStartTime] = useState(moment().format('HH:mm')); // Hora inicial: Ahora
     const [scheduleEndTime, setScheduleEndTime] = useState(moment().add(1, 'hour').format('HH:mm')); // Hora final: Una hora después
+    const [inspections, setInspections] = useState([]);
+    const [showAddInspectionModal, setShowAddInspectionModal] = useState(false);
+    const [newInspection, setNewInspection] = useState({
+        inspection_type: [],
+        inspection_sub_type: '',
+    });
+    const socket = useSocket();
+    const navigate = useNavigate();
+
+
+    useEffect(() => {
+        if (socket) {
+            socket.on("newEvent", (newEvent) => {
+                console.log("Nuevo evento recibido:", newEvent);
+
+                // Formatea el nuevo evento si es necesario
+                const formattedEvent = {
+                    ...newEvent,
+                    start: newEvent.start,
+                    end: newEvent.end,
+                    color: newEvent.color || '#007bff',
+                };
+
+                setEvents((prevEvents) => [...prevEvents, formattedEvent]);
+            });
+        }
+
+        // Limpieza al desmontar
+        return () => {
+            if (socket) {
+                socket.off("newEvent");
+            }
+        };
+    }, [socket]);
 
     // Obtener información del usuario conectado desde localStorage
     const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
@@ -57,11 +94,35 @@ const MyServicesCalendar = () => {
                         const serviceResponse = await fetch(`http://localhost:10000/api/services/${schedule.service_id}`);
                         if (!serviceResponse.ok) throw new Error(`Failed to fetch service for ID: ${schedule.service_id}`);
                         const serviceData = await serviceResponse.json();
-    
+
                         console.log(`Service data for ID ${schedule.service_id}:`, serviceData);
 
-                        // Filtrar servicios donde el usuario conectado es responsable
-                        if (serviceData.responsible !== userId) return null;
+                        // Logs para depuración
+                        console.log(`Usuario conectado: ${userId}`);
+                        console.log(`Responsable del servicio: ${serviceData.responsible}`);
+                        console.log(`Compañeros en el servicio (raw): ${serviceData.companion}`);
+
+                        // Convertir el campo companion de texto a un array
+                        let companionsArray = [];
+                        try {
+                            companionsArray = JSON.parse(serviceData.companion.replace(/{/g, '[').replace(/}/g, ']').replace(/"/g, '"'));
+                            console.log(`Compañeros en el servicio (parsed):`, companionsArray);
+                        } catch (error) {
+                            console.error(`Error al procesar el campo companion: ${serviceData.companion}`, error);
+                        }
+
+                        // Verificar si el usuario conectado es responsable o está en la lista de acompañantes
+                        const isCompanion = companionsArray.includes(userId);
+                        console.log(`El usuario ${userId} está como acompañante: ${isCompanion}`);
+
+                        // Filtrar servicios donde el usuario conectado es responsable o acompañante
+                        if (serviceData.responsible !== userId && !isCompanion) {
+                            console.log(`El usuario ${userId} no es responsable ni acompañante del servicio con ID ${schedule.service_id}.`);
+                            return null;
+                        }
+
+                        console.log(`El usuario ${userId} tiene acceso al servicio con ID ${schedule.service_id}.`);
+
 
                         // Paso 4: Consulta el nombre de la empresa usando el client_id
                         let clientName = 'Sin empresa';
@@ -110,6 +171,8 @@ const MyServicesCalendar = () => {
                                 title: `${serviceData.id}`,
                                 serviceType: serviceData.service_type || 'Sin tipo',
                                 description: serviceData.description || 'Sin descripción',
+                                category: serviceData.category || 'Sin categoría', // Nueva propiedad
+                                quantyPerMonth: serviceData.quantity_per_month || null, // Nueva propiedad
                                 clientName,
                                 responsibleId: serviceData.responsible,
                                 responsibleName,
@@ -120,7 +183,6 @@ const MyServicesCalendar = () => {
                                 end,
                                 allDay: false,
                             };
-                            
 
                         console.log(`Color del responsable: `, responsibleData.color)
     
@@ -142,10 +204,97 @@ const MyServicesCalendar = () => {
         }
     };
 
+    useEffect(() => {
+        if (selectedEvent?.title) {
+            console.log(`Servicio seleccionado ${selectedEvent.title}`);
+            setInspections([]); // Limpia inspecciones anteriores
+            fetchInspections(selectedEvent.title); // Carga inspecciones relacionadas con el servicio
+        }
+    }, [selectedEvent]);  
+
+    // Función para obtener inspecciones asociadas al servicio seleccionado
+    const fetchInspections = async (serviceId) => {
+        try {
+            console.log(`Obteniendo inspecciones para el servicio: ${serviceId}`);
+            const response = await fetch(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
+            const data = await response.json();
+    
+            console.log('Inspecciones recibidas del backend:', data);
+    
+            // Filtrar inspecciones en el frontend (en caso de datos incorrectos)
+            const filteredInspections = data.filter(
+                (inspection) => inspection.service_id === serviceId
+            );
+    
+            console.log('Inspecciones filtradas:', filteredInspections);
+    
+            const formattedInspections = filteredInspections.map((inspection) => ({
+                ...inspection,
+                date: moment(inspection.date).format('DD/MM/YYYY'),
+                time: inspection.time ? moment(inspection.time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
+                exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
+                observations: inspection.observations || 'Sin observaciones',
+            }));
+    
+            setInspections(formattedInspections);
+            console.log('Inspecciones formateadas:', formattedInspections);
+        } catch (error) {
+            console.error('Error fetching inspections:', error);
+        }
+    };
+
+    // Función para guardar inspecciones nuevas
+    const handleSaveInspection = async () => {
+        try {
+            const inspectionData = {
+                inspection_type: newInspection.inspection_type,
+                inspection_sub_type: newInspection.inspection_type.includes('Desratización')
+                    ? newInspection.inspection_sub_type
+                    : null,
+                service_id: selectedEvent.title,
+                date: moment().format('YYYY-MM-DD'),
+                time: moment().format('HH:mm:ss'),
+            };
+            try {
+                const response = await axios.post("http://localhost:10000/api/inspections", inspectionData);
+        
+                if (response.data.success) {
+                alert("Inspección guardada con éxito");
+                fetchInspections(selectedEvent.title); // Actualiza la tabla
+                setShowAddInspectionModal(false); // Cierra el modal
+        
+                // Redirigir al componente de inspección con el ID
+                navigate(`/inspection/${response.data.inspection.id}`);
+                } else {
+                console.error(
+                    "Error: No se pudo guardar la inspección correctamente.",
+                    response.data.message
+                );
+                }
+            } catch (error) {
+                console.error("Error saving inspection:", error);
+            }
+        } catch (error) {
+            console.error('Error saving inspection:', error);
+        }
+    };
+
+    // Función para abrir el modal de inspecciones
+    const handleShowAddInspectionModal = () => {
+        setShowAddInspectionModal(true);
+    };
+
+    // Función para cerrar el modal de inspecciones
+    const handleCloseAddInspectionModal = () => {
+        setShowAddInspectionModal(false);
+        setNewInspection({ inspection_type: [], inspection_sub_type: '' });
+    };
+
     const renderEventContent = (eventInfo) => {
         const { serviceType, clientName } = eventInfo.event.extendedProps;
         const { start, end } = eventInfo.event;
     
+        const cleanServiceType = serviceType.replace(/[\{\}"]/g, '').replace(/,/g, ', ');
         const startTime = moment(start).format('h:mm A');
         const endTime = moment(end).format('h:mm A');
     
@@ -154,7 +303,7 @@ const MyServicesCalendar = () => {
                 placement="top"
                 overlay={
                     <Tooltip>
-                        <div>{serviceType}</div>
+                        <div>{cleanServiceType}</div>
                         <div>{clientName}</div>
                     </Tooltip>
                 }
@@ -168,15 +317,31 @@ const MyServicesCalendar = () => {
     }
 
     const handleEventClick = (clickInfo) => {
-        const { extendedProps, start, end } = clickInfo.event;
+        const { extendedProps, title, start, end } = clickInfo.event;
+        const currentMonth = moment().format('YYYY-MM'); // Mes actual en formato 'YYYY-MM'
+    
+        // Contar eventos en el mes actual si es periódico
+        let scheduledThisMonth = 0;
+        if (extendedProps.category === 'Periódico') {
+            scheduledThisMonth = allEvents.filter(event => {
+                const eventMonth = moment(event.start).format('YYYY-MM');
+                return event.title === clickInfo.event.title && eventMonth === currentMonth;
+            }).length;
+        }
+    
         const eventData = {
             id: clickInfo.event.id,
+            title: title,
+            service_id: title,
             serviceType: extendedProps.serviceType,
             description: extendedProps.description || 'Sin descripción',
             responsibleName: extendedProps.responsibleName || 'Sin responsable',
             clientName: extendedProps.clientName || 'Sin empresa',
             address: extendedProps.address || 'Sin dirección',
             phone: extendedProps.phone || 'Sin teléfono',
+            category: extendedProps.category || 'Sin categoría', // Nueva propiedad
+            quantyPerMonth: extendedProps.quantyPerMonth || null, // Nueva propiedad
+            scheduledThisMonth, // Nueva propiedad: veces agendado en el mes
             startTime: moment(start).format('h:mm A'),
             endTime: moment(end).format('h:mm A'),
         };
@@ -229,28 +394,28 @@ const MyServicesCalendar = () => {
                         </div>
                         <div>
                             <Button
-                                variant={currentView === 'dayGridMonth' ? 'dark' : 'primary'}
+                                variant={currentView === 'dayGridMonth' ? 'dark' : 'success'}
                                 className="me-2"
                                 onClick={() => changeView('dayGridMonth')}
                             >
                                 Mes
                             </Button>
                             <Button
-                                variant={currentView === 'timeGridWeek' ? 'dark' : 'primary'}
+                                variant={currentView === 'timeGridWeek' ? 'dark' : 'success'}
                                 className="me-2"
                                 onClick={() => changeView('timeGridWeek')}
                             >
                                 Semana
                             </Button>
                             <Button
-                                variant={currentView === 'timeGridDay' ? 'dark' : 'primary'}
+                                variant={currentView === 'timeGridDay' ? 'dark' : 'success'}
                                 onClick={() => changeView('timeGridDay')}
                             >
                                 Día
                             </Button>
                         </div>
                     </div>
-                    <div className="card-body">
+                    <div className="custom-calendar">
                         <FullCalendar
                             ref={calendarRef}
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -277,26 +442,132 @@ const MyServicesCalendar = () => {
                     </div>
                 </div>
             </div>
-            <Modal show={showEventModal} onHide={() => setShowEventModal(false)} centered>
+            <Modal show={showEventModal} onHide={() => setShowEventModal(false)} centered size="lg">
                 <Modal.Header closeButton>
                     <Modal.Title>Detalles del Servicio</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
                     {selectedEvent && (
                         <div>
-                            <p><strong>ID del servicio:</strong> {selectedEvent.id}</p>
-                            <p><strong>Tipo de servicio:</strong> {selectedEvent.serviceType}</p>
+                            <p><strong>ID del servicio:</strong> {selectedEvent.title}</p>
+                            <p><strong>Tipo de servicio:</strong> {selectedEvent.serviceType.replace(/[\{\}"]/g, '').replace(/,/g, ', ')}</p>
                             <p><strong>Descripción del servicio:</strong> {selectedEvent.description}</p>
                             <p><strong>Responsable:</strong> {selectedEvent.responsibleName}</p>
                             <p><strong>Empresa:</strong> {selectedEvent.clientName}</p>
                             <p><strong>Dirección de la empresa:</strong> {selectedEvent.address}</p>
                             <p><strong>Teléfono:</strong> {selectedEvent.phone}</p>
                             <p><strong>Horario:</strong> {selectedEvent.startTime} - {selectedEvent.endTime}</p>
+                            <p><strong>Categoría:</strong> {selectedEvent.category}</p>
+                            {selectedEvent.category === 'Periódico' && selectedEvent.quantyPerMonth && (
+                                <>
+                                <p><strong>Cantidad al mes:</strong> {selectedEvent.quantyPerMonth}</p>
+                                <p><strong>Agendado este mes:</strong> {selectedEvent.scheduledThisMonth}</p>
+                                </>
+                            )}
+                            {/* Tabla de inspecciones */}
+                            <h5 className="mt-4">Inspecciones</h5>
+                            {inspections.length > 0 ? (
+                                <Table striped bordered hover size="sm" className="mt-3">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Fecha</th>
+                                            <th>Hora de Inicio</th>
+                                            <th>Hora de Finalización</th>
+                                            <th>Observaciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {inspections.map((inspection) => (
+                                            <tr
+                                                key={inspection.id}
+                                                style={{ cursor: 'pointer' }} // Cambia el cursor para indicar que es clickeable
+                                                onClick={() => navigate(`/inspection/${inspection.id}`)} // Redirige al hacer clic
+                                            >
+                                                <td>{inspection.id}</td>
+                                                <td>{inspection.date}</td>
+                                                <td>{inspection.time}</td>
+                                                <td>{inspection.exit_time}</td>
+                                                <td>{inspection.observations}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
+                            ) : (
+                                <p>No hay inspecciones registradas para este servicio.</p>
+                            )}
+                        <Button variant="link" className="text-success" onClick={handleShowAddInspectionModal}>
+                            Añadir Inspección
+                        </Button>
                         </div>
                     )}
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowEventModal(false)}>Cerrar</Button>
+                </Modal.Footer>
+            </Modal>
+
+            <Modal show={showAddInspectionModal} onHide={handleCloseAddInspectionModal} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title>Añadir Inspección</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Form>
+                        <Form.Group controlId="formInspectionType">
+                            <Form.Label>Tipo de Inspección</Form.Label>
+                            <div>
+                                {selectedEvent?.serviceType
+                                    ?.replace(/[\{\}"]/g, '')
+                                    .split(',')
+                                    .map((type, index) => (
+                                        <Form.Check
+                                            key={index}
+                                            type="checkbox"
+                                            label={type.trim()}
+                                            value={type.trim()}
+                                            checked={newInspection.inspection_type?.includes(type.trim())}
+                                            onChange={(e) => {
+                                                const { value, checked } = e.target;
+                                                setNewInspection((prev) => ({
+                                                    ...prev,
+                                                    inspection_type: checked
+                                                        ? [...(prev.inspection_type || []), value]
+                                                        : prev.inspection_type.filter((t) => t !== value),
+                                                }));
+                                            }}
+                                        />
+                                    ))}
+                            </div>
+                        </Form.Group>
+                        {Array.isArray(newInspection.inspection_type) &&
+                            newInspection.inspection_type.includes('Desratización') && (
+                                <Form.Group controlId="formInspectionSubType" className="mt-3">
+                                    <Form.Label>Sub tipo</Form.Label>
+                                    <Form.Control
+                                        as="select"
+                                        value={newInspection.inspection_sub_type}
+                                        onChange={(e) =>
+                                            setNewInspection((prev) => ({
+                                                ...prev,
+                                                inspection_sub_type: e.target.value,
+                                            }))
+                                        }
+                                    >
+                                        <option value="">Seleccione una opción</option>
+                                        <option value="Control">Control</option>
+                                        <option value="Seguimiento">Seguimiento</option>
+                                    </Form.Control>
+                                </Form.Group>
+                            )}
+                    </Form>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={handleCloseAddInspectionModal}>
+                        Cancelar
+                    </Button>
+                    <Button variant="success" onClick={handleSaveInspection}>
+                        Guardar Inspección
+                    </Button>
                 </Modal.Footer>
             </Modal>
         </div>

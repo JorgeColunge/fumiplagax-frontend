@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { SocketProvider } from './SocketContext';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import Login from './Login';
 import Register from './Register';
@@ -27,12 +28,15 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
 function App() {
+  const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
+  const userId = storedUserInfo?.id_usuario || '';
   const [syncCount, setSyncCount] = useState(parseInt(localStorage.getItem('sync') || '0', 10));
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(window.innerWidth > 768);
+  const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
     const handleSyncUpdate = (event) => {
@@ -94,11 +98,6 @@ function App() {
     };
   }, []);
 
-  // Obtener userId del usuario almacenado en localStorage
-  const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
-  const userId = storedUserInfo?.id_usuario || '';
-
-  const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -144,6 +143,7 @@ function App() {
   if (loading) return <div className="text-center mt-5">Cargando...</div>;
 
   return (
+    <SocketProvider>
     <UnsavedChangesProvider>
     <Router>
       <div className="App d-flex">
@@ -210,6 +210,7 @@ function App() {
       </div>
     </Router>
     </UnsavedChangesProvider>
+    </SocketProvider>
   );
 }
 

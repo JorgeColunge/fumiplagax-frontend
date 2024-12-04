@@ -1,32 +1,74 @@
 // TopBar.js
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navbar, Nav, Button, Dropdown, Badge } from 'react-bootstrap';
 import { FaSyncAlt, FaBell, FaBars } from 'react-icons/fa';
 import axios from 'axios';
 import './TopBar.css';
+import { useSocket } from './SocketContext';
+import { useNavigate } from 'react-router-dom';
 import { Arrow90degRight, ArrowLeftSquareFill, ArrowRightSquareFill } from 'react-bootstrap-icons';
 
 function TopBar({ userName, onSync, notifications, setNotifications, isSidebarOpen, isSidebarVisible, toggleSidebar, syncCount }) {
   const userInitial = userName ? userName.charAt(0).toUpperCase() : '';
+  const socket = useSocket();
+  const navigate = useNavigate();
 
-  // Maneja el clic en una notificación para marcarla como leída
-  const handleNotificationClick = async (notificationId) => {
-    try {
-      await axios.put(`http://localhost:10000/api/notifications/${notificationId}/read`);
-      
-      // Actualiza el estado local para marcar como leída la notificación
-      setNotifications((prevNotifications) =>
-        prevNotifications.map((notification) =>
-          notification.id === notificationId ? { ...notification, is_read: true } : notification
-        )
-      );
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
+  // Maneja el clic en una notificación para actualizar su estado y redirigir si corresponde
+const handleNotificationClick = async (notificationId, route) => {
+  try {
+    // Actualiza el estado de la notificación a "read" en el backend
+    await axios.put(`http://localhost:10000/api/notifications/${notificationId}/read`, {
+    });
+    
+    // Actualiza el estado local para marcar la notificación como "read"
+    setNotifications((prevNotifications) =>
+      prevNotifications.map((notification) =>
+        notification.id === notificationId ? { ...notification, state: 'read' } : notification
+      )
+    );
+
+    // Si la notificación tiene una ruta, redirige
+    if (route) {
+      navigate(route);
     }
-  };
+  } catch (error) {
+    console.error('Error updating notification state or navigating:', error);
+  }
+};
 
-  // Contar las notificaciones no leídas
-  const unreadCount = notifications.filter((notification) => !notification.is_read).length;
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewNotification = (data) => {
+      console.log('Nueva notificación recibida:', data);
+
+      // Normalizar la notificación
+      const normalizedNotification = {
+        id: data.notification.id,
+        user_id: data.user_id,
+        notification: typeof data.notification.notification === 'string'
+          ? data.notification.notification
+          : data.notification.notification.message || 'Nueva notificación',
+        route: data.notification.route || null,
+        state: data.notification.state || null,
+      };
+
+      // Agregar la notificación normalizada al estado
+      setNotifications((prevNotifications) => [normalizedNotification, ...prevNotifications]);
+    };
+
+    socket.on('notification', handleNewNotification);
+
+    // Limpieza al desmontar el componente
+    return () => {
+      socket.off('notification', handleNewNotification);
+    };
+  }, [socket, setNotifications]);   
+
+  // Contar las notificaciones no leídas (estado pending o send)
+  const unreadCount = notifications.filter(
+    (notification) => notification.state === 'pending' || notification.state === 'send'
+  ).length;
 
   return (
     <Navbar
@@ -84,32 +126,63 @@ function TopBar({ userName, onSync, notifications, setNotifications, isSidebarOp
         {/* Dropdown de notificaciones */}
         <div className="icon-container d-flex align-items-center">
           <Dropdown align="end">
-            <Dropdown.Toggle as={Button} variant="link" className="notify-icon">
-              <FaBell size={20} />
+            <Dropdown.Toggle
+              as={Button}
+              variant="link"
+              className="notify-icon"
+              style={{ position: 'relative', color: 'black' }} // Estilo relativo para posicionar el Badge
+            >
+              <FaBell size={20} style={{ color: 'black' }} />
               {unreadCount > 0 && (
-                <Badge pill variant="danger" className="notification-count">
+                <Badge
+                  pill
+                  variant="danger"
+                  className="notification-count"
+                  style={{
+                    position: 'absolute',
+                    top: '0px',
+                    right: '18px',
+                    backgroundColor: 'red',
+                    color: 'white',
+                    fontSize: '10px',
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '50%',
+                  }}
+                >
                   {unreadCount}
                 </Badge>
               )}
             </Dropdown.Toggle>
 
-            <Dropdown.Menu className="notification-dropdown-menu">
-              {notifications.length > 0 ? (
-                notifications.map((notification, index) => (
-                  <Dropdown.Item
-                    key={index}
-                    className={`notification-item ${notification.is_read ? '' : 'font-weight-bold'}`}
-                    onClick={() => handleNotificationClick(notification.id)}
-                  >
-                    {notification.notification}
-                  </Dropdown.Item>
-                ))
-              ) : (
-                <Dropdown.Item className="text-muted">No hay notificaciones</Dropdown.Item>
-              )}
-            </Dropdown.Menu>
-          </Dropdown>
-        </div>
+            <Dropdown.Menu className="notification-dropdown-menu custom-scrollbar">
+            {notifications
+              .filter(
+                (notification) =>
+                  notification.state === 'pending' || notification.state === 'send'
+              ) // Mostrar solo notificaciones con estado pending o send
+              .map((notification, index) => (
+                <Dropdown.Item
+                  key={index}
+                  className={`notification-item ${notification.state === 'send' ? '' : 'font-weight-bold'}`}
+                  onClick={() => handleNotificationClick(notification.id, notification.route)}
+                >
+                  <div className="notification-text">
+                    {typeof notification.notification === 'string'
+                      ? notification.notification
+                      : JSON.stringify(notification.notification.message || 'Notificación sin mensaje')}
+                  </div>
+                </Dropdown.Item>
+              ))}
+            {unreadCount === 0 && (
+              <Dropdown.Item className="text-muted">No hay notificaciones</Dropdown.Item>
+            )}
+          </Dropdown.Menu>
+        </Dropdown>
+      </div>
 
         {/* Iniciales del usuario */}
         <div className="icon-container d-flex align-items-center">

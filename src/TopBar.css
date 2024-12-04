@@ -45,15 +45,9 @@
   } 
 
   .notification-count {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    background-color: red;
-    color: white;
-    font-size: 12px;
-    padding: 2px 5px;
-    border-radius: 50%;
-  } 
+    background-color: red !important; /* Sobrescribe cualquier color de fondo */
+    color: white !important;
+  }
 
   /* Botón de hamburguesa */
 .arrows {
@@ -68,6 +62,73 @@
 .arrows {
   display: none; /* Oculta el botón en tabletas y escritorios */
 }
+
+/* General styles for the dropdown menu */
+.notification-dropdown-menu {
+  max-height: 300px; /* Limita la altura máxima */
+  overflow-y: auto; /* Permite scroll solo cuando es necesario */
+  background-color: #ffffff; /* Fondo blanco */
+  border: 1px solid #ddd; /* Borde sutil */
+  border-radius: 10px; /* Esquinas redondeadas */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Sombra moderna */
+  padding: 10px; /* Espaciado interno */
+}
+
+/* Ocultar barra de scroll (solo para Chrome y Edge) */
+.custom-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Notificación individual */
+.notification-item {
+  padding: 10px;
+  border-bottom: 1px solid #f0f0f0; /* Separador sutil entre notificaciones */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background-color 0.2s ease;
+  border-radius: 5px;
+}
+
+.notification-item:hover {
+  background-color: #f9f9f9; /* Fondo más claro al pasar el mouse */
+}
+
+/* Texto de la notificación */
+.notification-text {
+  font-size: 14px;
+  color: #333; /* Texto oscuro */
+  white-space: normal; /* Permite múltiples líneas */
+  word-wrap: break-word; /* Ajusta el texto si es largo */
+  flex: 1; /* Asegura que el texto ocupe el ancho completo */
+}
+
+/* Badge de notificaciones */
+.notification-count {
+  position: absolute;
+  top: 0px;
+  right: 5px;
+  background-color: red !important;
+  color: white !important;
+  font-size: 10px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid white;
+}
+
+.notify-icon svg,
+.sync-icon svg {
+  color: black; /* Cambia el color del icono a negro */
+}
+
+.notify-icon .dropdown-toggle::after {
+  color: black; /* Cambia la flecha del dropdown a negro */
+}
+
 
 /* Ajustes responsivos para tablet (menor a 768px) */
 @media (max-width: 768px) {

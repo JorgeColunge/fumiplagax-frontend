@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
-import { Button, Modal, Form, Col, Row } from 'react-bootstrap';
+import { Button, Modal, Form, Col, Row, Table } from 'react-bootstrap';
 import { ChevronLeft, ChevronRight, Plus } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './InspectionCalendar.css';
 import moment from 'moment-timezone';
 import Tooltip from 'react-bootstrap/Tooltip';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
+import { useNavigate } from 'react-router-dom';
+import { useSocket } from './SocketContext';
 
 const InspectionCalendar = () => {
     const [events, setEvents] = useState([]);
@@ -28,9 +31,44 @@ const InspectionCalendar = () => {
     const [users, setUsers] = useState([]); // Lista de usuarios
     const [isCollapsed, setIsCollapsed] = useState(true); // Estado de la columna colapsable
     const [selectedUsers, setSelectedUsers] = useState([]); // Lista de usuarios seleccionados
+    const [alertMessage, setAlertMessage] = useState('');
+    const [scheduleConflictMessage, setScheduleConflictMessage] = useState('');
+    const [inspections, setInspections] = useState([]);
+    const [showAddInspectionModal, setShowAddInspectionModal] = useState(false);
+    const [newInspection, setNewInspection] = useState({
+        inspection_type: [],
+        inspection_sub_type: '',
+    });
 
 
     const userTimeZone = moment.tz.guess();
+    const navigate = useNavigate();
+    const socket = useSocket();
+
+    useEffect(() => {
+        if (socket) {
+            socket.on("newEvent", (newEvent) => {
+                console.log("Nuevo evento recibido:", newEvent);
+
+                // Formatea el nuevo evento si es necesario
+                const formattedEvent = {
+                    ...newEvent,
+                    start: newEvent.start,
+                    end: newEvent.end,
+                    color: newEvent.color || '#007bff',
+                };
+
+                setEvents((prevEvents) => [...prevEvents, formattedEvent]);
+            });
+        }
+
+        // Limpieza al desmontar
+        return () => {
+            if (socket) {
+                socket.off("newEvent");
+            }
+        };
+    }, [socket]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -46,13 +84,116 @@ const InspectionCalendar = () => {
         filterEvents();
     }, [selectedUsers]);
 
-    const filterEvents = () => {
-        const filteredEvents = allEvents.filter((event) =>
-            selectedUsers.includes(event.responsibleId)
-        );
-        setEvents(filteredEvents);
-    };
+    useEffect(() => {
+        const calendarApi = calendarRef.current?.getApi();
+        if (calendarApi) {
+            calendarApi.removeAllEvents();
+            calendarApi.addEventSource(events); // Agrega los eventos actuales
+        }
+    }, [events]); // Dependencia en `events`
 
+    const openScheduleModal = async () => {
+        try {
+            // Obtener los eventos más recientes de la base de datos
+            await fetchScheduleAndServices();
+            // Abrir el modal después de actualizar los datos
+            setScheduleModalOpen(true);
+        } catch (error) {
+            console.error("Error fetching updated events before opening modal:", error);
+        }
+    };    
+    
+
+    const filterEvents = (updatedAllEvents = allEvents) => {
+        const filteredEvents = selectedUsers.length
+            ? updatedAllEvents.filter((event) => selectedUsers.includes(event.responsibleId))
+            : updatedAllEvents; // Si no hay usuarios seleccionados, muestra todos
+        setEvents(filteredEvents);
+    };    
+
+    useEffect(() => {
+        if (selectedEvent?.title) {
+            console.log(`Servicio seleccionado ${selectedEvent.title}`);
+            setInspections([]); // Limpia inspecciones anteriores
+            fetchInspections(selectedEvent.title); // Carga inspecciones relacionadas con el servicio
+        }
+    }, [selectedEvent]);    
+
+    useEffect(() => {
+        const validateServiceAndSchedule = () => {
+            if (!selectedService || !scheduleDate || !scheduleStartTime || !scheduleEndTime) {
+                setScheduleConflictMessage('');
+                setAlertMessage('');
+                return;
+            }
+    
+            const selectedServiceData = services.find(service => service.id === selectedService);
+            if (!selectedServiceData) {
+                setScheduleConflictMessage('');
+                setAlertMessage('');
+                return;
+            }
+    
+            const newStart = moment(`${scheduleDate}T${scheduleStartTime}`);
+            const newEnd = moment(`${scheduleDate}T${scheduleEndTime}`);
+    
+            // Validar conflictos de horario
+            const conflictingEvents = allEvents.filter(event => {
+                const eventStart = moment(event.start);
+                const eventEnd = moment(event.end);
+    
+                const overlaps = newStart.isBefore(eventEnd) && newEnd.isAfter(eventStart);
+    
+                return (
+                    event.responsibleId === selectedServiceData.responsible &&
+                    overlaps
+                );
+            });
+    
+            if (conflictingEvents.length > 0) {
+                setScheduleConflictMessage(
+                    `Conflicto detectado: El responsable tiene ${conflictingEvents.length} servicio(s) ya agendado(s) en este horario. Ajusta el horario antes de guardar.`
+                );
+            } else {
+                setScheduleConflictMessage('');
+            }
+    
+            // Validar servicios puntuales y periódicos
+            const currentMonth = moment().format('YYYY-MM'); // Mes actual en formato 'YYYY-MM'
+            const scheduledThisMonth = allEvents.filter(event => {
+                const eventMonth = moment(event.start).format('YYYY-MM');
+                return event.title === selectedService && eventMonth === currentMonth;
+            }).length;
+    
+            if (selectedServiceData.category === 'Puntual') {
+                // Validación para servicios Puntuales
+                if (scheduledThisMonth > 0) {
+                    setAlertMessage(
+                        `El servicio ${selectedService} es Puntual y ya está agendado ${scheduledThisMonth} veces. ¿Aun así quieres agendar nuevamente?`
+                    );
+                } else {
+                    setAlertMessage('');
+                }
+            } else if (selectedServiceData.category === 'Periódico') {
+                // Validación para servicios Periódicos
+                const quantityPerMonth = selectedServiceData.quantity_per_month || 0;
+                if (scheduledThisMonth >= quantityPerMonth) {
+                    setAlertMessage(
+                        `Este servicio debe agendarse ${quantityPerMonth} veces al mes y ya está agendado ${scheduledThisMonth} veces. ¡No deberías agendar más!`
+                    );
+                } else {
+                    setAlertMessage(
+                        `Este servicio debe agendarse ${quantityPerMonth} veces al mes y ya está agendado ${scheduledThisMonth} veces.`
+                    );
+                }
+            } else {
+                setAlertMessage('');
+            }
+        };
+    
+        validateServiceAndSchedule();
+    }, [selectedService, scheduleDate, scheduleStartTime, scheduleEndTime, allEvents, services]);
+    
     const fetchUsers = async () => {
         try {
             const response = await fetch('http://localhost:10000/api/users');
@@ -104,6 +245,85 @@ const InspectionCalendar = () => {
         } catch (error) {
             console.error('Error loading services:', error);
         }
+    };
+
+    // Función para obtener inspecciones asociadas al servicio seleccionado
+    const fetchInspections = async (serviceId) => {
+        try {
+            console.log(`Obteniendo inspecciones para el servicio: ${serviceId}`);
+            const response = await fetch(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
+            const data = await response.json();
+    
+            console.log('Inspecciones recibidas del backend:', data);
+    
+            // Filtrar inspecciones en el frontend (en caso de datos incorrectos)
+            const filteredInspections = data.filter(
+                (inspection) => inspection.service_id === serviceId
+            );
+    
+            console.log('Inspecciones filtradas:', filteredInspections);
+    
+            const formattedInspections = filteredInspections.map((inspection) => ({
+                ...inspection,
+                date: moment(inspection.date).format('DD/MM/YYYY'),
+                time: inspection.time ? moment(inspection.time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
+                exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
+                observations: inspection.observations || 'Sin observaciones',
+            }));
+    
+            setInspections(formattedInspections);
+            console.log('Inspecciones formateadas:', formattedInspections);
+        } catch (error) {
+            console.error('Error fetching inspections:', error);
+        }
+    };
+    
+
+    // Función para guardar inspecciones nuevas
+    const handleSaveInspection = async () => {
+        try {
+            const inspectionData = {
+                inspection_type: newInspection.inspection_type,
+                inspection_sub_type: newInspection.inspection_type.includes('Desratización')
+                    ? newInspection.inspection_sub_type
+                    : null,
+                service_id: selectedEvent.title,
+                date: moment().format('YYYY-MM-DD'),
+                time: moment().format('HH:mm:ss'),
+            };
+            try {
+                const response = await axios.post("http://localhost:10000/api/inspections", inspectionData);
+        
+                if (response.data.success) {
+                alert("Inspección guardada con éxito");
+                fetchInspections(selectedEvent.title); // Actualiza la tabla
+                setShowAddInspectionModal(false); // Cierra el modal
+        
+                // Redirigir al componente de inspección con el ID
+                navigate(`/inspection/${response.data.inspection.id}`);
+                } else {
+                console.error(
+                    "Error: No se pudo guardar la inspección correctamente.",
+                    response.data.message
+                );
+                }
+            } catch (error) {
+                console.error("Error saving inspection:", error);
+            }
+        } catch (error) {
+            console.error('Error saving inspection:', error);
+        }
+    };    
+
+    // Función para abrir el modal de inspecciones
+    const handleShowAddInspectionModal = () => {
+        setShowAddInspectionModal(true);
+    };
+
+    // Función para cerrar el modal de inspecciones
+    const handleCloseAddInspectionModal = () => {
+        setShowAddInspectionModal(false);
+        setNewInspection({ inspection_type: [], inspection_sub_type: '' });
     };
 
     const fetchScheduleAndServices = async () => {
@@ -175,12 +395,15 @@ const InspectionCalendar = () => {
                                 title: `${serviceData.id}`,
                                 serviceType: serviceData.service_type || 'Sin tipo',
                                 description: serviceData.description || 'Sin descripción',
+                                category: serviceData.category || 'Sin categoría', // Nueva propiedad
+                                quantyPerMonth: serviceData.quantity_per_month || null, // Nueva propiedad
                                 clientName,
                                 responsibleId: serviceData.responsible,
                                 responsibleName,
                                 address: clientData?.address || 'Sin dirección',
                                 phone: clientData?.phone || 'Sin teléfono',
                                 color: responsibleData?.color || '#fdd835',
+                                backgroundColor: responsibleData?.color,
                                 start,
                                 end,
                                 allDay: false,
@@ -230,6 +453,49 @@ const InspectionCalendar = () => {
             }
         });
     };
+
+    const handleServiceSelect = (serviceId) => {
+        setSelectedService(serviceId);
+    
+        console.log('Service ID seleccionado:', serviceId);
+        console.log('Eventos disponibles:', allEvents);
+    
+        if (serviceId) {
+            const selectedServiceData = services.find(service => service.id === serviceId);
+    
+            if (selectedServiceData) {
+                const currentMonth = moment().format('YYYY-MM'); // Mes actual en formato 'YYYY-MM'
+                const scheduledThisMonth = allEvents.filter(event => {
+                    const eventMonth = moment(event.start).format('YYYY-MM');
+                    return event.title === serviceId && eventMonth === currentMonth;
+                }).length;
+    
+                if (selectedServiceData.category === 'Puntual') {
+                    // Para servicios Puntuales
+                    if (scheduledThisMonth > 0) {
+                        setAlertMessage(
+                            `El servicio ${serviceId} es Puntual y ya está agendado ${scheduledThisMonth} veces. ¿Aun así quieres agendar nuevamente?`
+                        );
+                    } else {
+                        setAlertMessage('');
+                    }
+                } else if (selectedServiceData.category === 'Periódico') {
+                    // Para servicios Periódicos
+                    const quantityPerMonth = selectedServiceData.quantity_per_month || 0;
+    
+                    if (scheduledThisMonth >= quantityPerMonth) {
+                        setAlertMessage(
+                            `Este servicio debe agendarse ${quantityPerMonth} veces al mes y ya está agendado ${scheduledThisMonth} veces. ¡No deberías agendar más!`
+                        );
+                    } else {
+                        setAlertMessage(
+                            `Este servicio debe agendarse ${quantityPerMonth} veces al mes y ya está agendado ${scheduledThisMonth} veces.`
+                        );
+                    }
+                }
+            }
+        }
+    };       
     
     const toggleSelectAll = () => {
         if (selectedUsers.length === users.length) {
@@ -241,9 +507,9 @@ const InspectionCalendar = () => {
     
     const renderEventContent = (eventInfo) => {
         const { serviceType, clientName } = eventInfo.event.extendedProps;
-        const { start, end } = eventInfo.event;
+        const { start, end, backgroundColor } = eventInfo.event;
     
-        const cleanServiceType = serviceType.replace(/[\{\}"]/g, ''); // Elimina {} y ""
+        const cleanServiceType = serviceType.replace(/[\{\}"]/g, '').replace(/,/g, ', ');
         const startTime = moment(start).format('h:mm A');
         const endTime = moment(end).format('h:mm A');
     
@@ -257,7 +523,11 @@ const InspectionCalendar = () => {
                     </Tooltip>
                 }
             >
-                <div className="event-container">
+                <div className="event-container"
+                style={{
+                    backgroundColor: backgroundColor || '#fdd835',
+                    color: "white"
+                  }}>
                     <div className="event-id">{eventInfo.event.title}</div>
                     <div className="event-time">{`${startTime} – ${endTime}`}</div>
                 </div>
@@ -278,21 +548,37 @@ const InspectionCalendar = () => {
     
 
     const handleEventClick = (clickInfo) => {
-        const { extendedProps, start, end } = clickInfo.event;
+        const { extendedProps, title, start, end } = clickInfo.event;
+        const currentMonth = moment().format('YYYY-MM'); // Mes actual en formato 'YYYY-MM'
+    
+        // Contar eventos en el mes actual si es periódico
+        let scheduledThisMonth = 0;
+        if (extendedProps.category === 'Periódico') {
+            scheduledThisMonth = allEvents.filter(event => {
+                const eventMonth = moment(event.start).format('YYYY-MM');
+                return event.title === clickInfo.event.title && eventMonth === currentMonth;
+            }).length;
+        }
+    
         const eventData = {
             id: clickInfo.event.id,
+            title: title,
+            service_id: title,
             serviceType: extendedProps.serviceType,
             description: extendedProps.description || 'Sin descripción',
             responsibleName: extendedProps.responsibleName || 'Sin responsable',
             clientName: extendedProps.clientName || 'Sin empresa',
             address: extendedProps.address || 'Sin dirección',
             phone: extendedProps.phone || 'Sin teléfono',
+            category: extendedProps.category || 'Sin categoría', // Nueva propiedad
+            quantyPerMonth: extendedProps.quantyPerMonth || null, // Nueva propiedad
+            scheduledThisMonth, // Nueva propiedad: veces agendado en el mes
             startTime: moment(start).format('h:mm A'),
             endTime: moment(end).format('h:mm A'),
         };
         setSelectedEvent(eventData);
         setShowEventModal(true);
-    };    
+    };        
 
     const handleScheduleModalClose = () => {
         setScheduleModalOpen(false);
@@ -300,6 +586,7 @@ const InspectionCalendar = () => {
         setScheduleDate('');
         setScheduleStartTime('');
         setScheduleEndTime('');
+        setAlertMessage('');
     };
 
     const handleDateSelect = (selectInfo) => {
@@ -307,7 +594,7 @@ const InspectionCalendar = () => {
         setScheduleDate(moment(start).format('YYYY-MM-DD'));
         setScheduleStartTime(moment(start).format('HH:mm'));
         setScheduleEndTime(moment(end).format('HH:mm'));
-        setScheduleModalOpen(true); // Abre el modal
+        openScheduleModal(); // Abre el modal
     };
     
 
@@ -320,6 +607,7 @@ const InspectionCalendar = () => {
     
             const selectedServiceData = services.find(service => service.id === selectedService);
     
+            // Crear el objeto del nuevo horario
             const newSchedule = {
                 service_id: selectedService,
                 date: scheduleDate,
@@ -327,6 +615,7 @@ const InspectionCalendar = () => {
                 end_time: scheduleEndTime,
             };
     
+            // Enviar el nuevo horario al backend
             const response = await fetch('http://localhost:10000/api/service-schedule', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -340,24 +629,51 @@ const InspectionCalendar = () => {
             const createdSchedule = await response.json();
             console.log('New schedule created:', createdSchedule);
     
+            // Obtener datos del responsable
+            let responsibleColor = '#fdd835'; // Color predeterminado
+            if (selectedServiceData.responsible) {
+                try {
+                    const responsibleResponse = await fetch(`http://localhost:10000/api/users/${selectedServiceData.responsible}`);
+                    if (responsibleResponse.ok) {
+                        const responsibleData = await responsibleResponse.json();
+                        responsibleColor = responsibleData.color || '#fdd835';
+                    } else {
+                        console.warn(`Failed to fetch responsible for ID: ${selectedServiceData.responsible}`);
+                    }
+                } catch (error) {
+                    console.error(`Error fetching responsible for ID: ${selectedServiceData.responsible}`, error);
+                }
+            }
+    
+            // Formatear el evento para incluir el color
             const formattedEvent = {
                 id: createdSchedule.id,
                 title: `${selectedServiceData.id}`,
                 serviceType: selectedServiceData.service_type || 'Sin tipo',
                 clientName: selectedServiceData.clientName || 'Sin empresa',
                 description: selectedServiceData.description || 'Sin descripción',
+                color: responsibleColor, // Agregar el color del responsable
+                backgroundColor: responsibleColor,
+                category: selectedServiceData.category || 'Sin categoría', // Asegurarse de que la categoría esté presente
+                quantyPerMonth: selectedServiceData.quantity_per_month || null, // Cantidad por mes si es periódico
                 start: moment(`${scheduleDate}T${scheduleStartTime}`).toISOString(),
                 end: moment(`${scheduleDate}T${scheduleEndTime}`).toISOString(),
                 allDay: false,
             };
     
-            setEvents((prevEvents) => [...prevEvents, formattedEvent]);
+            // Actualiza el estado de forma segura
+            setAllEvents((prevAllEvents) => {
+                const updatedAllEvents = [...prevAllEvents, formattedEvent];
+                setEvents(updatedAllEvents); // Sincroniza eventos visibles
+                return updatedAllEvents;
+            });
+    
+            // Cerrar el modal y limpiar los campos
             handleScheduleModalClose();
         } catch (error) {
             console.error('Error scheduling service:', error);
         }
-    };
-    
+    };      
 
     return (
         <div className="d-flex">
@@ -377,73 +693,69 @@ const InspectionCalendar = () => {
                             </Button>
                         </div>
                         <div>
-                            <Button variant={currentView === 'dayGridMonth' ? 'dark' : 'primary'} className="me-2" onClick={() => changeView('dayGridMonth')}>
+                            <Button variant={currentView === 'dayGridMonth' ? 'dark' : 'success'} className="me-2" onClick={() => changeView('dayGridMonth')}>
                                 Mes
                             </Button>
-                            <Button variant={currentView === 'timeGridWeek' ? 'dark' : 'primary'} className="me-2" onClick={() => changeView('timeGridWeek')}>
+                            <Button variant={currentView === 'timeGridWeek' ? 'dark' : 'success'} className="me-2" onClick={() => changeView('timeGridWeek')}>
                                 Semana
                             </Button>
-                            <Button variant={currentView === 'timeGridDay' ? 'dark' : 'primary'} onClick={() => changeView('timeGridDay')}>
+                            <Button variant={currentView === 'timeGridDay' ? 'dark' : 'success'} onClick={() => changeView('timeGridDay')}>
                                 Día
                             </Button>
-                            <Button variant="primary" className="ms-2" onClick={() => setScheduleModalOpen(true)}>
+                            <Button variant="success" className="ms-2" onClick={openScheduleModal}>
                                 <Plus className="me-1" /> Agendar Servicio
                             </Button>
                         </div>
                     </div>
-                    <div className="card-body">
-                    <FullCalendar
-                        ref={calendarRef}
-                        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                        initialView={currentView}
-                        headerToolbar={false}
-                        locale={esLocale}
-                        events={events}
-                        editable={true}
-                        selectable={true}
-                        select={handleDateSelect} // Evento de selección
-                        timeZone="local"
-                        height="70vh"
-                        nowIndicator={true}
-                        slotLabelFormat={{ hour: 'numeric', hour12: true, meridiem: 'short' }}
-                        eventContent={renderEventContent}
-                        eventClick={handleEventClick} // Aquí añadimos el evento
-                        dayHeaderContent={({ date }) => (
-                            <div className="day-header">
-                                <div className="day-name text-sm text-gray-500">{date.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
-                                <div className="day-number text-lg font-bold">{date.getDate()}</div>
-                            </div>
-                        )}
-                    />
+                    <div className="custom-calendar">
+                        <FullCalendar
+                            ref={calendarRef}
+                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                            initialView={currentView}
+                            headerToolbar={false}
+                            locale={esLocale}
+                            events={events}
+                            editable={true}
+                            selectable={true}
+                            select={handleDateSelect}
+                            timeZone="local"
+                            height="70vh"
+                            nowIndicator={true}
+                            slotLabelFormat={{ hour: 'numeric', hour12: true, meridiem: 'short' }}
+                            eventContent={renderEventContent}
+                            eventClick={handleEventClick}
+                            dayHeaderContent={({ date }) => (
+                                <div className="day-header">
+                                    <div className="day-name">{date.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
+                                    <div className="day-number font-bold">{date.getDate()}</div>
+                                </div>
+                            )}
+                        />
                     </div>
                 </div>
-                </div>
-                {/* Columna colapsable */}
-                <div
-                className={`user-column bg-light shadow-sm ${isCollapsed ? 'collapsed' : ''}`}
+            </div>
+            {/* Columna fija de usuarios */}
+            <div
+                className="user-column bg-light shadow-sm px-3"
                 style={{
-                    width: isCollapsed ? '50px' : '250px',
-                    transition: 'width 0.3s ease',
+                    width: '240px',
+                    height: '87vh',
+                    overflowY: 'auto',
+                    scrollbarWidth: 'none',
                 }}
             >
-                <div className="d-flex flex-column align-items-center py-3">
-                    <Button variant="outline-primary" onClick={toggleCollapse} className="mb-3">
-                        {isCollapsed ? '<' : '>'}
-                    </Button>
-                    {!isCollapsed && (
-                        <div className="user-list w-100 px-3">
-                        <div
-                            className={`user-item-all d-flex flex-row align-items-center p-2 mb-3 ${
-                                selectedUsers.length === users.length ? 'selected' : ''
-                            }`}
-                            onClick={toggleSelectAll}
-                            style={{
-                                cursor: 'pointer',
-                                borderRadius: '5px',
-                            }}
-                        >
-                            <div className="flex-grow-1 text-center text-dark fw-bold">Todos</div>
-                        </div>
+                <div
+                    className={`user-item-all d-flex flex-row align-items-center p-2 mb-3 ${
+                    selectedUsers.length === users.length ? 'selected' : ''
+                    }`}
+                    onClick={toggleSelectAll}
+                    style={{
+                    cursor: 'pointer',
+                    borderRadius: '5px',
+                    }}
+                    >
+                    <div className="flex-grow-1 text-center text-dark fw-bold">Todos</div>
+                    </div>
                         {Object.entries(groupByRole(users)).map(([role, roleUsers]) => (
                             <div key={role} className="mb-4">
                                 <h6 className="text-secondary text-uppercase">{role}</h6>
@@ -459,7 +771,7 @@ const InspectionCalendar = () => {
                                             borderRadius: '10px',
                                             transition: 'background-color 0.2s ease',
                                             textAlign: 'center',
-                                            position: 'relative', // Para posicionar el cuadro en relación al contenedor
+                                            position: 'relative',
                                         }}
                                     >
                                         {/* Cuadro de color */}
@@ -471,10 +783,10 @@ const InspectionCalendar = () => {
                                                 width: '15px',
                                                 height: '15px',
                                                 borderRadius: '3px',
-                                                backgroundColor: user.color, // Color del usuario
+                                                backgroundColor: user.color,
                                             }}
                                         ></div>
-                    
+
                                         <img
                                             src={`http://localhost:10000${user.image}`}
                                             alt={user.name}
@@ -495,10 +807,8 @@ const InspectionCalendar = () => {
                                 ))}
                             </div>
                         ))}
-                    </div>                    
-                    )}
-                </div>
             </div>
+
 
             <Modal show={scheduleModalOpen} onHide={handleScheduleModalClose} backdrop="static" centered>
                 <Modal.Header closeButton>
@@ -511,7 +821,7 @@ const InspectionCalendar = () => {
                             <Form.Label>Servicio</Form.Label>
                             <Form.Select
                                 value={selectedService}
-                                onChange={(e) => setSelectedService(e.target.value)}
+                                onChange={(e) => handleServiceSelect(e.target.value)}
                             >
                                 <option value="">Selecciona un servicio</option>
                                 {services.map((service) => (
@@ -521,7 +831,17 @@ const InspectionCalendar = () => {
                                 ))}
                             </Form.Select>
                         </Form.Group>
+                        {scheduleConflictMessage && (
+                            <div className="alert alert-danger mt-3">
+                                {scheduleConflictMessage}
+                            </div>
+                        )}
 
+                        {alertMessage && (
+                            <div className="alert alert-warning mt-3">
+                                {alertMessage}
+                            </div>
+                        )}
                         {/* Campo de fecha */}
                         <Form.Group controlId="formScheduleDate" className="mb-3">
                             <Form.Label>Fecha</Form.Label>
@@ -555,30 +875,136 @@ const InspectionCalendar = () => {
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={handleScheduleModalClose}>Cancelar</Button>
-                    <Button variant="primary" onClick={handleScheduleService}>Guardar</Button>
+                    <Button variant="success" onClick={handleScheduleService} disabled={!!scheduleConflictMessage}>Guardar</Button>
                 </Modal.Footer>
             </Modal>
 
-            <Modal show={showEventModal} onHide={() => setShowEventModal(false)} centered>
+            <Modal show={showEventModal} onHide={() => setShowEventModal(false)} centered size="lg">
                 <Modal.Header closeButton>
                     <Modal.Title>Detalles del Servicio</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
                     {selectedEvent && (
                         <div>
-                            <p><strong>ID del servicio:</strong> {selectedEvent.id}</p>
-                            <p><strong>Tipo de servicio:</strong> {selectedEvent.serviceType.replace(/[\{\}"]/g, '')}</p>
+                            <p><strong>ID del servicio:</strong> {selectedEvent.title}</p>
+                            <p><strong>Tipo de servicio:</strong> {selectedEvent.serviceType.replace(/[\{\}"]/g, '').replace(/,/g, ', ')}</p>
                             <p><strong>Descripción del servicio:</strong> {selectedEvent.description}</p>
                             <p><strong>Responsable:</strong> {selectedEvent.responsibleName}</p>
                             <p><strong>Empresa:</strong> {selectedEvent.clientName}</p>
                             <p><strong>Dirección de la empresa:</strong> {selectedEvent.address}</p>
                             <p><strong>Teléfono:</strong> {selectedEvent.phone}</p>
                             <p><strong>Horario:</strong> {selectedEvent.startTime} - {selectedEvent.endTime}</p>
+                            <p><strong>Categoría:</strong> {selectedEvent.category}</p>
+                            {selectedEvent.category === 'Periódico' && selectedEvent.quantyPerMonth && (
+                                <>
+                                <p><strong>Cantidad al mes:</strong> {selectedEvent.quantyPerMonth}</p>
+                                <p><strong>Agendado este mes:</strong> {selectedEvent.scheduledThisMonth}</p>
+                                </>
+                            )}
+                            {/* Tabla de inspecciones */}
+                            <h5 className="mt-4">Inspecciones</h5>
+                            {inspections.length > 0 ? (
+                                <Table striped bordered hover size="sm" className="mt-3">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Fecha</th>
+                                            <th>Hora de Inicio</th>
+                                            <th>Hora de Finalización</th>
+                                            <th>Observaciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {inspections.map((inspection) => (
+                                            <tr
+                                                key={inspection.id}
+                                                style={{ cursor: 'pointer' }} // Cambia el cursor para indicar que es clickeable
+                                                onClick={() => navigate(`/inspection/${inspection.id}`)} // Redirige al hacer clic
+                                            >
+                                                <td>{inspection.id}</td>
+                                                <td>{inspection.date}</td>
+                                                <td>{inspection.time}</td>
+                                                <td>{inspection.exit_time}</td>
+                                                <td>{inspection.observations}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
+                            ) : (
+                                <p>No hay inspecciones registradas para este servicio.</p>
+                            )}
+                        <Button variant="link" className="text-success" onClick={handleShowAddInspectionModal}>
+                            Añadir Inspección
+                        </Button>
                         </div>
                     )}
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowEventModal(false)}>Cerrar</Button>
+                </Modal.Footer>
+            </Modal>
+
+            <Modal show={showAddInspectionModal} onHide={handleCloseAddInspectionModal} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title>Añadir Inspección</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Form>
+                        <Form.Group controlId="formInspectionType">
+                            <Form.Label>Tipo de Inspección</Form.Label>
+                            <div>
+                                {selectedEvent?.serviceType
+                                    ?.replace(/[\{\}"]/g, '')
+                                    .split(',')
+                                    .map((type, index) => (
+                                        <Form.Check
+                                            key={index}
+                                            type="checkbox"
+                                            label={type.trim()}
+                                            value={type.trim()}
+                                            checked={newInspection.inspection_type?.includes(type.trim())}
+                                            onChange={(e) => {
+                                                const { value, checked } = e.target;
+                                                setNewInspection((prev) => ({
+                                                    ...prev,
+                                                    inspection_type: checked
+                                                        ? [...(prev.inspection_type || []), value]
+                                                        : prev.inspection_type.filter((t) => t !== value),
+                                                }));
+                                            }}
+                                        />
+                                    ))}
+                            </div>
+                        </Form.Group>
+                        {Array.isArray(newInspection.inspection_type) &&
+                            newInspection.inspection_type.includes('Desratización') && (
+                                <Form.Group controlId="formInspectionSubType" className="mt-3">
+                                    <Form.Label>Sub tipo</Form.Label>
+                                    <Form.Control
+                                        as="select"
+                                        value={newInspection.inspection_sub_type}
+                                        onChange={(e) =>
+                                            setNewInspection((prev) => ({
+                                                ...prev,
+                                                inspection_sub_type: e.target.value,
+                                            }))
+                                        }
+                                    >
+                                        <option value="">Seleccione una opción</option>
+                                        <option value="Control">Control</option>
+                                        <option value="Seguimiento">Seguimiento</option>
+                                    </Form.Control>
+                                </Form.Group>
+                            )}
+                    </Form>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={handleCloseAddInspectionModal}>
+                        Cancelar
+                    </Button>
+                    <Button variant="success" onClick={handleSaveInspection}>
+                        Guardar Inspección
+                    </Button>
                 </Modal.Footer>
             </Modal>
 
