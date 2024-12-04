@@ -51,6 +51,9 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
       return;
     }
     navigate(path); // Navega directamente si no hay cambios pendientes
+    if (isOpen) {
+      toggleMenu(); // Colapsa la barra si está abierta
+    }
   };
 
   const toggleMenu = () => {
@@ -72,16 +75,11 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
       </div>
       <div className="logo-container">
       <div className="logo-mask">
-      <div className="text-center mb-3">
-  <img
-    src={`http://localhost:10000${user?.image || '/images/default-profile.png'}`}
-    alt="Profile"
-    className="rounded-circle"
-    width="100"
-    height="100"
-  />
-</div>
-
+        <img
+          src={`http://localhost:10000${user?.image || '/images/default-profile.png'}`}
+          alt="Profile"
+          className="logo"
+        />
       </div>
         {isOpen && (
           <div className="user-info">

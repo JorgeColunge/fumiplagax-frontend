@@ -65,8 +65,8 @@
 }
 
 .logo {
-  width: 150%; /* Asegura que la imagen ocupe todo el contenedor */
-  height: 150%; /* Asegura que la imagen llena el contenedor */
+  width: 110%; /* Asegura que la imagen ocupe todo el contenedor */
+  height: 110%; /* Asegura que la imagen llena el contenedor */
   object-fit: cover; /* Recorta la imagen manteniendo la proporción */
   object-position: center; /* Centra la imagen dentro del círculo */
 }

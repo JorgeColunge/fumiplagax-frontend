@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { PencilSquare, Person, Envelope, Phone } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import './App.css';
 
 function UserProfile({ userInfo }) {
   const navigate = useNavigate();
@@ -30,30 +32,45 @@ function UserProfile({ userInfo }) {
   if (loading) return <div className="text-center mt-5">Cargando...</div>;
 
   return (
-    <div className="container mt-5">
-      <div className="text-center">
-        <img
-          src={`http://localhost:10000${user?.image || '/images/default-profile.png'}`}
-          alt="Profile"
-          className="rounded-circle"
-          width="150"
-          height="150"
-        />
-      </div>
-      <div className="mt-5 text-center">
-        <h2>Información del Usuario</h2>
-        {user ? (
-          <ul className="list-group mt-3">
-            <li className="list-group-item"><strong>Nombre:</strong> {user.name}</li>
-            <li className="list-group-item"><strong>Apellido:</strong> {user.lastname}</li>
-            <li className="list-group-item"><strong>Rol:</strong> {user.rol}</li>
-            <li className="list-group-item"><strong>Email:</strong> {user.email}</li>
-            <li className="list-group-item"><strong>Teléfono:</strong> {user.phone}</li>
+    <div className="container mt-3 d-flex justify-content-center">
+      <div className="card shadow-sm" style={{ maxWidth: '400px', borderRadius: '15px' }}>
+        <div className="card-body text-center position-relative">
+          <div className="position-relative">
+            <div className='img-mask mx-auto'>
+            <img
+              src={`http://localhost:10000${user?.image || '/images/default-profile.png'}`}
+              alt="Profile"
+              className="rounded-img shadow-sm"
+              width="150"
+              height="150"
+            />
+            </div>
+            <PencilSquare
+              className="position-absolute"
+              size={22}
+              style={{ top: 0, right: 0, cursor: 'pointer' }}
+              onClick={handleEditProfile}
+              title="Editar perfil"
+            />
+          </div>
+          <h5 className="mt-3">{user?.name} {user?.lastname}</h5>
+          <p className="text-muted">{user?.rol}</p>
+          <hr />
+          <ul className="list-group list-group-flush">
+            <li className="list-group-item d-flex align-items-center">
+              <Person className="me-3" size={20} />
+              <span><strong>Nombre:</strong> {user?.name}</span>
+            </li>
+            <li className="list-group-item d-flex align-items-center">
+              <Envelope className="me-3" size={20} />
+              <span><strong>Email:</strong> {user?.email}</span>
+            </li>
+            <li className="list-group-item d-flex align-items-center">
+              <Phone className="me-3" size={20} />
+              <span><strong>Teléfono:</strong> {user?.phone}</span>
+            </li>
           </ul>
-        ) : (
-          <p>No se pudo cargar la información del usuario.</p>
-        )}
-        <button onClick={handleEditProfile} className="btn btn-success mt-3">Editar</button>
+        </div>
       </div>
     </div>
   );
