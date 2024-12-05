@@ -218,7 +218,7 @@ const InspectionCalendar = () => {
             const data = await response.json();
             console.log('Services received:', data);
     
-            // Formatear los servicios con el cliente
+            // Formatear y ordenar los servicios
             const formattedServices = await Promise.all(
                 data.map(async (service) => {
                     let clientName = 'Sin empresa';
@@ -240,12 +240,20 @@ const InspectionCalendar = () => {
                 })
             );
     
-            setServices(formattedServices);
-            console.log('Formatted services:', formattedServices);
+            // Ordenar servicios por fecha (descendente) usando el ID
+            const sortedServices = formattedServices.sort((a, b) => {
+                const dateA = parseInt(a.id.split('-')[1]); // Extraer 'ddmmaa' del ID
+                const dateB = parseInt(b.id.split('-')[1]);
+                return dateB - dateA; // Orden descendente
+            });
+    
+            setServices(sortedServices);
+            console.log('Sorted services:', sortedServices);
         } catch (error) {
             console.error('Error loading services:', error);
         }
     };
+    
 
     // Función para obtener inspecciones asociadas al servicio seleccionado
     const fetchInspections = async (serviceId) => {
@@ -826,7 +834,7 @@ const InspectionCalendar = () => {
                                 <option value="">Selecciona un servicio</option>
                                 {services.map((service) => (
                                     <option key={service.id} value={service.id}>
-                                        {`${service.id} - ${service.service_type || 'Sin tipo'} - ${service.clientName || 'Sin empresa'}`}
+                                        {`${service.id} - ${service.service_type.replace(/[{}"]/g, '').split(',').join(', ') || 'Sin tipo'} - ${service.clientName || 'Sin empresa'}`}
                                     </option>
                                 ))}
                             </Form.Select>

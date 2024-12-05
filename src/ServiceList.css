@@ -43,13 +43,11 @@
   margin-bottom: 16px; /* Espaciado entre filas */
 }
 
-.truncate-text {
-  display: inline-block;
-  max-width: 60%; /* Ajusta el ancho según el diseño */
+.text-truncate {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  vertical-align: middle;
+  max-width: 300px; /* Nunca excede el contenedor padre */
 }
 
 .menu-actions {
@@ -156,10 +154,23 @@ h6.text-muted {
   background-color: #555;
 }
 
-/* Estilos para dispositivos pequeños */
-@media (max-width: 768px) {
-  .custom-table {
-    font-size: 14px; /* Ajusta el tamaño de fuente */
+/* Para celulares */
+@media (min-width: 1230px) {
+  .text-truncate {
+    max-width: 600px; /* Nunca excede el contenedor padre */
   }
 }
 
+/* Para celulares */
+@media (max-width: 575px) {
+  .text-truncate {
+    max-width: 400px; /* Nunca excede el contenedor padre */
+  }
+}
+
+/* Para celulares */
+@media (max-width: 395px) {
+  .text-truncate {
+    max-width: 300px; /* Nunca excede el contenedor padre */
+  }
+}
