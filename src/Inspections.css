@@ -20,7 +20,6 @@
   .card-text {
     font-size: 0.875rem;
     color: #555;
-    line-height: 1.5;
   }
   
   /* Estilos para los botones de enlace */
@@ -53,3 +52,48 @@
     font-size: 1rem;
     font-weight: 600;
   }   
+
+  .text-truncate {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .menu-actions {
+    position: absolute;
+    width: 100%;
+    background: white;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 1s ease, opacity 0.3s ease;
+    bottom: 41px; /* Posición del menú sobre el botón */
+    left: 0;
+    z-index: 2;
+    opacity: 0;
+    visibility: hidden;
+    transform: scaleY(0); /* Comienza colapsado verticalmente */
+    transform-origin: bottom; /* El origen de la animación es la parte inferior */
+  }
+  
+  .menu-actions.expand {
+    opacity: 1;
+    visibility: visible;
+    transform: scaleY(1); /* Expande completamente verticalmente */
+  }  
+  
+  .menu-actions button {
+    width: 100%;
+    padding: 8px 16px;
+    text-align: left;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  
+  .menu-actions button:hover {
+    background: #f1f1f1;
+  }
+  

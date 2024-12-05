@@ -36,14 +36,130 @@
 }
 
 .card-buttons {
-  position: absolute; /* Fija los botones respecto a la tarjeta */
-  bottom: 16px; /* Márgen inferior */
-  right: 16px; /* Márgen derecho */
-  display: flex; /* Alineación horizontal de los botones */
-  gap: 8px; /* Espaciado entre botones */
   z-index: 10; /* Asegura que estén encima de otros elementos */
 }
 
 .mb-4 {
   margin-bottom: 16px; /* Espaciado entre filas */
 }
+
+.truncate-text {
+  display: inline-block;
+  max-width: 60%; /* Ajusta el ancho según el diseño */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.menu-actions {
+  position: absolute;
+  width: 100%;
+  background: white;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 1s ease, opacity 0.3s ease;
+  bottom: 41px;
+  left: 0;
+  z-index: 2;
+  opacity: 0;
+  visibility: hidden;
+  transform: scaleY(0);
+  transform-origin: bottom;
+}
+
+.menu-actions.expand {
+  opacity: 1;
+  visibility: visible;
+  transform: scaleY(1);
+}
+
+.menu-actions button {
+  width: 100%;
+  padding: 8px 16px;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.menu-actions button:hover {
+  background: #f1f1f1;
+}
+
+h6.text-muted {
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.custom-table-container {
+  overflow-x: auto; /* Activa el scroll horizontal */
+  margin: 0 auto;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.custom-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px; /* Ancho mínimo para evitar compresión en móviles */
+  table-layout: fixed;
+}
+
+.custom-table th,
+.custom-table td {
+  padding: 10px 5px;
+  text-align: center;
+  border: 1px solid #ddd;
+  white-space: nowrap; /* Evita que el texto se rompa */
+}
+
+.custom-table th {
+  background-color: #f4f4f4;
+  font-weight: bold;
+  color: #333;
+}
+
+/* Ancho estándar para todas las columnas excepto observaciones */
+.custom-table th:not(:last-child),
+.custom-table td:not(:last-child) {
+  width: 100px;
+}
+
+/* Ancho fijo para observaciones */
+.custom-table th:last-child,
+.custom-table td:last-child {
+  width: 300px;
+  white-space: normal; /* Permite que el texto se divida en varias líneas */
+  text-align: left; /* Alineación a la izquierda para facilitar la lectura */
+  word-wrap: break-word; /* Divide palabras largas si es necesario */
+}
+
+.custom-table tbody tr:hover {
+  background-color: #f9f9f9;
+  cursor: pointer;
+}
+
+.custom-table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.custom-table-container::-webkit-scrollbar-thumb {
+  background-color: #888;
+  border-radius: 4px;
+}
+
+.custom-table-container::-webkit-scrollbar-thumb:hover {
+  background-color: #555;
+}
+
+/* Estilos para dispositivos pequeños */
+@media (max-width: 768px) {
+  .custom-table {
+    font-size: 14px; /* Ajusta el tamaño de fuente */
+  }
+}
+
