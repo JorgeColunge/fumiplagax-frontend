@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import './ProductList.css';
 import axios from 'axios';
 import { Button, Card, Modal, Form, Collapse } from 'react-bootstrap';
-import { BsPencilSquare, BsTrash, BsEye, BsPlusCircle } from 'react-icons/bs';
+import { BsPencilSquare, BsTrash, BsEye, BsGrid, BsClockHistory, BsDropletHalf, BsBookHalf, BsBodyText } from 'react-icons/bs';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function ProductList() {
@@ -37,6 +38,12 @@ function ProductList() {
     "Inspección",
     "Diagnostico"
   ];
+
+  const [expandedCardId, setExpandedCardId] = useState(null);
+
+  const toggleActions = (id) => {
+    setExpandedCardId((prevId) => (prevId === id ? null : id));
+  };
   
   const [showCategoryOptions, setShowCategoryOptions] = useState(false); // Controlar el colapso de categorías  
 
@@ -58,13 +65,16 @@ function ProductList() {
         const response = await axios.get('http://localhost:10000/api/products');
         const productsWithCategories = response.data.map(product => ({
           ...product,
-          category: product.category || []
+          category: Array.isArray(product.category)
+            ? product.category
+            : JSON.parse(product.category) // Convierte a array si es un string JSON
         }));
         setProducts(productsWithCategories);
-        setLoading(false);
       } catch (error) {
         console.error("Error fetching products:", error);
-        setLoading(false);
+        setProducts([]); // Asegúrate de manejar errores limpiamente
+      } finally {
+        setLoading(false); // Asegúrate de que loading siempre termine
       }
     };
     fetchProducts();
@@ -88,7 +98,11 @@ function ProductList() {
     if (product) {
       setNewProduct({
         ...product,
-        category: product.category || []
+        category: Array.isArray(product.category)
+          ? product.category
+          : product.category
+          ? [product.category]
+          : []
       });
     } else {
       setNewProduct({
@@ -216,60 +230,81 @@ function ProductList() {
         <div className="alert alert-info">El registro del producto estará listo en breve</div>
       )}
   
-      <div className="row">
-        {filteredProducts.map((product) => (
-          <div key={product.id} className="col-md-4 mb-4">
-            <Card
-              className="mb-3"
-              style={{ cursor: "pointer" }}
-              onClick={() => handleShowDetailModal(product)}
+  <div className="row">
+  {filteredProducts.map((product) => (
+  <div key={product.id} className="col-sm-6 col-md-4 col-lg-3 mb-4">
+    <Card
+      className="border"
+      style={{
+        cursor: "pointer",
+        minHeight: "280px",
+        height: "280px",
+      }}
+      onClick={() => handleShowDetailModal(product)} // Abre el modal de detalles al hacer clic en la tarjeta
+    >
+      <Card.Body>
+  <div className="d-flex justify-content-center align-items-center mb-3">
+    <h5 className="fw-bold text-center">{product.name}</h5>
+  </div>
+  <hr />
+  <div className="mt-2">
+    <BsGrid className="text-warning me-2" />
+    <span>
+      <strong>Categoría:</strong> {product.category.join(', ') || 'Sin categoría'}
+    </span>
+  </div>
+  <div className="mt-2">
+    <BsDropletHalf className="text-info me-2" />
+    <span>
+      <strong>Dosis:</strong> {product.dose || 'No especificada'}
+    </span>
+  </div>
+  <div className="mt-2">
+    <BsClockHistory className="text-success me-2" />
+    <span>
+      <strong>Duración Residual:</strong> {product.residual_duration || 'No especificada'}
+    </span>
+  </div>
+</Card.Body>
+      <Card.Footer
+        className="text-center position-relative"
+        style={{ background: "#f9f9f9", cursor: "pointer" }}
+        onClick={(e) => {
+          e.stopPropagation(); // Evita abrir el modal de detalles
+          toggleActions(product.id);
+        }}
+      >
+        <small className="text-success">
+          {expandedCardId === product.id ? "Cerrar Acciones" : "Acciones"}
+        </small>
+        {expandedCardId === product.id && (
+          <div className={`menu-actions ${expandedCardId === product.id ? "expand" : "collapse"}`}>
+            <button
+              className="btn d-block"
+              onClick={(e) => {
+                e.stopPropagation();
+                alert(`Editar Producto: ${product.name}`);
+              }}
             >
-              <Card.Body className="d-flex flex-column align-items-center position-relative" style={{ height: "250px" }}>
-                <div className="text-center mb-4">
-                  <Card.Title>{product.name}</Card.Title>
-                  <Card.Text>
-  <strong>Categoría:</strong> {
-    (() => {
-      try {
-        const parsedCategory = JSON.parse(product.category); // Intentar parsear el JSON
-        return Array.isArray(parsedCategory) ? parsedCategory.join(", ") : parsedCategory;
-      } catch (e) {
-        return product.category || "Sin categoría"; // Si no es JSON válido, mostrar directamente
-      }
-    })()
-  }
-  <br />
-  <strong>Dosis:</strong> {product.dose}
-  <br />
-  <strong>Duración Residual:</strong> {product.residual_duration}
-</Card.Text>
-                </div>
-                <div className="position-absolute bottom-0 end-0 mb-2 me-2">
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      handleShowModal(product);
-                    }}
-                  >
-                    <BsPencilSquare style={{ color: "green", fontSize: "1.5em" }} />
-                  </Button>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      deleteProduct(product.id);
-                    }}
-                  >
-                    <BsTrash style={{ color: "red", fontSize: "1.5em" }} />
-                  </Button>
-                </div>
-              </Card.Body>
-            </Card>
+              <BsPencilSquare size={18} className="me-2" />
+              Editar
+            </button>
+            <button
+              className="btn d-block"
+              onClick={(e) => {
+                e.stopPropagation();
+                alert(`Eliminar Producto: ${product.name}`);
+              }}
+            >
+              <BsTrash size={18} className="me-2" />
+              Eliminar
+            </button>
           </div>
-        ))}
+        )}
+      </Card.Footer>
+    </Card>
+  </div>
+))}
       </div>
 
       {/* Modal para agregar/editar producto */}
@@ -288,28 +323,22 @@ function ProductList() {
               <Form.Control type="text" name="description_type" value={newProduct.description_type} onChange={handleInputChange} />
             </Form.Group>
             <Form.Group className="mt-3">
-  <Form.Label
-    onClick={() => setShowCategoryOptions((prev) => !prev)}
-    style={{ cursor: "pointer", fontWeight: "bold", display: "block" }}
-  >
-    Categoría
-  </Form.Label>
-  <Collapse in={showCategoryOptions}>
-    <div>
+  <Form.Label style={{ fontWeight: "bold" }}>Categoría</Form.Label>
+  <div className="d-flex flex-wrap">
     {categoryOptions.map((option, index) => (
-    <Form.Check
-        key={option}
-        type="checkbox"
-        label={option}
-        value={option}
-        id={`category_option_${index}`}
-        checked={newProduct.category?.includes(option) || false}
-        onChange={handleCategoryChange}
-    />
-))}
-    </div>
-  </Collapse>
+      <div key={index} className="col-4 mb-2">
+        <Form.Check
+          type="checkbox"
+          label={<span style={{ fontSize: "0.8rem" }}>{option}</span>}
+          value={option}
+          checked={newProduct.category.includes(option)}
+          onChange={(e) => handleCategoryChange(e)}
+        />
+      </div>
+    ))}
+  </div>
 </Form.Group>
+
             <Form.Group controlId="formDose" className="mb-3">
               <Form.Label>Dosis</Form.Label>
               <Form.Control type="text" name="dose" value={newProduct.dose} onChange={handleInputChange} />
@@ -476,66 +505,137 @@ function ProductList() {
         </Modal.Footer>
       </Modal>
       {/* Modal para ver detalles del producto */}
-<Modal show={showDetailModal} onHide={handleCloseDetailModal}>
+      <Modal show={showDetailModal} onHide={handleCloseDetailModal}>
   <Modal.Header closeButton>
     <Modal.Title>Detalles del Producto</Modal.Title>
   </Modal.Header>
 
   <Modal.Body>
-  {selectedProduct && (
-    <>
-      <p><strong>Nombre:</strong> {selectedProduct.name}</p>
-      <p><strong>Categoría:</strong> 
-  {Array.isArray(selectedProduct.category) // Verifica si es un arreglo
-    ? selectedProduct.category.join(', ') // Si es un arreglo, únelos con comas
-    : typeof selectedProduct.category === 'string' // Si no, verifica si es un string
-    ? JSON.parse(selectedProduct.category).join(', ') // Convierte el string JSON a un arreglo y únelos
-    : "Sin categoría"} {/* Mensaje por defecto */}
-</p>
-      <p><strong>Dosis:</strong> {selectedProduct.dose}</p>
-      <p><strong>Duración Residual:</strong> {selectedProduct.residual_duration}</p>
+    {selectedProduct && (
+      <>
+        <p>
+          <strong>
+            <i className="text-primary">
+              <BsBodyText className="text-center me-2" />
+            </i>
+            Nombre:
+          </strong>{" "}
+          {selectedProduct.name}
+        </p>
 
-      <div className="d-flex justify-content-between align-items-center">
-        <p><strong>Hoja de Datos de Seguridad:</strong></p>
-        {selectedProduct.safety_data_sheet ? (
-          <Button variant="link" size="sm" onClick={() => window.open(selectedProduct.safety_data_sheet, '_blank')}>
-            <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
-          </Button>
-        ) : null}
-      </div>
+        <p>
+          <strong>
+            <BsGrid className="text-warning me-2" />
+            Categoría:
+          </strong>{" "}
+          {selectedProduct.category.length > 0
+            ? selectedProduct.category.join(", ")
+            : "Sin categoría"}
+        </p>
 
-      <div className="d-flex justify-content-between align-items-center">
-        <p><strong>Ficha Técnica:</strong></p>
-        {selectedProduct.technical_sheet ? (
-          <Button variant="link" size="sm" onClick={() => window.open(selectedProduct.technical_sheet, '_blank')}>
-            <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
-          </Button>
-        ) : null}
-      </div>
+        <p>
+          <strong>
+            <BsDropletHalf className="text-info me-2" />
+            Dosis:
+          </strong>{" "}
+          {selectedProduct.dose}
+        </p>
 
-      <div className="d-flex justify-content-between align-items-center">
-        <p><strong>Registro Sanitario:</strong></p>
-        {selectedProduct.health_registration ? (
-          <Button variant="link" size="sm" onClick={() => window.open(selectedProduct.health_registration, '_blank')}>
-            <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
-          </Button>
-        ) : null}
-      </div>
+        <p>
+          <strong>
+            <BsClockHistory className="text-success me-2" />
+            Duración Residual:
+          </strong>{" "}
+          {selectedProduct.residual_duration}
+        </p>
 
-      <div className="d-flex justify-content-between align-items-center">
-        <p><strong>Tarjeta de Emergencia:</strong></p>
-        {selectedProduct.emergency_card ? (
-          <Button variant="link" size="sm" onClick={() => window.open(selectedProduct.emergency_card, '_blank')}>
-            <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
-          </Button>
-        ) : null}
-      </div>
-    </>
-  )}
-</Modal.Body>
+        <div className="d-flex justify-content-between align-items-center">
+          <p>
+            <strong>
+              <BsBookHalf className="text-secondary me-2" />
+              Hoja de Datos de Seguridad:
+            </strong>
+          </p>
+          {selectedProduct.safety_data_sheet ? (
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() =>
+                window.open(selectedProduct.safety_data_sheet, "_blank")
+              }
+            >
+              <BsEye style={{ color: "orange", fontSize: "1.2em" }} />
+            </Button>
+          ) : null}
+        </div>
+
+        <div className="d-flex justify-content-between align-items-center">
+          <p>
+            <strong>
+              <BsBookHalf className="text-secondary me-2" />
+              Ficha Técnica:
+            </strong>
+          </p>
+          {selectedProduct.technical_sheet ? (
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() =>
+                window.open(selectedProduct.technical_sheet, "_blank")
+              }
+            >
+              <BsEye style={{ color: "orange", fontSize: "1.2em" }} />
+            </Button>
+          ) : null}
+        </div>
+
+        <div className="d-flex justify-content-between align-items-center">
+          <p>
+            <strong>
+              <BsBookHalf className="text-secondary me-2" />
+              Registro Sanitario:
+            </strong>
+          </p>
+          {selectedProduct.health_registration ? (
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() =>
+                window.open(selectedProduct.health_registration, "_blank")
+              }
+            >
+              <BsEye style={{ color: "orange", fontSize: "1.2em" }} />
+            </Button>
+          ) : null}
+        </div>
+
+        <div className="d-flex justify-content-between align-items-center">
+          <p>
+            <strong>
+              <BsBookHalf className="text-secondary me-2" />
+              Tarjeta de Emergencia:
+            </strong>
+          </p>
+          {selectedProduct.emergency_card ? (
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() =>
+                window.open(selectedProduct.emergency_card, "_blank")
+              }
+            >
+              <BsEye style={{ color: "orange", fontSize: "1.2em" }} />
+            </Button>
+          ) : null}
+        </div>
+      </>
+    )}
+  </Modal.Body>
 
   <Modal.Footer>
-    <Button variant="secondary" onClick={handleCloseDetailModal}>Cerrar</Button>
+    <Button variant="secondary" onClick={handleCloseDetailModal}>
+      Cerrar
+    </Button>
   </Modal.Footer>
 </Modal>
 {/* Modal para confirmar el registro del producto */}

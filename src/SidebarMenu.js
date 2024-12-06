@@ -118,22 +118,24 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
           {isOpen && <span>Mi Calendario</span>}
         </button>
       </div>
-      <div className="nav-item">
-        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/inspections')}>
-          <FileText size={20} />
-          {isOpen && <span>Inspecciones</span>}
-        </button>
-      </div>
+
       <div className="nav-item">
         <button className="nav-link btn btn-link" onClick={() => handleNavigation('/services')}>
           <ClipboardCheck size={20} />
           {isOpen && <span>Servicios</span>}
         </button>
       </div>
+
       <div className="nav-item">
         <button className="nav-link btn btn-link" onClick={() => handleNavigation('/myservices')}>
           <BoxArrowInUpRight size={20} />
           {isOpen && <span>Mis Servicios</span>}
+        </button>
+      </div>
+      <div className="nav-item">
+        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/inspections')}>
+          <FileText size={20} />
+          {isOpen && <span>Inspecciones</span>}
         </button>
       </div>
       <div className="nav-item">
