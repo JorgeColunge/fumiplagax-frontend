@@ -545,7 +545,7 @@ const handleEditClick = (service) => {
         const response = await axios.post("http://localhost:10000/api/inspections", inspectionData);
 
         if (response.data.success) {
-          showNotification("Error","Inspección guardada con éxito");
+        showNotification("Error","Inspección guardada con éxito");
         fetchInspections(selectedService.id);
         handleCloseAddInspectionModal();
 
@@ -698,12 +698,12 @@ const filteredTechniciansForCompanion = technicians.filter(
       </Row>
 
 
-      <Row>
+      <Row style={{ minHeight: 0, height: 'auto' }}>
         <Col md={open ? 5 : 12}>
           <div className="service-list">
-            <Row>
+            <Row style={{ minHeight: 0, height: 'auto' }}>
               {filteredServices.map(service => (
-                <Col md={4} lg={4} xl={4} sm={6} xs={12} key={service.id} className="mb-4">
+                <Col md={6} lg={4} xl={4} sm={6} xs={12} key={service.id} className="mb-4">
 
                   <Card
                     className="mb-3 border"
@@ -712,11 +712,11 @@ const filteredTechniciansForCompanion = technicians.filter(
                   >
 
                     <Card.Body>
-                      <div className="d-flex align-items-center justify-content-between">
-                        <div>
+                    <div className="d-flex align-items-center justify-content-between">
+                        <div className="flex-grow-1 text-truncate">
                           <span className="fw-bold">{service.id}</span>
                           <span className="text-muted mx-2">|</span>
-                          <span className="text-secondary truncate-text">{service.service_type.replace(/[{}"]/g, '').split(',').join(', ')}</span>
+                          <span className="text-secondary">{service.service_type.replace(/[{}"]/g, '').split(',').join(', ')}</span>
                         </div>
                       </div>
                       <hr />

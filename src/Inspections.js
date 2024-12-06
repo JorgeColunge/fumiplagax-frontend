@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useRef  } from 'react';
 import axios from 'axios';
-import { Button, Modal, Form, Col, Row, Collapse, Card, FormControl, InputGroup } from 'react-bootstrap';
+import { Button, Modal, Form, Col, Row, Collapse, Card, FormControl, InputGroup, ModalTitle } from 'react-bootstrap';
 import { Bag, Building, Calendar, Clock, Person } from "react-bootstrap-icons"
 import { useNavigate } from "react-router-dom";
+import moment from 'moment-timezone';
 import './Inspections.css'; // Importa el archivo CSS aquí
 
 function Inspections() {
   const [inspections, setInspections] = useState([]);
   const [services, setServices] = useState([]);
   const [clients, setClients] = useState([]);
-  // Filtros
   const [filterClient, setFilterClient] = useState('');
   const [filterService, setFilterService] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -22,6 +22,11 @@ function Inspections() {
   const navigate = useNavigate();
   const [expandedCardId, setExpandedCardId] = useState(null);
   const menuRef = useRef(null);
+  const [notification, setNotification] = useState({
+    show: false,
+    title: '',
+    message: '',
+  });
 
   const [form, setForm] = useState({
     date: '',
@@ -138,55 +143,69 @@ function Inspections() {
     return `${formattedDate} - ${formattedTime}`;
   };
 
-  const handleClientChange = (e) => {
-    const selectedClientId = e.target.value;
-    setSelectedClient(selectedClientId);
-    setForm({ ...form, service_id: '' });
-  };
-
-  const handleShowDetails = (inspection) => {
-    // Encuentra el servicio asociado a la inspección
-    const service = services.find(service => service.id === inspection.service_id);
-    // Encuentra el cliente asociado al servicio
-    const client = clients.find(client => client.id === service?.client_id);
-    
-    // Almacena la inspección seleccionada junto con el nombre del cliente
-    setSelectedInspection({ ...inspection, clientName: client ? client.name : 'Cliente desconocido' });
-    setShowDetailsModal(true);
-  };  
+  const showNotification = (title, message) => {
+    setNotification({ show: true, title, message });
+    setTimeout(() => {
+      setNotification({ show: false, title, message: '' });
+    }, 2500); // 2.5 segundos
+  }; 
   
-  const handleShowModal = (inspection = null) => {
-    setEditing(Boolean(inspection));
-    setSelectedId(inspection?.id || null);
-
-    const durationInHours = inspection?.duration?.hours || '';
-
-    if (inspection) {
-      const selectedService = services.find(service => service.id === inspection.service_id);
-      const selectedClientId = selectedService ? selectedService.client_id : '';
-
-      setSelectedClient(selectedClientId);
-      setForm({
-        date: inspection.date || '',
-        time: inspection.time || '',
-        duration: durationInHours,
-        observations: inspection.observations || '',
-        service_id: inspection.service_id || '',
-        exit_time: inspection.exit_time || ''
-      });
-    } else {
-      setForm({
-        date: '',
-        time: '',
-        duration: '',
-        observations: '',
-        service_id: '',
-        exit_time: ''
-      });
-      setSelectedClient('');
-    }
-
+  const handleShowModal = () => {
+    setForm({
+      service_id: '',
+      inspection_type: [], // Inicializar como array vacío
+      inspection_sub_type: '',
+    });
     setShowModal(true);
+  };
+  
+  const handleSaveInspection = async () => {
+    // Validaciones
+    if (!form.service_id) {
+      showNotification("Error","Debe seleccionar un servicio.");
+      return;
+    }
+  
+    if (!Array.isArray(form.inspection_type) || form.inspection_type.length === 0) {
+      showNotification("Error","Debe seleccionar al menos un tipo de inspección.");
+      return;
+    }
+  
+    if (form.inspection_type.includes("Desratización") && !form.inspection_sub_type) {
+      showNotification("Error","Debe seleccionar un subtipo para Desratización.");
+      return;
+    }
+  
+    // Crear el payload para enviar al backend
+    const payload = {
+      service_id: form.service_id,
+      inspection_type: form.inspection_type,
+      inspection_sub_type: form.inspection_type.includes("Desratización")
+        ? form.inspection_sub_type
+        : null, // Enviar null si no aplica
+      date: moment().format("YYYY-MM-DD"), // Fecha actual
+      time: moment().format("HH:mm:ss"), // Hora actual
+    };
+  
+    // Logs para verificar los datos enviados
+    console.log("Payload enviado al backend:", payload);
+  
+    try {
+      const response = await axios.post("http://localhost:10000/api/inspections", payload);
+      console.log("Respuesta del backend:", response.data);
+  
+      if (response.data.success) {
+        showNotification("Exito","Inspección guardada con éxito.");
+        fetchInspections();
+        setShowModal(false);
+        // Redirigir al componente de inspección con el ID
+        navigate(`/inspection/${response.data.inspection.id}`);
+      } else {
+        console.error("Error en la respuesta del backend:", response.data.message);
+      }
+    } catch (error) {
+      console.error("Error al guardar la inspección:", error.response?.data || error);
+    }
   };
 
   const toggleActions = (id) => {
@@ -431,100 +450,114 @@ function Inspections() {
         )}
       </Row>
 
-      {/* Modal para agregar/editar inspección */}
-      <Modal show={showModal} onHide={handleCloseModal}>
-        <Modal.Header closeButton>
-          <Modal.Title>{editing ? 'Editar Inspección' : 'Agregar Inspección'}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form onSubmit={handleSubmit}>
-            <Form.Group controlId="formDate" className="mb-3">
-              <Form.Label>Fecha</Form.Label>
-              <Form.Control
-                type="date"
-                name="date"
-                value={form.date.slice(0, 10)}
-                onChange={handleChange}
-                required
-              />
-            </Form.Group>
-            <Form.Group controlId="formTime" className="mb-3">
-              <Form.Label>Hora</Form.Label>
-              <Form.Control
-                type="time"
-                name="time"
-                value={form.time}
-                onChange={handleChange}
-                required
-              />
-            </Form.Group>
-            <Form.Group controlId="formDuration" className="mb-3">
-              <Form.Label>Duración (horas)</Form.Label>
-              <Form.Control
-                type="number"
-                name="duration"
-                step="0.1"
-                value={form.duration}
-                onChange={handleChange}
-                placeholder="Duración en horas"
-              />
-            </Form.Group>
-            <Form.Group controlId="formObservations" className="mb-3">
-              <Form.Label>Observaciones</Form.Label>
-              <Form.Control
-                as="textarea"
-                name="observations"
-                value={form.observations}
-                onChange={handleChange}
-                placeholder="Observaciones"
-              />
-            </Form.Group>
-            <Form.Group controlId="formClient" className="mb-3">
-              <Form.Label>Empresa</Form.Label>
-              <Form.Control
-                as="select"
-                value={selectedClient}
-                onChange={handleClientChange}
-              >
-                <option value="">Selecciona una empresa</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>{client.name}</option>
-                ))}
-              </Form.Control>
-            </Form.Group>
+      <Modal show={showModal} onHide={() => setShowModal(false)}>
+    <Modal.Header closeButton>
+      <Modal.Title>{editing ? 'Editar Inspección' : 'Agregar Inspección'}</Modal.Title>
+    </Modal.Header>
+    <Modal.Body>
+      <Form>
+        {/* Servicio */}
+        <Form.Group controlId="formServiceId" className="mb-3">
+          <Form.Label>Servicio</Form.Label>
+          <Form.Control
+            as="select"
+            value={form.service_id}
+            onChange={(e) => {
+              const selectedServiceId = e.target.value;
 
-            <Form.Group controlId="formServiceId" className="mb-3">
-              <Form.Label>Servicio</Form.Label>
-              <Form.Control
-                as="select"
-                name="service_id"
-                value={form.service_id}
-                onChange={handleChange}
-                disabled={!selectedClient}
-              >
-                <option value="">Selecciona un servicio</option>
-                {services
-                  .filter(service => service.client_id === parseInt(selectedClient))
-                  .map(service => (
-                    <option key={service.id} value={service.id}>{service.service_type}</option>
-                  ))}
-              </Form.Control>
-            </Form.Group>
-            <Form.Group controlId="formExitTime" className="mb-3">
-              <Form.Label>Hora de Salida</Form.Label>
-              <Form.Control
-                type="time"
-                name="exit_time"
-                value={form.exit_time}
-                onChange={handleChange}
-              />
-            </Form.Group>
-            <Button variant="success" type="submit">
-              {editing ? 'Guardar Cambios' : 'Agregar Inspección'}
-            </Button>
-          </Form>
-        </Modal.Body>
-      </Modal>
+              // Buscar el servicio seleccionado en la lista
+              const selectedService = services.find(
+                (service) => String(service.id) === selectedServiceId
+              );
+
+              if (!selectedService) {
+                console.error("No se encontró el servicio con el ID proporcionado.");
+              } else {
+              }
+
+              setForm({
+                ...form,
+                service_id: selectedServiceId,
+                inspection_type: [], // Reiniciar al seleccionar un nuevo servicio
+                inspection_sub_type: '',
+              });
+            }}
+          >
+            <option value="">Seleccione un servicio</option>
+            {services.map((service) => (
+              <option key={service.id} value={String(service.id)}>
+                {service.id} - {service.service_type.replace(/[{}"]/g, '').split(',').join(', ')}
+              </option>
+            ))}
+          </Form.Control>
+        </Form.Group>
+
+        {/* Tipo de inspección */}
+        {form.service_id && (
+          <Form.Group controlId="formInspectionType" className="mb-3">
+            <Form.Label>Tipo de Inspección</Form.Label>
+            {services
+              .find((service) => String(service.id) === form.service_id)
+              ?.service_type
+              ?.replace(/[\{\}"]/g, "") // Eliminar caracteres no deseados
+              ?.split(",") // Convertir a array
+              .map((type, index) => {
+                console.log("Tipo procesado:", type.trim());
+                return (
+                  <Form.Check
+                    key={index}
+                    type="checkbox"
+                    label={type.trim()}
+                    value={type.trim()}
+                    checked={form.inspection_type.includes(type.trim())}
+                    onChange={(e) => {
+                      const { value, checked } = e.target;
+                      setForm((prevForm) => ({
+                        ...prevForm,
+                        inspection_type: checked
+                          ? [...prevForm.inspection_type, value]
+                          : prevForm.inspection_type.filter((t) => t !== value),
+                      }));
+                    }}
+                  />
+                );
+              })}
+          </Form.Group>
+        )}
+
+
+        {/* Subtipo de inspección */}
+        {form.inspection_type?.includes("Desratización") && (
+          <Form.Group controlId="formInspectionSubType" className="mb-3">
+            <Form.Label>Subtipo</Form.Label>
+            <Form.Control
+              as="select"
+              value={form.inspection_sub_type}
+              onChange={(e) =>
+                setForm(prevForm => ({
+                  ...prevForm,
+                  inspection_sub_type: e.target.value,
+                }))
+              }
+            >
+              <option value="">Seleccione un subtipo</option>
+              <option value="Control">Control</option>
+              <option value="Seguimiento">Seguimiento</option>
+            </Form.Control>
+          </Form.Group>
+        )}
+      </Form>
+    </Modal.Body>
+    <Modal.Footer>
+      <Button variant="secondary" onClick={() => setShowModal(false)}>
+        Cancelar
+      </Button>
+      <Button variant="success" onClick={handleSaveInspection}>
+        {editing ? 'Guardar Cambios' : 'Agregar Inspección'}
+      </Button>
+    </Modal.Footer>
+  </Modal>
+
       <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)}>
       <Modal.Header closeButton>
         <Modal.Title>Detalles de Inspección</Modal.Title>
@@ -546,6 +579,21 @@ function Inspections() {
         <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>Cerrar</Button>
       </Modal.Footer>
     </Modal>
+
+    <Modal
+        show={notification.show}
+        onHide={() => setNotification({ show: false, title:'', message: '' })}
+        centered
+        backdrop="static"
+        keyboard={false}
+      >
+        <ModalTitle>
+        <p className="m-0">{notification.title}</p>
+        </ModalTitle>
+        <Modal.Body className="text-center">
+          <p className="m-0">{notification.message}</p>
+        </Modal.Body>
+      </Modal>
     </div>
   );
 }
