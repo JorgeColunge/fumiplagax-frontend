@@ -6,7 +6,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import { Button, Modal, Form, Col, Row, Table } from 'react-bootstrap';
-import { ChevronLeft, ChevronRight, Plus } from 'react-bootstrap-icons';
+import { ChevronLeft, ChevronRight, Plus, GearFill, InfoCircle, Bug, GeoAlt, FileText, Clipboard, PlusCircle, PencilSquare, Trash } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './InspectionCalendar.css';
 import moment from 'moment-timezone';
@@ -39,11 +39,18 @@ const InspectionCalendar = () => {
         inspection_type: [],
         inspection_sub_type: '',
     });
-
-
+    const [editEventModalOpen, setEditEventModalOpen] = useState(false);
+    const [deleteEventModalOpen, setDeleteEventModalOpen] = useState(false);
+    const [editingEvent, setEditingEvent] = useState(null);
     const userTimeZone = moment.tz.guess();
     const navigate = useNavigate();
     const socket = useSocket();
+
+    useEffect(() => {
+        if (showEventModal && selectedEvent) {
+            console.log("Evento actualmente seleccionado en el modal:", selectedEvent);
+        }
+    }, [showEventModal, selectedEvent]);    
 
     useEffect(() => {
         if (socket) {
@@ -206,6 +213,228 @@ const InspectionCalendar = () => {
         }
     };
 
+    const handleDeleteEventClick = (event) => {
+        setSelectedEvent(event); // Establece el evento a eliminar
+        setDeleteEventModalOpen(true); // Abre el modal
+    };
+    
+    const handleDeleteEvent = async () => {
+        try {
+            // Realiza la petición DELETE al backend
+            const response = await fetch(`http://localhost:10000/api/service-schedule/${selectedEvent.id}`, {
+                method: 'DELETE',
+            });
+    
+            if (!response.ok) throw new Error('Error eliminando el evento');
+    
+            console.log('Evento eliminado en el backend:', selectedEvent);
+    
+            // Actualiza el estado global eliminando el evento
+            setAllEvents((prevAllEvents) => {
+                const updatedEvents = prevAllEvents.filter((event) => event.id !== selectedEvent.id);
+                setEvents(updatedEvents); // Actualiza los eventos visibles
+                return updatedEvents; // Retorna el nuevo estado global
+            });
+    
+            // Refleja el cambio en FullCalendar directamente
+            const calendarApi = calendarRef.current?.getApi();
+            if (calendarApi) {
+                const calendarEvent = calendarApi.getEventById(selectedEvent.id);
+                if (calendarEvent) {
+                    calendarEvent.remove(); // Elimina directamente el evento del calendario
+                }
+            }
+    
+            // Cierra los modales relacionados
+            setDeleteEventModalOpen(false); // Cierra el modal de confirmación
+            setShowEventModal(false); // Cierra el modal de detalles del evento
+    
+            console.log('Evento eliminado y calendario actualizado.');
+        } catch (error) {
+            console.error('Error eliminando el evento:', error);
+        }
+    };          
+
+    const handleEditEventClick = (event) => {
+        console.log("Evento recibido para edición:", event);
+    
+        setEditingEvent(event);
+
+        // Extrae los identificadores
+        const serviceId = event.service_id; // ID del servicio
+        const eventId = event.id; // ID del evento
+    
+        // Usa la fecha directamente desde el evento seleccionado
+        const eventDate = event.date || moment(event.start).format('YYYY-MM-DD');
+        const startTime = event.startTime || moment(event.start).format('HH:mm');
+        const endTime = event.endTime || moment(event.end).format('HH:mm');
+    
+        console.log("Fecha procesada para edición:", eventDate);
+        console.log("Hora de inicio procesada para edición:", startTime);
+        console.log("Hora de fin procesada para edición:", endTime);
+    
+        setScheduleDate(eventDate);
+        setScheduleStartTime(startTime);
+        setScheduleEndTime(endTime);
+        setSelectedService(serviceId);
+    
+        setEditEventModalOpen(true);
+    };
+    
+    const handleSaveEditedEvent = async () => {
+        try {
+            if (!selectedService || !scheduleDate || !scheduleStartTime || !scheduleEndTime) {
+                alert('Todos los campos son obligatorios');
+                return;
+            }
+    
+            const updatedEvent = {
+                id: editingEvent.id,
+                service_id: selectedService,
+                date: scheduleDate,
+                start_time: scheduleStartTime,
+                end_time: scheduleEndTime,
+            };
+    
+            // Actualiza el evento en el backend
+            const response = await fetch(`http://localhost:10000/api/service-schedule/${editingEvent.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedEvent),
+            });
+    
+            if (!response.ok) throw new Error('Error actualizando el evento');
+            const updatedData = await response.json();
+    
+            console.log('Evento actualizado en el backend:', updatedData);
+    
+            // Actualiza el evento en FullCalendar directamente
+            const calendarApi = calendarRef.current?.getApi();
+            const calendarEvent = calendarApi.getEventById(editingEvent.id);
+    
+            if (calendarEvent) {
+                calendarEvent.setStart(moment(`${scheduleDate}T${scheduleStartTime}`).toISOString());
+                calendarEvent.setEnd(moment(`${scheduleDate}T${scheduleEndTime}`).toISOString());
+                calendarEvent.setExtendedProp('service_id', selectedService);
+            }
+    
+            // Actualiza el estado global de eventos
+            setAllEvents((prevEvents) =>
+                prevEvents.map((event) =>
+                    event.id === editingEvent.id
+                        ? {
+                              ...event,
+                              start: moment(`${scheduleDate}T${scheduleStartTime}`).toISOString(),
+                              end: moment(`${scheduleDate}T${scheduleEndTime}`).toISOString(),
+                              service_id: selectedService,
+                          }
+                        : event
+                )
+            );
+    
+            setEditEventModalOpen(false); // Cierra el modal
+        } catch (error) {
+            console.error('Error al guardar el evento editado:', error);
+        }
+    };
+    
+    
+    const handleEventDrop = async (info) => {
+        const { event } = info;
+    
+        // Extrae los identificadores relevantes
+        const eventId = event.id; // ID del evento
+        const serviceId = event.title; // ID del servicio (guardado en el título)
+    
+        if (!serviceId) {
+            console.error('El evento no tiene un ID de servicio válido:', event);
+            info.revert(); // Revertir el cambio si falta información
+            return;
+        }
+    
+        // Crea el objeto para actualizar
+        const updatedEvent = {
+            service_id: serviceId, // Utiliza el ID del servicio
+            date: moment(event.start).format('YYYY-MM-DD'),
+            start_time: moment(event.start).format('HH:mm'),
+            end_time: event.end ? moment(event.end).format('HH:mm') : null,
+        };
+    
+        console.log('Datos enviados para la actualización:', updatedEvent);
+    
+        try {
+            // Actualiza el evento en el backend usando el ID del evento
+            const response = await fetch(`http://localhost:10000/api/service-schedule/${eventId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedEvent),
+            });
+    
+            if (!response.ok) throw new Error('Error actualizando el evento');
+            const updatedData = await response.json();
+    
+            console.log('Evento actualizado en el backend:', updatedData);
+    
+            // Actualiza el estado local
+            setAllEvents((prevEvents) =>
+                prevEvents.map((evt) =>
+                    evt.id === eventId
+                        ? {
+                              ...evt,
+                              start: moment(event.start).toISOString(),
+                              end: event.end ? moment(event.end).toISOString() : null,
+                          }
+                        : evt
+                )
+            );
+        } catch (error) {
+            console.error('Error al mover el evento:', error);
+            info.revert(); // Revertir el cambio si ocurre un error
+        }
+    };    
+    
+    
+    const handleEventResize = async (info) => {
+        const { event } = info;
+    
+        const updatedEvent = {
+            id: event.id,
+            date: moment(event.start).format('YYYY-MM-DD'),
+            start_time: moment(event.start).format('HH:mm'),
+            end_time: event.end ? moment(event.end).format('HH:mm') : null,
+        };
+    
+        try {
+            // Actualiza el evento en el backend
+            const response = await fetch(`http://localhost:10000/api/service-schedule/${event.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedEvent),
+            });
+    
+            if (!response.ok) throw new Error('Error actualizando el evento');
+            const updatedData = await response.json();
+    
+            console.log('Evento actualizado en el backend:', updatedData);
+    
+            // Actualiza el estado del evento en el frontend
+            setAllEvents((prevEvents) =>
+                prevEvents.map((evt) =>
+                    evt.id === event.id
+                        ? {
+                              ...evt,
+                              start: moment(event.start).toISOString(),
+                              end: event.end ? moment(event.end).toISOString() : null,
+                          }
+                        : evt
+                )
+            );
+        } catch (error) {
+            console.error('Error al redimensionar el evento:', error);
+            info.revert(); // Revierte el cambio si falla la actualización
+        }
+    };    
+
     const toggleCollapse = () => {
         setIsCollapsed(!isCollapsed);
     };
@@ -275,7 +504,7 @@ const InspectionCalendar = () => {
                 ...inspection,
                 date: moment(inspection.date).format('DD/MM/YYYY'),
                 time: inspection.time ? moment(inspection.time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
-                exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
+                exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm:ss').format('HH:mm') : '--',
                 observations: inspection.observations || 'Sin observaciones',
             }));
     
@@ -412,6 +641,10 @@ const InspectionCalendar = () => {
                                 phone: clientData?.phone || 'Sin teléfono',
                                 color: responsibleData?.color || '#fdd835',
                                 backgroundColor: responsibleData?.color,
+                                pestToControl: serviceData.pest_to_control,
+                                interventionAreas: serviceData.intervention_areas,
+                                value: serviceData.value,
+                                companion: serviceData.companion,
                                 start,
                                 end,
                                 allDay: false,
@@ -515,9 +748,10 @@ const InspectionCalendar = () => {
     
     const renderEventContent = (eventInfo) => {
         const { serviceType, clientName } = eventInfo.event.extendedProps;
-        const { start, end, backgroundColor } = eventInfo.event;
-    
-        const cleanServiceType = serviceType.replace(/[\{\}"]/g, '').replace(/,/g, ', ');
+        const { start, end } = eventInfo.event;
+        const serviceId = eventInfo.event.title;
+        const eventId = eventInfo.event.id;
+
         const startTime = moment(start).format('h:mm A');
         const endTime = moment(end).format('h:mm A');
     
@@ -526,22 +760,21 @@ const InspectionCalendar = () => {
                 placement="top"
                 overlay={
                     <Tooltip>
-                        <div>{cleanServiceType}</div> {/* Ahora muestra solo el texto limpio */}
+                        <div>ID Evento: {eventId}</div>
+                        <div>ID Servicio: {serviceId}</div>
+                        <div>{serviceType.replace(/[\{\}"]/g, '').replace(/,/g, ', ')}</div>
                         <div>{clientName}</div>
                     </Tooltip>
                 }
             >
-                <div className="event-container"
-                style={{
-                    backgroundColor: backgroundColor || '#fdd835',
-                    color: "white"
-                  }}>
+                <div className="event-container">
                     <div className="event-id">{eventInfo.event.title}</div>
                     <div className="event-time">{`${startTime} – ${endTime}`}</div>
                 </div>
             </OverlayTrigger>
         );
-    };    
+    };
+    
 
     const changeView = (view) => {
         const calendarApi = calendarRef.current.getApi();
@@ -558,6 +791,11 @@ const InspectionCalendar = () => {
     const handleEventClick = (clickInfo) => {
         const { extendedProps, title, start, end } = clickInfo.event;
         const currentMonth = moment().format('YYYY-MM'); // Mes actual en formato 'YYYY-MM'
+
+        // Extraer y formatear fecha, hora de inicio y fin
+        const eventDate = moment(start).format('YYYY-MM-DD');
+        const startTime = moment(start).format('HH:mm');
+        const endTime = moment(end).format('HH:mm');
     
         // Contar eventos en el mes actual si es periódico
         let scheduledThisMonth = 0;
@@ -580,9 +818,14 @@ const InspectionCalendar = () => {
             phone: extendedProps.phone || 'Sin teléfono',
             category: extendedProps.category || 'Sin categoría', // Nueva propiedad
             quantyPerMonth: extendedProps.quantyPerMonth || null, // Nueva propiedad
-            scheduledThisMonth, // Nueva propiedad: veces agendado en el mes
-            startTime: moment(start).format('h:mm A'),
-            endTime: moment(end).format('h:mm A'),
+            pestToControl: extendedProps.pestToControl,
+            interventionAreas: extendedProps.interventionAreas,
+            value: extendedProps.value,
+            companion: extendedProps.companion,
+            scheduledThisMonth,
+            startTime,
+            endTime,
+            date: eventDate,
         };
         setSelectedEvent(eventData);
         setShowEventModal(true);
@@ -664,15 +907,21 @@ const InspectionCalendar = () => {
                 backgroundColor: responsibleColor,
                 category: selectedServiceData.category || 'Sin categoría', // Asegurarse de que la categoría esté presente
                 quantyPerMonth: selectedServiceData.quantity_per_month || null, // Cantidad por mes si es periódico
+                pestToControl: selectedServiceData.pest_to_control,
+                interventionAreas: selectedServiceData.intervention_areas,
+                value: selectedServiceData.value,
+                companion: selectedServiceData.companion,
                 start: moment(`${scheduleDate}T${scheduleStartTime}`).toISOString(),
                 end: moment(`${scheduleDate}T${scheduleEndTime}`).toISOString(),
                 allDay: false,
+                responsibleId: selectedServiceData.responsible, // Asegúrate de incluir el responsable
             };
     
             // Actualiza el estado de forma segura
             setAllEvents((prevAllEvents) => {
                 const updatedAllEvents = [...prevAllEvents, formattedEvent];
                 setEvents(updatedAllEvents); // Sincroniza eventos visibles
+                filterEvents(updatedAllEvents); // Aplica filtro al actualizar
                 return updatedAllEvents;
             });
     
@@ -681,7 +930,7 @@ const InspectionCalendar = () => {
         } catch (error) {
             console.error('Error scheduling service:', error);
         }
-    };      
+    };         
 
     return (
         <div className="d-flex">
@@ -726,6 +975,8 @@ const InspectionCalendar = () => {
                             editable={true}
                             selectable={true}
                             select={handleDateSelect}
+                            eventDrop={handleEventDrop}
+                            eventResize={handleEventResize}
                             timeZone="local"
                             height="70vh"
                             nowIndicator={true}
@@ -889,66 +1140,160 @@ const InspectionCalendar = () => {
 
             <Modal show={showEventModal} onHide={() => setShowEventModal(false)} centered size="lg">
                 <Modal.Header closeButton>
-                    <Modal.Title>Detalles del Servicio</Modal.Title>
+                <Modal.Title className="fw-bold d-flex justify-content-between align-items-center">
+                    <span>
+                        <GearFill className="me-2" /> Detalles del Servicio
+                    </span>
+                    <PencilSquare
+                        className="ms-2"
+                        onClick={() => {
+                            console.log("Evento seleccionado para editar:", selectedEvent);
+                            setShowEventModal(false)
+                            handleEditEventClick(selectedEvent);
+                        }}
+                        style={{ fontSize: '1.2rem', color: '#6c757d', cursor: 'pointer', marginLeft: 'auto' }}
+                    />
+                    <Trash
+                        className="ms-2"
+                        onClick={() => {
+                            console.log('Evento seleccionado para eliminar:', selectedEvent);
+                            setShowEventModal(false); // Cierra el modal de detalles
+                            handleDeleteEventClick(selectedEvent); // Abre el modal de confirmación
+                        }}
+                        style={{ fontSize: '1.2rem', color: '#dc3545', cursor: 'pointer' }}
+                    />
+                </Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
+                <Modal.Body className="bg-light p-4">
                     {selectedEvent && (
-                        <div>
-                            <p><strong>ID del servicio:</strong> {selectedEvent.title}</p>
-                            <p><strong>Tipo de servicio:</strong> {selectedEvent.serviceType.replace(/[\{\}"]/g, '').replace(/,/g, ', ')}</p>
-                            <p><strong>Descripción del servicio:</strong> {selectedEvent.description}</p>
-                            <p><strong>Responsable:</strong> {selectedEvent.responsibleName}</p>
-                            <p><strong>Empresa:</strong> {selectedEvent.clientName}</p>
-                            <p><strong>Dirección de la empresa:</strong> {selectedEvent.address}</p>
-                            <p><strong>Teléfono:</strong> {selectedEvent.phone}</p>
-                            <p><strong>Horario:</strong> {selectedEvent.startTime} - {selectedEvent.endTime}</p>
-                            <p><strong>Categoría:</strong> {selectedEvent.category}</p>
-                            {selectedEvent.category === 'Periódico' && selectedEvent.quantyPerMonth && (
-                                <>
-                                <p><strong>Cantidad al mes:</strong> {selectedEvent.quantyPerMonth}</p>
-                                <p><strong>Agendado este mes:</strong> {selectedEvent.scheduledThisMonth}</p>
-                                </>
-                            )}
-                            {/* Tabla de inspecciones */}
-                            <h5 className="mt-4">Inspecciones</h5>
-                            {inspections.length > 0 ? (
-                                <Table striped bordered hover size="sm" className="mt-3">
+                        <div className="d-flex flex-column gap-4">
+                            {/* Información General */}
+                            <div className="bg-white shadow-sm rounded p-3">
+                                <h5 className="text-secondary mb-3">
+                                    <InfoCircle className="me-2" /> Información General
+                                </h5>
+                                <div className="d-flex flex-column gap-2">
+                                    <p><strong>ID del Servicio:</strong> {selectedEvent.title}</p>
+                                    <p><strong>Tipo de Servicio:</strong> {selectedEvent.serviceType.replace(/[\{\}"]/g, '').split(',').join(', ')}</p>
+                                    <p><strong>Categoría:</strong> {selectedEvent.category}</p>
+                                    <p><strong>Empresa:</strong> {selectedEvent.clientName}</p>
+                                    <p><strong>Responsable:</strong> {selectedEvent.responsibleName}</p>
+                                    {selectedEvent.companion && (
+                                        <p>
+                                            <strong>Acompañante(s):</strong>{' '}
+                                            {(() => {
+                                                // Convierte la cadena de IDs en un array
+                                                const companionIds = selectedEvent.companion
+                                                    .replace(/[\{\}"]/g, '') // Limpia los caracteres `{}`, `"`
+                                                    .split(',')
+                                                    .map((id) => id.trim()); // Divide y recorta espacios
+
+                                                // Mapea los IDs a nombres usando el estado `users`
+                                                const companionNames = companionIds.map((id) => {
+                                                    const user = users.find((user) => user.id === id); // Encuentra el usuario por ID
+                                                    return user ? user.name : `Desconocido (${id})`; // Devuelve el nombre o una etiqueta de desconocido
+                                                });
+
+                                                // Devuelve la lista de nombres como texto
+                                                return companionNames.join(', ');
+                                            })()}
+                                        </p>
+                                    )}
+                                    {selectedEvent.category === "Periódico" && (
+                                        <p><strong>Cantidad al Mes:</strong> {selectedEvent.quantyPerMonth}</p>
+                                    )}
+                                    <p><strong>Valor:</strong> ${selectedEvent.value}</p> {/* Agrega el valor si está disponible */}
+                                </div>
+                            </div>
+
+                            {/* Descripción */}
+                            <div className="bg-white shadow-sm rounded p-3">
+                                <h5 className="text-secondary mb-3">
+                                    <FileText className="me-2" /> Descripción
+                                </h5>
+                                <p className="text-muted">{selectedEvent.description || "No especificada"}</p>
+                            </div>
+
+                            {/* Plagas y Áreas */}
+                            <div className="d-flex gap-3">
+                                {/* Plagas */}
+                                <div className="flex-fill bg-white shadow-sm rounded p-3 w-50">
+                                    <h5 className="text-secondary mb-3">
+                                        <Bug className="me-2" /> Plagas
+                                    </h5>
+                                    <p>
+                                        {(() => {
+                                        const pestMatches = selectedEvent.pestToControl.match(/"([^"]+)"/g);
+                                        return pestMatches
+                                            ? pestMatches.map((item) => item.replace(/"/g, "")).join(", ")
+                                            : "No especificado";
+                                        })()}
+                                    </p>
+                                </div>
+
+                                {/* Áreas */}
+                                <div className="flex-fill bg-white shadow-sm rounded p-3 w-50">
+                                    <h5 className="text-secondary mb-3">
+                                        <GeoAlt className="me-2" /> Áreas de Intervención
+                                    </h5>
+                                    <p>
+                                        {(() => {
+                                        const areasMatches = selectedEvent.interventionAreas.match(/"([^"]+)"/g);
+                                        return areasMatches
+                                            ? areasMatches.map((item) => item.replace(/"/g, "")).join(", ")
+                                            : "No especificado";
+                                        })()}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Tabla de Inspecciones */}
+                            <div className="bg-white shadow-sm rounded p-3">
+                                <h5 className="text-secondary mb-3">
+                                    <Clipboard className="me-2" /> Inspecciones
+                                </h5>
+                                {inspections.length > 0 ? (
+                                    <div className="custom-table-container">
+                                    <table className="custom-table">
                                     <thead>
                                         <tr>
-                                            <th>ID</th>
-                                            <th>Fecha</th>
-                                            <th>Hora de Inicio</th>
-                                            <th>Hora de Finalización</th>
-                                            <th>Observaciones</th>
+                                        <th>ID</th>
+                                        <th>Fecha</th>
+                                        <th>Inicio</th>
+                                        <th>Finalización</th>
+                                        <th>Observaciones</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {inspections.map((inspection) => (
-                                            <tr
-                                                key={inspection.id}
-                                                style={{ cursor: 'pointer' }} // Cambia el cursor para indicar que es clickeable
-                                                onClick={() => navigate(`/inspection/${inspection.id}`)} // Redirige al hacer clic
-                                            >
-                                                <td>{inspection.id}</td>
-                                                <td>{inspection.date}</td>
-                                                <td>{inspection.time}</td>
-                                                <td>{inspection.exit_time}</td>
-                                                <td>{inspection.observations}</td>
-                                            </tr>
+                                        <tr key={inspection.id} onClick={() => navigate(`/inspection/${inspection.id}`)}>
+                                            <td>{inspection.id}</td>
+                                            <td>{inspection.date}</td>
+                                            <td>{inspection.time}</td>
+                                            <td>{inspection.exit_time}</td>
+                                            <td>{inspection.observations}</td>
+                                        </tr>
                                         ))}
                                     </tbody>
-                                </Table>
-                            ) : (
-                                <p>No hay inspecciones registradas para este servicio.</p>
-                            )}
-                        <Button variant="link" className="text-success" onClick={handleShowAddInspectionModal}>
-                            Añadir Inspección
-                        </Button>
+                                    </table>
+                                </div>   
+                                ) : (
+                                    <p>No hay inspecciones registradas para este servicio.</p>
+                                )}
+                            </div>
+
+                            {/* Botón para añadir inspección */}
+                            <div className="text-center">
+                                <Button variant="outline-success" onClick={handleShowAddInspectionModal}>
+                                    <PlusCircle className="me-2" />
+                                    Añadir Inspección
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </Modal.Body>
                 <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowEventModal(false)}>Cerrar</Button>
+                    <Button variant="dark" onClick={() => setShowEventModal(false)}>Cerrar</Button>
                 </Modal.Footer>
             </Modal>
 
@@ -1015,6 +1360,89 @@ const InspectionCalendar = () => {
                     </Button>
                 </Modal.Footer>
             </Modal>
+
+            <Modal show={editEventModalOpen} onHide={() => setEditEventModalOpen(false)} backdrop="static" centered>
+                <Modal.Header closeButton>
+                    <Modal.Title>Editar Evento</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Form>
+                        {/* Selección de servicio */}
+                        <Form.Group controlId="formEditServiceSelect" className="mb-3">
+                            <Form.Label>Servicio</Form.Label>
+                            <Form.Select
+                                value={selectedService}
+                                onChange={(e) => handleServiceSelect(e.target.value)}
+                            >
+                                <option value="">Selecciona un servicio</option>
+                                {services.map((service) => (
+                                    <option key={service.id} value={service.id}>
+                                        {`${service.id} - ${service.service_type.replace(/[{}"]/g, '').split(',').join(', ') || 'Sin tipo'} - ${service.clientName || 'Sin empresa'}`}
+                                    </option>
+                                ))}
+                            </Form.Select>
+                        </Form.Group>
+
+                        {/* Fecha */}
+                        <Form.Group controlId="formEditScheduleDate" className="mb-3">
+                            <Form.Label>Fecha</Form.Label>
+                            <Form.Control
+                                type="date"
+                                value={scheduleDate}
+                                onChange={(e) => setScheduleDate(e.target.value)}
+                            />
+                        </Form.Group>
+
+                        {/* Hora de inicio */}
+                        <Form.Group controlId="formEditScheduleStartTime" className="mb-3">
+                            <Form.Label>Hora de Inicio</Form.Label>
+                            <Form.Control
+                                type="time"
+                                value={scheduleStartTime}
+                                onChange={(e) => setScheduleStartTime(e.target.value)}
+                            />
+                        </Form.Group>
+
+                        {/* Hora de fin */}
+                        <Form.Group controlId="formEditScheduleEndTime" className="mb-3">
+                            <Form.Label>Hora de Fin</Form.Label>
+                            <Form.Control
+                                type="time"
+                                value={scheduleEndTime}
+                                onChange={(e) => setScheduleEndTime(e.target.value)}
+                            />
+                        </Form.Group>
+                    </Form>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setEditEventModalOpen(false)}>
+                        Cancelar
+                    </Button>
+                    <Button variant="success" onClick={handleSaveEditedEvent}>
+                        Guardar Cambios
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
+            <Modal show={deleteEventModalOpen} onHide={() => setDeleteEventModalOpen(false)} backdrop="static" centered>
+    <Modal.Header closeButton>
+        <Modal.Title>Eliminar Evento</Modal.Title>
+    </Modal.Header>
+    <Modal.Body>
+        <p>¿Estás seguro de que deseas eliminar este evento?</p>
+        <p><strong>ID:</strong> {selectedEvent?.id}</p>
+        <p><strong>Servicio:</strong> {selectedEvent?.serviceType}</p>
+    </Modal.Body>
+    <Modal.Footer>
+        <Button variant="secondary" onClick={() => setDeleteEventModalOpen(false)}>
+            Cancelar
+        </Button>
+        <Button variant="danger" onClick={handleDeleteEvent}>
+            Eliminar
+        </Button>
+    </Modal.Footer>
+</Modal>
+
 
         </div>
     );

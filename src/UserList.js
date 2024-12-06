@@ -30,6 +30,44 @@ function UserList() {
   const canAddUser = userInfo?.rol === "Auperadministrador" || userInfo?.rol === "Administrador";
   const [profilePicPreview, setProfilePicPreview] = useState('/images/default-profile.png');
   const [searchTerm, setSearchTerm] = useState('');
+  const [dropdownPosition, setDropdownPosition] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Si el menú está abierto y se hace clic fuera, cerrarlo
+      if (dropdownPosition && !event.target.closest(".dropdown-menu")) {
+        closeDropdown();
+      }
+    };
+
+    // Escuchar clics en todo el documento
+    document.addEventListener("click", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [dropdownPosition]);
+
+  const handleDropdownClick = (e, user) => {
+    e.stopPropagation(); // Prevenir que el clic afecte otras acciones de la fila
+    const rect = e.target.getBoundingClientRect(); // Obtener posición del botón
+    if (selectedUser?.id === user.id) {
+      // Si se hace clic nuevamente en el mismo botón, cerrar el menú
+      closeDropdown();
+    } else {
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY, // Coordenada Y del botón
+        left: rect.left + window.scrollX, // Coordenada X del botón
+      });
+      setSelectedUser(user); // Guardar el usuario seleccionado
+    }
+  };
+
+  const closeDropdown = () => {
+    setDropdownPosition(null);
+    setSelectedUser(null);
+  };
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -252,114 +290,123 @@ const deleteUser = async (id) => {
       </div>
 
       <Table striped hover responsive className="modern-table">
-  <thead>
-    <tr>
-      <th className="text-center">Foto</th>
-      <th className="text-center">ID</th>
-      <th className="text-center">Usuario</th>
-      <th className="text-center">Sector</th>
-      <th className="text-center">Último Ingreso</th>
-      <th className="text-center">Acciones</th>
-    </tr>
-  </thead>
-  <tbody>
-    {filteredUsers.map((user) => (
-      <tr
-        key={user.id}
-        onClick={() => navigate(`/show-profile/${user.id}`)}
-      >
-        <td className="text-center align-middle  zoom">
-          {isOffline() ? (
-            user.imageUrl ? (
-              <div className="img-mask mx-auto">
-                <img
-                  src={user.imageUrl}
-                  alt="Foto de perfil"
-                  className="rounded-img"
-                  width="50"
-                  height="50"
-                />
-              </div>
-            ) : (
-              <div>No Image</div>
-            )
-          ) : (
-            user.image ? (
-              <div className="img-mask-sm mx-auto">
-                <img
-                  src={`http://localhost:10000${user.image}`}
-                  alt="Foto de perfil"
-                  className="rounded-img-sm"
-                  width="50"
-                  height="50"
-                />
-              </div>
-            ) : (
-              <div>No Image</div>
-            )
-          )}
-        </td>
-        <td className="text-center align-middle"><p>{user.id}</p></td>
-        <td className="text-center align-middle"><p>{user.name}</p></td>
-        <td className="text-center align-middle"><p>{user.rol}</p></td>
-        <td className="text-center align-middle"><p>{user.lastLogin || 'N/A'}</p></td>
-        <td className="text-center align-middle">
-          <div
-            className="dropdown-container"
-            onClick={(e) => e.stopPropagation()} // Detener la propagación del clic
+        <thead>
+          <tr>
+            <th className="text-center">Foto</th>
+            <th className="text-center">ID</th>
+            <th className="text-center">Usuario</th>
+            <th className="text-center">Sector</th>
+            <th className="text-center">Último Ingreso</th>
+            <th className="text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredUsers.map((user) => (
+            <tr
+              key={user.id}
+              onClick={() => navigate(`/show-profile/${user.id}`)}
+            >
+              <td className="text-center align-middle  zoom">
+                {isOffline() ? (
+                  user.imageUrl ? (
+                    <div className="img-mask mx-auto">
+                      <img
+                        src={user.imageUrl}
+                        alt="Foto de perfil"
+                        className="rounded-img"
+                        width="50"
+                        height="50"
+                      />
+                    </div>
+                  ) : (
+                    <div>No Image</div>
+                  )
+                ) : (
+                  user.image ? (
+                    <div className="img-mask-sm mx-auto">
+                      <img
+                        src={`http://localhost:10000${user.image}`}
+                        alt="Foto de perfil"
+                        className="rounded-img-sm"
+                        width="50"
+                        height="50"
+                      />
+                    </div>
+                  ) : (
+                    <div>No Image</div>
+                  )
+                )}
+              </td>
+              <td className="text-center align-middle"><p>{user.id}</p></td>
+              <td className="text-center align-middle"><p>{user.name}</p></td>
+              <td className="text-center align-middle"><p>{user.rol}</p></td>
+              <td className="text-center align-middle"><p>{user.lastLogin || 'N/A'}</p></td>
+              <td className="text-center align-middle">
+                <div
+                  className="action-icon"
+                  onClick={(e) => handleDropdownClick(e, user)}
+                >
+                  ⋮ {/* Ícono o botón para abrir el dropdown */}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+
+      {/* Dropdown global */}
+      {dropdownPosition && selectedUser && (
+        <div
+          className="dropdown-menu acciones show"
+          style={{
+            position: 'absolute',
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            zIndex: 1060,
+          }}
+        >
+          <Dropdown.Item
+            onClick={() => {
+              closeDropdown();
+              navigate(`/edit-profile/${selectedUser.id}`);
+            }}
           >
-            <Dropdown>
-              <Dropdown.Toggle as="div" className="dropdown-button">
-              </Dropdown.Toggle>
-              <Dropdown.Menu className="acciones" align="end">
-                <Dropdown.Item
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevenir navegación al perfil
-                    navigate(`/edit-profile/${user.id}`);
-                  }}
-                >
-                  <PencilSquare className="me-2" /> Editar
-                </Dropdown.Item>
-                <Dropdown.Item
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevenir navegación al perfil
-                    deleteUser(user.id);
-                  }}
-                >
-                  <Trash className="me-2 text-danger" /> Eliminar
-                </Dropdown.Item>
-                <Dropdown.Item
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.open(`tel:${user.phone}`, '_self');
-                  }}
-                >
-                  <Telephone className="me-2 text-success" /> Llamar
-                </Dropdown.Item>
-                <Dropdown.Item
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.open(`https://wa.me/${user.phone}`, '_blank');
-                  }}
-                >
-                  <Whatsapp className="me-2 text-success" /> WhatsApp
-                </Dropdown.Item>
-                <Dropdown.Item
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.open(`mailto:${user.email}`, '_self');
-                  }}
-                >
-                  <Envelope className="me-2 text-primary" /> Correo
-                </Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown>
-          </div>
-        </td>
-      </tr>
-    ))}
-  </tbody>
-</Table>
+            <PencilSquare className="me-2" /> Editar
+          </Dropdown.Item>
+          <Dropdown.Item
+            onClick={() => {
+              closeDropdown();
+              deleteUser(selectedUser.id);
+            }}
+          >
+            <Trash className="me-2 text-danger" /> Eliminar
+          </Dropdown.Item>
+          <Dropdown.Item
+            onClick={() => {
+              closeDropdown();
+              window.open(`tel:${selectedUser.phone}`, '_self');
+            }}
+          >
+            <Telephone className="me-2 text-success" /> Llamar
+          </Dropdown.Item>
+          <Dropdown.Item
+            onClick={() => {
+              closeDropdown();
+              window.open(`https://wa.me/${selectedUser.phone}`, '_blank');
+            }}
+          >
+            <Whatsapp className="me-2 text-success" /> WhatsApp
+          </Dropdown.Item>
+          <Dropdown.Item
+            onClick={() => {
+              closeDropdown();
+              window.open(`mailto:${selectedUser.email}`, '_self');
+            }}
+          >
+            <Envelope className="me-2 text-primary" /> Correo
+          </Dropdown.Item>
+        </div>
+      )}
 
       {canAddUser && (
         <div className="d-flex justify-content-end mt-2 mb-2">

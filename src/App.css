@@ -70,7 +70,7 @@
   border-spacing: 0 0; /* Espaciado entre filas */
   width: 100%; /* Asegura que la tabla ocupe todo el contenedor */
   table-layout: fixed; /* Evita el desbordamiento horizontal */
-  overflow: hidden;
+  z-index: 5;
 }
 
 .modern-table thead th {
@@ -86,7 +86,6 @@
 .modern-table tbody tr {
   background-color: #ffffff;
   border: 1px solid #ddd;
-  overflow: hidden;
   z-index: 5;
 }
 
@@ -94,7 +93,6 @@
 .modern-table tbody tr .img-mask,
 .modern-table tbody tr p {
   transition: all 0.3s ease-in-out; /* Suave transición al pasar el cursor */
-  overflow: hidden;
   z-index: 5;
 }
 
@@ -152,16 +150,15 @@
   color: green;
 }
 
-.show {
-  z-index: 5;
-}
-
-.dropdown-menu {
-  z-index: 20;;
-}
-
-.dopdown-items {
-  z-index: 20;;
+.dropdown-menu.acciones.show {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 10px;
+  max-width: 200px;
+  overflow: hidden;
+  z-index: 1060;
 }
 
 .cursor-pointer:hover{

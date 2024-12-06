@@ -363,3 +363,52 @@ a {
 
 }
 
+/* Estilo de la tabla */
+.modern-table {
+    border-collapse: separate;
+    border-spacing: 0 0; /* Espaciado entre filas */
+    width: 100%; /* Asegura que la tabla ocupe todo el contenedor */
+    table-layout: fixed; /* Evita el desbordamiento horizontal */
+    z-index: 5;
+  }
+  
+  .modern-table thead th {
+    background-color: #f5f5f5;
+    color: #333;
+    font-weight: bold;
+    border-bottom: 2px solid #ddd;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 12px;
+  }
+  
+  .modern-table tbody tr {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    z-index: 5;
+  }
+  
+  .modern-table tbody tr img,
+  .modern-table tbody tr .img-mask,
+  .modern-table tbody tr p {
+    transition: all 0.3s ease-in-out; /* Suave transición al pasar el cursor */
+    z-index: 5;
+  }
+  
+  .modern-table tbody tr:hover img,
+  .modern-table tbody tr:hover .img-mask,
+  .modern-table tbody tr:hover p {
+    transform: scale(1.1); /* Efecto de "zoom" al hacer hover */
+    z-index: 5;
+  }
+  
+  .modern-table tbody tr:hover {
+    background-color: #f9f9f9; /* Color al pasar el cursor */
+  }
+  
+  .modern-table tbody td {
+    text-align: center;
+    vertical-align: middle; /* Centrado vertical */
+    padding: 10px;
+    border-top: 1px solid #ddd;
+  }
