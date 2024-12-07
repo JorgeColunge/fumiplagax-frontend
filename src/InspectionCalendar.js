@@ -214,15 +214,22 @@ const InspectionCalendar = () => {
     };
 
     const handleDeleteEventClick = (event) => {
+        console.log("Evento seleccionado para eliminación:", event);
         setSelectedEvent(event); // Establece el evento a eliminar
         setDeleteEventModalOpen(true); // Abre el modal
     };
     
     const handleDeleteEvent = async () => {
         try {
+            if (!selectedEvent) {
+                alert('No hay ningún evento seleccionado para eliminar');
+                return;
+            }
+    
             // Realiza la petición DELETE al backend
             const response = await fetch(`http://localhost:10000/api/service-schedule/${selectedEvent.id}`, {
                 method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
             });
     
             if (!response.ok) throw new Error('Error eliminando el evento');
@@ -230,18 +237,17 @@ const InspectionCalendar = () => {
             console.log('Evento eliminado en el backend:', selectedEvent);
     
             // Actualiza el estado global eliminando el evento
-            setAllEvents((prevAllEvents) => {
-                const updatedEvents = prevAllEvents.filter((event) => event.id !== selectedEvent.id);
-                setEvents(updatedEvents); // Actualiza los eventos visibles
-                return updatedEvents; // Retorna el nuevo estado global
-            });
+            setAllEvents((prevEvents) =>
+                prevEvents.filter((event) => event.id !== selectedEvent.id)
+            );
     
             // Refleja el cambio en FullCalendar directamente
             const calendarApi = calendarRef.current?.getApi();
             if (calendarApi) {
                 const calendarEvent = calendarApi.getEventById(selectedEvent.id);
                 if (calendarEvent) {
-                    calendarEvent.remove(); // Elimina directamente el evento del calendario
+                    calendarEvent.remove(); // Elimina el evento directamente del calendario
+                    console.log('Evento eliminado del calendario:', selectedEvent.id);
                 }
             }
     
@@ -249,11 +255,11 @@ const InspectionCalendar = () => {
             setDeleteEventModalOpen(false); // Cierra el modal de confirmación
             setShowEventModal(false); // Cierra el modal de detalles del evento
     
-            console.log('Evento eliminado y calendario actualizado.');
+            console.log('Evento eliminado correctamente y calendario actualizado.');
         } catch (error) {
             console.error('Error eliminando el evento:', error);
         }
-    };          
+    };     
 
     const handleEditEventClick = (event) => {
         console.log("Evento recibido para edición:", event);
@@ -882,12 +888,14 @@ const InspectionCalendar = () => {
     
             // Obtener datos del responsable
             let responsibleColor = '#fdd835'; // Color predeterminado
+            let responsibleName
             if (selectedServiceData.responsible) {
                 try {
                     const responsibleResponse = await fetch(`http://localhost:10000/api/users/${selectedServiceData.responsible}`);
                     if (responsibleResponse.ok) {
                         const responsibleData = await responsibleResponse.json();
                         responsibleColor = responsibleData.color || '#fdd835';
+                        responsibleName = `${responsibleData.name || 'Sin nombre'} ${responsibleData.lastname || ''}`.trim();
                     } else {
                         console.warn(`Failed to fetch responsible for ID: ${selectedServiceData.responsible}`);
                     }
@@ -898,7 +906,7 @@ const InspectionCalendar = () => {
     
             // Formatear el evento para incluir el color
             const formattedEvent = {
-                id: createdSchedule.id,
+                id: createdSchedule.data.id,
                 title: `${selectedServiceData.id}`,
                 serviceType: selectedServiceData.service_type || 'Sin tipo',
                 clientName: selectedServiceData.clientName || 'Sin empresa',
@@ -915,6 +923,7 @@ const InspectionCalendar = () => {
                 end: moment(`${scheduleDate}T${scheduleEndTime}`).toISOString(),
                 allDay: false,
                 responsibleId: selectedServiceData.responsible, // Asegúrate de incluir el responsable
+                responsibleName,
             };
     
             // Actualiza el estado de forma segura
@@ -1140,45 +1149,50 @@ const InspectionCalendar = () => {
 
             <Modal show={showEventModal} onHide={() => setShowEventModal(false)} centered size="lg">
                 <Modal.Header closeButton>
-                <Modal.Title className="fw-bold d-flex justify-content-between align-items-center">
+                <Modal.Title className="fw-bold d-flex">
                     <span>
                         <GearFill className="me-2" /> Detalles del Servicio
                     </span>
-                    <PencilSquare
-                        className="ms-2"
-                        onClick={() => {
-                            console.log("Evento seleccionado para editar:", selectedEvent);
-                            setShowEventModal(false)
-                            handleEditEventClick(selectedEvent);
-                        }}
-                        style={{ fontSize: '1.2rem', color: '#6c757d', cursor: 'pointer', marginLeft: 'auto' }}
-                    />
-                    <Trash
-                        className="ms-2"
-                        onClick={() => {
-                            console.log('Evento seleccionado para eliminar:', selectedEvent);
-                            setShowEventModal(false); // Cierra el modal de detalles
-                            handleDeleteEventClick(selectedEvent); // Abre el modal de confirmación
-                        }}
-                        style={{ fontSize: '1.2rem', color: '#dc3545', cursor: 'pointer' }}
-                    />
                 </Modal.Title>
                 </Modal.Header>
                 <Modal.Body className="bg-light p-4">
+                    
                     {selectedEvent && (
                         <div className="d-flex flex-column gap-4">
                             {/* Información General */}
                             <div className="bg-white shadow-sm rounded p-3">
-                                <h5 className="text-secondary mb-3">
+                                <div className='m-0 p-0 d-flex'>
+                                   <h5 className="text-secondary mb-3">
                                     <InfoCircle className="me-2" /> Información General
-                                </h5>
+                                    </h5>
+                                    <div className='ms-auto text-end'>
+                                    <PencilSquare
+                                        className="ms-2"
+                                        onClick={() => {
+                                            console.log("Evento seleccionado para editar:", selectedEvent);
+                                            setShowEventModal(false)
+                                            handleEditEventClick(selectedEvent);
+                                        }}
+                                        style={{ fontSize: '1.2rem', color: '#6c757d', cursor: 'pointer', marginLeft: 'auto' }}
+                                    />
+                                    <Trash
+                                        className="ms-2"
+                                        onClick={() => {
+                                            console.log('Evento seleccionado para eliminar:', selectedEvent);
+                                            setShowEventModal(false); // Cierra el modal de detalles
+                                            handleDeleteEventClick(selectedEvent); // Abre el modal de confirmación
+                                        }}
+                                        style={{ fontSize: '1.2rem', color: '#dc3545', cursor: 'pointer' }}
+                                    />
+                                    </div> 
+                                </div>
+                                
                                 <div className="d-flex flex-column gap-2">
                                     <p><strong>ID del Servicio:</strong> {selectedEvent.title}</p>
                                     <p><strong>Tipo de Servicio:</strong> {selectedEvent.serviceType.replace(/[\{\}"]/g, '').split(',').join(', ')}</p>
-                                    <p><strong>Categoría:</strong> {selectedEvent.category}</p>
                                     <p><strong>Empresa:</strong> {selectedEvent.clientName}</p>
                                     <p><strong>Responsable:</strong> {selectedEvent.responsibleName}</p>
-                                    {selectedEvent.companion && (
+                                    {selectedEvent.companion && selectedEvent.companion !== "{}" && selectedEvent.companion !== '{""}' && (
                                         <p>
                                             <strong>Acompañante(s):</strong>{' '}
                                             {(() => {
@@ -1191,7 +1205,7 @@ const InspectionCalendar = () => {
                                                 // Mapea los IDs a nombres usando el estado `users`
                                                 const companionNames = companionIds.map((id) => {
                                                     const user = users.find((user) => user.id === id); // Encuentra el usuario por ID
-                                                    return user ? user.name : `Desconocido (${id})`; // Devuelve el nombre o una etiqueta de desconocido
+                                                    return user ? `${user.name} ${user.lastname || ''}`.trim() : `Desconocido (${id})`;
                                                 });
 
                                                 // Devuelve la lista de nombres como texto
@@ -1199,6 +1213,7 @@ const InspectionCalendar = () => {
                                             })()}
                                         </p>
                                     )}
+                                    <p><strong>Categoría:</strong> {selectedEvent.category}</p>
                                     {selectedEvent.category === "Periódico" && (
                                         <p><strong>Cantidad al Mes:</strong> {selectedEvent.quantyPerMonth}</p>
                                     )}

@@ -6,7 +6,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import { Button, Modal, Form, Table } from 'react-bootstrap';
-import { ChevronLeft, ChevronRight, Plus } from 'react-bootstrap-icons';
+import { ChevronLeft, ChevronRight, Plus, GearFill, InfoCircle, Bug, GeoAlt, FileText, Clipboard, PlusCircle, PencilSquare, Trash } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './InspectionCalendar.css';
 import moment from 'moment-timezone';
@@ -36,7 +36,7 @@ const MyServicesCalendar = () => {
     });
     const socket = useSocket();
     const navigate = useNavigate();
-
+    const [users, setUsers] = useState([]); // Estado para almacenar los usuarios
 
     useEffect(() => {
         if (socket) {
@@ -179,6 +179,10 @@ const MyServicesCalendar = () => {
                                 address: clientData?.address || 'Sin dirección',
                                 phone: clientData?.phone || 'Sin teléfono',
                                 color: responsibleData?.color || '#fdd835',
+                                pestToControl: serviceData.pest_to_control,
+                                interventionAreas: serviceData.intervention_areas,
+                                value: serviceData.value,
+                                companion: serviceData.companion,
                                 start,
                                 end,
                                 allDay: false,
@@ -212,6 +216,11 @@ const MyServicesCalendar = () => {
         }
     }, [selectedEvent]);  
 
+    useEffect(() => {
+        fetchUsers(); // Carga los usuarios cuando el componente se monta
+    }, []);
+    
+
     // Función para obtener inspecciones asociadas al servicio seleccionado
     const fetchInspections = async (serviceId) => {
         try {
@@ -232,7 +241,7 @@ const MyServicesCalendar = () => {
                 ...inspection,
                 date: moment(inspection.date).format('DD/MM/YYYY'),
                 time: inspection.time ? moment(inspection.time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
-                exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
+                exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm:ss').format('HH:mm') : '--',
                 observations: inspection.observations || 'Sin observaciones',
             }));
     
@@ -242,6 +251,17 @@ const MyServicesCalendar = () => {
             console.error('Error fetching inspections:', error);
         }
     };
+
+    const fetchUsers = async () => {
+        try {
+            const response = await fetch('http://localhost:10000/api/users');
+            if (!response.ok) throw new Error('Error al cargar usuarios');
+            const data = await response.json();
+            setUsers(data); // Actualiza el estado con la lista de usuarios
+        } catch (error) {
+            console.error('Error al cargar usuarios:', error);
+        }
+    };    
 
     // Función para guardar inspecciones nuevas
     const handleSaveInspection = async () => {
@@ -341,6 +361,10 @@ const MyServicesCalendar = () => {
             phone: extendedProps.phone || 'Sin teléfono',
             category: extendedProps.category || 'Sin categoría', // Nueva propiedad
             quantyPerMonth: extendedProps.quantyPerMonth || null, // Nueva propiedad
+            pestToControl: extendedProps.pestToControl || 'No especificado',
+            interventionAreas: extendedProps.interventionAreas || 'No especificado',
+            value: extendedProps.value || 'No especificado',
+            companion: extendedProps.companion,
             scheduledThisMonth, // Nueva propiedad: veces agendado en el mes
             startTime: moment(start).format('h:mm A'),
             endTime: moment(end).format('h:mm A'),
@@ -423,9 +447,11 @@ const MyServicesCalendar = () => {
                             headerToolbar={false}
                             locale={esLocale}
                             events={events}
-                            editable={true}
+                            editable={false}
+                            eventStartEditable={false}
+                            eventDurationEditable={false}
                             selectable={true}
-                            select={handleDateSelect} // Evento de selección
+                            select={handleDateSelect}
                             timeZone="local"
                             height="70vh"
                             nowIndicator={true}
@@ -442,68 +468,145 @@ const MyServicesCalendar = () => {
                     </div>
                 </div>
             </div>
+            
             <Modal show={showEventModal} onHide={() => setShowEventModal(false)} centered size="lg">
                 <Modal.Header closeButton>
-                    <Modal.Title>Detalles del Servicio</Modal.Title>
+                    <Modal.Title className="fw-bold d-flex">
+                        <span>
+                            <GearFill className="me-2" /> Detalles del Servicio
+                        </span>
+                    </Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
+                <Modal.Body className="bg-light p-4">
                     {selectedEvent && (
-                        <div>
-                            <p><strong>ID del servicio:</strong> {selectedEvent.title}</p>
-                            <p><strong>Tipo de servicio:</strong> {selectedEvent.serviceType.replace(/[\{\}"]/g, '').replace(/,/g, ', ')}</p>
-                            <p><strong>Descripción del servicio:</strong> {selectedEvent.description}</p>
-                            <p><strong>Responsable:</strong> {selectedEvent.responsibleName}</p>
-                            <p><strong>Empresa:</strong> {selectedEvent.clientName}</p>
-                            <p><strong>Dirección de la empresa:</strong> {selectedEvent.address}</p>
-                            <p><strong>Teléfono:</strong> {selectedEvent.phone}</p>
-                            <p><strong>Horario:</strong> {selectedEvent.startTime} - {selectedEvent.endTime}</p>
-                            <p><strong>Categoría:</strong> {selectedEvent.category}</p>
-                            {selectedEvent.category === 'Periódico' && selectedEvent.quantyPerMonth && (
-                                <>
-                                <p><strong>Cantidad al mes:</strong> {selectedEvent.quantyPerMonth}</p>
-                                <p><strong>Agendado este mes:</strong> {selectedEvent.scheduledThisMonth}</p>
-                                </>
-                            )}
-                            {/* Tabla de inspecciones */}
-                            <h5 className="mt-4">Inspecciones</h5>
-                            {inspections.length > 0 ? (
-                                <Table striped bordered hover size="sm" className="mt-3">
+                        <div className="d-flex flex-column gap-4">
+                            {/* Información General */}
+                            <div className="bg-white shadow-sm rounded p-3">
+                                <h5 className="text-secondary mb-3">
+                                    <InfoCircle className="me-2" /> Información General
+                                </h5>
+                                <div className="d-flex flex-column gap-2">
+                                    <p><strong>ID del Servicio:</strong> {selectedEvent.title}</p>
+                                    <p><strong>Tipo de Servicio:</strong> {selectedEvent.serviceType.replace(/[\{\}"]/g, '').split(',').join(', ')}</p>
+                                    <p><strong>Empresa:</strong> {selectedEvent.clientName}</p>
+                                    <p><strong>Responsable:</strong> {selectedEvent.responsibleName}</p>
+                                    {selectedEvent.companion && selectedEvent.companion !== "{}" && selectedEvent.companion !== '{""}' && (
+                                        <p>
+                                            <strong>Acompañante(s):</strong>{' '}
+                                            {(() => {
+                                                // Convierte la cadena de IDs en un array
+                                                const companionIds = selectedEvent.companion
+                                                    .replace(/[\{\}"]/g, '') // Limpia los caracteres `{}`, `"`
+                                                    .split(',')
+                                                    .map((id) => id.trim()); // Divide y recorta espacios
+
+                                                // Mapea los IDs a nombres usando el estado `users`
+                                                const companionNames = companionIds.map((id) => {
+                                                    const user = users.find((user) => user.id === id); // Encuentra el usuario por ID
+                                                    return user ? `${user.name} ${user.lastname || ''}`.trim() : `Desconocido (${id})`;
+                                                });
+
+                                                // Devuelve la lista de nombres como texto
+                                                return companionNames.join(', ');
+                                            })()}
+                                        </p>
+                                    )}
+                                    <p><strong>Categoría:</strong> {selectedEvent.category}</p>
+                                    {selectedEvent.category === "Periódico" && (
+                                        <p><strong>Cantidad al Mes:</strong> {selectedEvent.quantyPerMonth}</p>
+                                    )}
+                                    <p><strong>Valor:</strong> ${selectedEvent.value}</p>
+                                </div>
+                            </div>
+
+                            {/* Descripción */}
+                            <div className="bg-white shadow-sm rounded p-3">
+                                <h5 className="text-secondary mb-3">
+                                    <FileText className="me-2" /> Descripción
+                                </h5>
+                                <p className="text-muted">{selectedEvent.description || "No especificada"}</p>
+                            </div>
+
+                            {/* Plagas y Áreas */}
+                            <div className="d-flex gap-3">
+                                {/* Plagas */}
+                                <div className="flex-fill bg-white shadow-sm rounded p-3 w-50">
+                                    <h5 className="text-secondary mb-3">
+                                        <Bug className="me-2" /> Plagas
+                                    </h5>
+                                    <p>
+                                        {(() => {
+                                        const pestMatches = selectedEvent.pestToControl.match(/"([^"]+)"/g);
+                                        return pestMatches
+                                            ? pestMatches.map((item) => item.replace(/"/g, "")).join(", ")
+                                            : "No especificado";
+                                        })()}
+                                    </p>
+                                </div>
+
+                                {/* Áreas */}
+                                <div className="flex-fill bg-white shadow-sm rounded p-3 w-50">
+                                    <h5 className="text-secondary mb-3">
+                                        <GeoAlt className="me-2" /> Áreas de Intervención
+                                    </h5>
+                                    <p>
+                                        {(() => {
+                                        const areasMatches = selectedEvent.interventionAreas.match(/"([^"]+)"/g);
+                                        return areasMatches
+                                            ? areasMatches.map((item) => item.replace(/"/g, "")).join(", ")
+                                            : "No especificado";
+                                        })()}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Tabla de Inspecciones */}
+                            <div className="bg-white shadow-sm rounded p-3">
+                                <h5 className="text-secondary mb-3">
+                                    <Clipboard className="me-2" /> Inspecciones
+                                </h5>
+                                {inspections.length > 0 ? (
+                                    <div className="custom-table-container">
+                                    <table className="custom-table">
                                     <thead>
                                         <tr>
-                                            <th>ID</th>
-                                            <th>Fecha</th>
-                                            <th>Hora de Inicio</th>
-                                            <th>Hora de Finalización</th>
-                                            <th>Observaciones</th>
+                                        <th>ID</th>
+                                        <th>Fecha</th>
+                                        <th>Inicio</th>
+                                        <th>Finalización</th>
+                                        <th>Observaciones</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {inspections.map((inspection) => (
-                                            <tr
-                                                key={inspection.id}
-                                                style={{ cursor: 'pointer' }} // Cambia el cursor para indicar que es clickeable
-                                                onClick={() => navigate(`/inspection/${inspection.id}`)} // Redirige al hacer clic
-                                            >
-                                                <td>{inspection.id}</td>
-                                                <td>{inspection.date}</td>
-                                                <td>{inspection.time}</td>
-                                                <td>{inspection.exit_time}</td>
-                                                <td>{inspection.observations}</td>
-                                            </tr>
+                                        <tr key={inspection.id} onClick={() => navigate(`/inspection/${inspection.id}`)}>
+                                            <td>{inspection.id}</td>
+                                            <td>{inspection.date}</td>
+                                            <td>{inspection.time}</td>
+                                            <td>{inspection.exit_time}</td>
+                                            <td>{inspection.observations}</td>
+                                        </tr>
                                         ))}
                                     </tbody>
-                                </Table>
-                            ) : (
-                                <p>No hay inspecciones registradas para este servicio.</p>
-                            )}
-                        <Button variant="link" className="text-success" onClick={handleShowAddInspectionModal}>
-                            Añadir Inspección
-                        </Button>
+                                    </table>
+                                </div>   
+                                ) : (
+                                    <p>No hay inspecciones registradas para este servicio.</p>
+                                )}
+                            </div>
+
+                            {/* Botón para añadir inspección */}
+                            <div className="text-center">
+                                <Button variant="outline-success" onClick={handleShowAddInspectionModal}>
+                                    <PlusCircle className="me-2" />
+                                    Añadir Inspección
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </Modal.Body>
                 <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowEventModal(false)}>Cerrar</Button>
+                    <Button variant="dark" onClick={() => setShowEventModal(false)}>Cerrar</Button>
                 </Modal.Footer>
             </Modal>
 

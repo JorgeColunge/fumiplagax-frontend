@@ -272,6 +272,30 @@ function Inspections() {
     }
   };
 
+  const handleDeleteInspection = async (inspectionId) => {
+    if (!window.confirm("¿Estás seguro de que deseas eliminar esta inspección?")) {
+      return;
+    }
+  
+    try {
+      await axios.delete(`http://localhost:10000/api/inspections/${inspectionId}`);
+      showNotification("Éxito", "Inspección eliminada con éxito.");
+      
+      // Actualizar el estado para eliminar la inspección del frontend
+      setInspections((prevInspections) =>
+        prevInspections.filter((inspection) => inspection.id !== inspectionId)
+      );
+  
+      // También actualiza las inspecciones filtradas
+      setFilteredInspections((prevFiltered) =>
+        prevFiltered.filter((inspection) => inspection.id !== inspectionId)
+      );
+    } catch (error) {
+      console.error("Error al eliminar la inspección:", error);
+      showNotification("Error", "No se pudo eliminar la inspección.");
+    }
+  };  
+
   return (
     <div className="container my-4">
       <Row className="w-100" style={{ height: 'auto', alignItems: 'flex-start' }}>
@@ -437,6 +461,15 @@ function Inspections() {
                         }}
                       >
                         Generar informe mensual
+                      </button>
+                      <button
+                        className="btn d-block btn-danger"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteInspection(inspection.id);
+                        }}
+                      >
+                        Eliminar inspección
                       </button>
                       </div>
                     )}
