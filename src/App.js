@@ -19,6 +19,7 @@ import Inspections from './Inspections';
 import ServiceList from './ServiceList';
 import Inspection from './Inspection';
 import MyServices from './MyServices';
+import Billing from './Billing';
 import CompanyStations from './CompanyStations';
 import UnsavedChangesModal from './UnsavedChangesModal';
 import { UnsavedChangesProvider } from './UnsavedChangesContext';
@@ -203,6 +204,7 @@ function App() {
           <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
           <Route path="/show-profile/:id" element={<ShowProfile />} />
           <Route path="/services" element={isLoggedIn ? <ServiceList /> : <Navigate to="/login" />} />
+          <Route path="/billing" element={isLoggedIn ? <Billing /> : <Navigate to="/login" />} />
           <Route path="/myservices" element={isLoggedIn ? <MyServices /> : <Navigate to="/login" />} />
           <Route path="/stations/client/:client_id" element={isLoggedIn ? <CompanyStations /> : <Navigate to="/login" />} />
         </Routes>       
