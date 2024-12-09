@@ -280,11 +280,8 @@ const handleSaveNewAirStation = async () => {
         // Crear nuevo cliente
         const response = await axios.post('http://localhost:10000/api/clients', newClient);
         const newClientData = response.data.client;
-  
-        // Agregar el nuevo cliente al estado
         setClients([...clients, newClientData]);
         setFilteredClients([...filteredClients, newClientData]);
-  
         handleShowNotification("Cliente agregado exitosamente");
       }
       handleCloseModal(); // Cierra el modal después de guardar
