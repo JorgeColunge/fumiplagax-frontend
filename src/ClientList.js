@@ -99,6 +99,11 @@ const handleSearch = (e) => {
   setFilteredClients(filtered);
 };
 
+  const [rutFile, setRutFile] = useState(null);
+  const handleRutFileChange = (e) => {
+    setRutFile(e.target.files[0]);
+  }; 
+
   const handleShowModal = (client = null) => {
     setEditingClient(client);
     if (client) {
@@ -261,33 +266,72 @@ const handleSaveNewAirStation = async () => {
     }
   };  
 
+  const uploadRutFile = async () => {
+    if (!rutFile) return null; // Si no hay archivo, no hacer nada
+  
+    const formData = new FormData();
+    formData.append('rut', rutFile);
+  
+    try {
+      const response = await axios.post('http://localhost:10000/api/clients/upload-rut', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data.fileUrl; // Devuelve la URL del archivo
+    } catch (error) {
+      console.error("Error al subir el archivo RUT:", error);
+      throw new Error("Error al subir el archivo RUT");
+    }
+  };  
+
   const handleAddOrEditClient = async () => {
     try {
+      let rutFileUrl = null;
+  
+      // Subir el archivo RUT si se seleccionó
+      if (rutFile) {
+        const formData = new FormData();
+        formData.append('rut', rutFile);
+  
+        const uploadResponse = await axios.post('http://localhost:10000/api/clients/upload-rut', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+  
+        // Obtener la URL del archivo RUT subido
+        rutFileUrl = uploadResponse.data.fileUrl;
+      }
+  
       if (editingClient) {
         // Actualizar cliente existente
         const response = await axios.put(
           `http://localhost:10000/api/clients/${editingClient.id}`,
-          newClient
+          { ...newClient, rut: rutFileUrl || newClient.rut } // Usar la URL nueva si está disponible
         );
-        const updatedClient = response.data.client;
   
-        // Actualizar el estado directamente
+        // Actualiza la lista de clientes en el estado
+        const updatedClient = response.data.client;
         setClients(clients.map(client => (client.id === editingClient.id ? updatedClient : client)));
         setFilteredClients(filteredClients.map(client => (client.id === editingClient.id ? updatedClient : client)));
   
         handleShowNotification("Cliente actualizado exitosamente");
       } else {
         // Crear nuevo cliente
-        const response = await axios.post('http://localhost:10000/api/clients', newClient);
-        const newClientData = response.data.client;
+        const response = await axios.post('http://localhost:10000/api/clients', {
+          ...newClient,
+          rut: rutFileUrl, // Agregar la URL del archivo RUT
+        });
   
-        // Agregar el nuevo cliente al estado
+        // Agregar el nuevo cliente a la lista
+        const newClientData = response.data.client;
         setClients([...clients, newClientData]);
         setFilteredClients([...filteredClients, newClientData]);
   
         handleShowNotification("Cliente agregado exitosamente");
       }
-      handleCloseModal(); // Cierra el modal después de guardar
+  
+      // Cerrar el modal y reiniciar el formulario
+      handleCloseModal();
     } catch (error) {
       console.error("Error al guardar el cliente:", error);
       handleShowNotification("Hubo un error al guardar el cliente.");
@@ -319,6 +363,18 @@ const handleSaveNewAirStation = async () => {
   };
 
   if (loading) return <div>Cargando clientes...</div>;
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    const maxSize = 10 * 1024 * 1024; // Tamaño máximo permitido (10 MB)
+  
+    if (file.size > maxSize) {
+      alert("El archivo es demasiado grande. El tamaño máximo permitido es de 10 MB.");
+      return;
+    }
+  
+    setRutFile(file); // Solo establece el archivo si pasa la validación
+  };  
 
   return (
     <div className="container mt-4">
@@ -554,14 +610,13 @@ const handleSaveNewAirStation = async () => {
               />
             </Form.Group>
             <Form.Group controlId="formClientRUT" className="mb-3">
-              <Form.Label>RUT</Form.Label>
-              <Form.Control
-                type="text"
-                name="rut"
-                value={newClient.rut || ""}
-                onChange={handleInputChange}
-              />
-            </Form.Group>
+  <Form.Label>RUT</Form.Label>
+  <Form.Control
+    type="file"
+    accept=".pdf,.jpg,.jpeg,.png"
+    onChange={(e) => setRutFile(e.target.files[0])}
+  />
+</Form.Group>
           </Form>
         </Modal.Body>
         <Modal.Footer>
@@ -590,15 +645,18 @@ const handleSaveNewAirStation = async () => {
 
       {/* Modal para mostrar detalles del cliente */}
     <Modal show={showDetailsModal} onHide={handleCloseDetailsModal}>
-      <Modal.Header closeButton>
-        <Modal.Title>
-          {selectedClient ? `Detalles de ${selectedClient.name}` : "Detalles del Cliente"}
-        </Modal.Title>
-      </Modal.Header>
+    <Modal.Header closeButton className="bg-light">
+  <Modal.Title className="fw-bold">
+    <BuildingFill className="me-2" /> Detalles del Cliente
+  </Modal.Title>
+</Modal.Header>
       <Modal.Body>
         {selectedClient ? (
           <div className="client-details-container">
-            <div className="client-info">
+            <div className="bg-white shadow-sm rounded p-3 mb-3">
+            <h5 className="text-secondary mb-3">
+    <GeoAltFill className="me-2" /> Información del Cliente
+  </h5>
               <p>
                 <i className="fas fa-map-marker-alt"></i>{" "}
                 <strong>Dirección:</strong> {selectedClient.address || "No disponible"},{" "}
@@ -630,33 +688,51 @@ const handleSaveNewAirStation = async () => {
                 <strong>Número de Documento:</strong> {selectedClient.document_number || "No disponible"}
               </p>
               <p>
-                <i className="fas fa-file-alt"></i>{" "}
-                <strong>RUT:</strong> {selectedClient.rut || "No disponible"}
-              </p>
+  <i className="fas fa-file-alt"></i>{" "}
+  <strong>RUT:</strong>{" "}
+  {selectedClient?.rut ? (
+    <a href={`http://localhost:10000${selectedClient.rut}`} target="_blank" rel="noopener noreferrer">
+      Ver RUT
+    </a>
+  ) : (
+    "No disponible"
+  )}
+</p>
             </div>
             <hr />
 
             {/* Tabla de Estaciones Aéreas */}
             <h5>Estaciones Aéreas</h5>
             {airStations.length > 0 ? (
-              <table className="table table-bordered">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Método de Control</th>
-                    <th>QR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {airStations.map((station) => (
-                    <tr key={station.id}>
-                      <td>{station.description}</td>
-                      <td>{station.control_method}</td>
-                      <td>{station.qr_code || 'No disponible'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="bg-white shadow-sm rounded p-3 mb-3">
+  <h5 className="text-secondary mb-3">
+    <BuildingFill className="me-2" /> Estaciones Aéreas
+  </h5>
+  {airStations.length > 0 ? (
+    <table className="custom-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Método de Control</th>
+          <th>QR</th>
+        </tr>
+      </thead>
+      <tbody>
+        {airStations.map((station) => (
+          <tr key={station.id}>
+            <td>{station.description}</td>
+            <td>{station.control_method}</td>
+            <td>{station.qr_code || 'No disponible'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  ) : (
+    <p>No hay estaciones aéreas registradas.</p>
+  )}
+</div>
+
+
             ) : (
               <p>No hay estaciones aéreas registradas.</p>
             )}
@@ -673,40 +749,46 @@ const handleSaveNewAirStation = async () => {
             <hr />
 
             {/* Tabla de Estaciones Roedores */}
-            <h5>Estaciones Roedores</h5>
-            {rodentStations.length > 0 ? (
-              <table className="table table-bordered">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Tipo</th>
-                    <th>Método de Control</th>
-                    <th>QR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rodentStations.map((station) => (
-                    <tr key={station.id}>
-                      <td>{station.description}</td>
-                      <td>{station.type}</td>
-                      <td>{station.control_method}</td>
-                      <td>{station.qr_code || 'No disponible'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p>No hay estaciones de roedores registradas.</p>
-            )}
-            <div className="d-flex justify-content-end">
-              <Button
-                variant="outline-success"
-                className="mb-2 px-2 pt-0 pb-1"
-                onClick={handleShowAddRodentStationModal}
-              >
-                +
-              </Button>
-            </div>
+{/* Tarjeta para Estaciones Roedores */}
+<div className="bg-white shadow-sm rounded p-3 mb-3">
+  <h5 className="text-secondary mb-3">
+    <i className="fas fa-paw me-2"></i> Estaciones de Roedores
+  </h5>
+  {rodentStations.length > 0 ? (
+    <table className="custom-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Tipo</th>
+          <th>Método de Control</th>
+          <th>QR</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rodentStations.map((station) => (
+          <tr key={station.id}>
+            <td>{station.description}</td>
+            <td>{station.type}</td>
+            <td>{station.control_method}</td>
+            <td>{station.qr_code || 'No disponible'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  ) : (
+    <p>No hay estaciones de roedores registradas.</p>
+  )}
+  <div className="d-flex justify-content-end mt-3">
+    <Button
+      variant="outline-success"
+      className="px-3 py-1"
+      onClick={handleShowAddRodentStationModal}
+    >
+      <i className="fas fa-plus"></i> Agregar Estación
+    </Button>
+  </div>
+</div>
+
             <hr />
             <div className="action-buttons d-flex justify-content-around">
               <Button

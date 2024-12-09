@@ -61,3 +61,74 @@
     border-radius: 5px;
   }
   
+  
+/* Estilo para tarjetas de secciones como estaciones */
+.bg-white {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Estilo de encabezado dentro de las tarjetas */
+.bg-white h5 {
+  color: #6c757d; /* Color gris oscuro para el texto */
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+/* Iconos al lado del título */
+.bg-white h5 i {
+  margin-right: 8px;
+  font-size: 1.2rem;
+  color: #6c757d;
+}
+
+/* Tablas personalizadas dentro de las tarjetas */
+.custom-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.custom-table th,
+.custom-table td {
+  padding: 0.75rem;
+  border: 1px solid #dee2e6;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.custom-table th {
+  background-color: #f9f9f9;
+  font-weight: bold;
+}
+
+.custom-table td {
+  background-color: #fff;
+}
+
+/* Mensaje cuando no hay estaciones */
+.bg-white p {
+  font-size: 0.9rem;
+  color: #555;
+  margin: 0;
+}
+
+/* Botón para agregar estaciones */
+.bg-white .btn-outline-success {
+  font-size: 0.9rem;
+  font-weight: bold;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bg-white .btn-outline-success i {
+  margin-right: 5px;
+}
