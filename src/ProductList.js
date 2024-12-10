@@ -67,8 +67,10 @@ function ProductList() {
           ...product,
           category: Array.isArray(product.category)
             ? product.category
-            : JSON.parse(product.category) // Convierte a array si es un string JSON
-        }));
+            : typeof product.category === 'string'
+            ? product.category.split(',').map(cat => cat.trim()) // Convierte un string separado por comas a un arreglo
+            : [] // Si no es un arreglo válido o string, asigna un arreglo vacío
+        }));              
         setProducts(productsWithCategories);
       } catch (error) {
         console.error("Error fetching products:", error);
@@ -100,10 +102,10 @@ function ProductList() {
         ...product,
         category: Array.isArray(product.category)
           ? product.category
-          : product.category
-          ? [product.category]
+          : typeof product.category === 'string'
+          ? product.category.split(',').map(cat => cat.trim()) // Convierte un string separado por comas a un arreglo
           : []
-      });
+      });          
     } else {
       setNewProduct({
         name: '',
@@ -159,7 +161,11 @@ function ProductList() {
       formData.append('description_type', newProduct.description_type);
       formData.append('dose', newProduct.dose);
       formData.append('residual_duration', newProduct.residual_duration);
-      formData.append('category', JSON.stringify(newProduct.category));
+      formData.append(
+        'category',
+        JSON.stringify(Array.isArray(newProduct.category) ? newProduct.category : [])
+      );
+      ;
   
       // Archivos opcionales
       if (safetyDataSheetFile) formData.append('safety_data_sheet', safetyDataSheetFile);
@@ -250,7 +256,10 @@ function ProductList() {
   <div className="mt-2">
     <BsGrid className="text-warning me-2" />
     <span>
-      <strong>Categoría:</strong> {product.category.join(', ') || 'Sin categoría'}
+      <strong>Categoría:</strong>
+      {Array.isArray(product.category) && product.category.length > 0
+  ? product.category.join(', ')
+  : 'Sin categoría'}
     </span>
   </div>
   <div className="mt-2">
@@ -528,9 +537,9 @@ function ProductList() {
             <BsGrid className="text-warning me-2" />
             Categoría:
           </strong>{" "}
-          {selectedProduct.category.length > 0
-            ? selectedProduct.category.join(", ")
-            : "Sin categoría"}
+          {Array.isArray(selectedProduct.category) && selectedProduct.category.length > 0
+  ? selectedProduct.category.join(", ")
+  : "Sin categoría"}
         </p>
 
         <p>
