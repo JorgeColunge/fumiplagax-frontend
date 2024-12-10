@@ -644,12 +644,6 @@ const handleSaveNewAirStation = async () => {
 
 
       {/* Modal para mostrar detalles del cliente */}
-    <Modal show={showDetailsModal} onHide={handleCloseDetailsModal}>
-    <Modal.Header closeButton className="bg-light">
-  <Modal.Title className="fw-bold">
-    <BuildingFill className="me-2" /> Detalles del Cliente
-  </Modal.Title>
-</Modal.Header>
       <Modal.Body>
         {selectedClient ? (
           <div className="client-details-container">
@@ -657,49 +651,25 @@ const handleSaveNewAirStation = async () => {
             <h5 className="text-secondary mb-3">
     <GeoAltFill className="me-2" /> Información del Cliente
   </h5>
-              <p>
-                <i className="fas fa-map-marker-alt"></i>{" "}
-                <strong>Dirección:</strong> {selectedClient.address || "No disponible"},{" "}
-                {selectedClient.department || "No disponible"},{" "}
-                {selectedClient.city || "No disponible"}
-              </p>
-              <p>
-                <i className="fas fa-phone"></i>{" "}
-                <strong>Teléfono Empresa:</strong> {selectedClient.phone || "No disponible"}
-              </p>
-              <p>
-                <i className="fas fa-user"></i>{" "}
-                <strong>Nombre de Contacto:</strong> {selectedClient.contact_name || "No disponible"}
-              </p>
-              <p>
-                <i className="fas fa-mobile-alt"></i>{" "}
-                <strong>Teléfono Contacto:</strong> {selectedClient.contact_phone || "No disponible"}
-              </p>
-              <p>
-                <i className="fas fa-envelope"></i>{" "}
-                <strong>Correo:</strong> {selectedClient.email || "No disponible"}
-              </p>
-              <p>
-                <i className="fas fa-id-card"></i>{" "}
-                <strong>Tipo de Documento:</strong> {selectedClient.document_type || "No disponible"}
-              </p>
-              <p>
-                <i className="fas fa-hashtag"></i>{" "}
-                <strong>Número de Documento:</strong> {selectedClient.document_number || "No disponible"}
-              </p>
-              <p>
-  <i className="fas fa-file-alt"></i>{" "}
-  <strong>RUT:</strong>{" "}
-  {selectedClient?.rut ? (
-    <a href={`http://localhost:10000${selectedClient.rut}`} target="_blank" rel="noopener noreferrer">
-      Ver RUT
-    </a>
-  ) : (
-    "No disponible"
-  )}
-</p>
-            </div>
-            <hr />
+          <p><strong>Dirección:</strong> {selectedClient.address || "No disponible"}</p>
+          <p><strong>Teléfono Empresa:</strong> {selectedClient.phone || "No disponible"}</p>
+          <p><strong>Tipo de Documento:</strong> {selectedClient.document_type || "No disponible"}</p>
+          <p><strong>Número de Documento:</strong> {selectedClient.document_number || "No disponible"}</p>
+          <p>
+            <strong>RUT:</strong>{" "}
+            {selectedClient?.rut ? (
+              <a
+                href={`http://localhost:10000${selectedClient.rut}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Ver RUT
+              </a>
+            ) : (
+              "No disponible"
+            )}
+          </p>
+        </div>
 
             {/* Tabla de Estaciones Aéreas */}
             <h5>Estaciones Aéreas</h5>
