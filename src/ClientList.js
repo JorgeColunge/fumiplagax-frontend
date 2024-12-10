@@ -644,13 +644,21 @@ const handleSaveNewAirStation = async () => {
 
 
       {/* Modal para mostrar detalles del cliente */}
-      <Modal.Body>
-        {selectedClient ? (
-          <div className="client-details-container">
-            <div className="bg-white shadow-sm rounded p-3 mb-3">
-            <h5 className="text-secondary mb-3">
-    <GeoAltFill className="me-2" /> Información del Cliente
-  </h5>
+      <Modal show={showDetailsModal} onHide={handleCloseDetailsModal} size="lg">
+  <Modal.Header closeButton className="bg-light">
+    <Modal.Title className="fw-bold">
+      <BuildingFill className="me-2" /> Detalles del Cliente
+    </Modal.Title>
+  </Modal.Header>
+<Modal.Body>
+  {selectedClient ? (
+    <div className="row">
+      {/* Parte superior izquierda: Información de la Empresa */}
+      <div className="col-md-6 mb-1">
+        <div className="bg-white shadow-sm rounded p-3 h-75">
+          <h5 className="text-secondary mb-3">
+            <GeoAltFill className="me-2" /> Información de la Empresa
+          </h5>
           <p><strong>Dirección:</strong> {selectedClient.address || "No disponible"}</p>
           <p><strong>Teléfono Empresa:</strong> {selectedClient.phone || "No disponible"}</p>
           <p><strong>Tipo de Documento:</strong> {selectedClient.document_type || "No disponible"}</p>
@@ -670,166 +678,185 @@ const handleSaveNewAirStation = async () => {
             )}
           </p>
         </div>
+      </div>
 
-            {/* Tabla de Estaciones Aéreas */}
-            <h5>Estaciones Aéreas</h5>
-            {airStations.length > 0 ? (
-              <div className="bg-white shadow-sm rounded p-3 mb-3">
-  <h5 className="text-secondary mb-3">
-    <BuildingFill className="me-2" /> Estaciones Aéreas
-  </h5>
-  {airStations.length > 0 ? (
-    <table className="custom-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Método de Control</th>
-          <th>QR</th>
-        </tr>
-      </thead>
-      <tbody>
-        {airStations.map((station) => (
-          <tr key={station.id}>
-            <td>{station.description}</td>
-            <td>{station.control_method}</td>
-            <td>{station.qr_code || 'No disponible'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  ) : (
-    <p>No hay estaciones aéreas registradas.</p>
-  )}
-</div>
+      {/* Parte superior derecha: Información del Contacto */}
+      <div className="col-md-6 mb-1">
+        <div className="bg-white shadow-sm rounded p-3 h-75">
+          <h5 className="text-secondary mb-3">
+            <i className="fas fa-user me-2"></i> Información del Contacto
+          </h5>
+          <p><strong>Nombre:</strong> {selectedClient.contact_name || "No disponible"}</p>
+          <p><strong>Teléfono:</strong> {selectedClient.contact_phone || "No disponible"}</p>
+          <p><strong>Correo:</strong> {selectedClient.email || "No disponible"}</p>
+        </div>
+      </div>
 
-
-            ) : (
-              <p>No hay estaciones aéreas registradas.</p>
-            )}
-            <div className="d-flex justify-content-end">
-              <Button
-                variant="outline-success"
-                className="mb-2  px-2 pt-0 pb-1"
-                onClick={handleShowAddAirStationModal}
-              >
-                +
-              </Button>
-            </div>
-            
-            <hr />
-
-            {/* Tabla de Estaciones Roedores */}
-{/* Tarjeta para Estaciones Roedores */}
-<div className="bg-white shadow-sm rounded p-3 mb-3">
-  <h5 className="text-secondary mb-3">
-    <i className="fas fa-paw me-2"></i> Estaciones de Roedores
-  </h5>
-  {rodentStations.length > 0 ? (
-    <table className="custom-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Tipo</th>
-          <th>Método de Control</th>
-          <th>QR</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rodentStations.map((station) => (
-          <tr key={station.id}>
-            <td>{station.description}</td>
-            <td>{station.type}</td>
-            <td>{station.control_method}</td>
-            <td>{station.qr_code || 'No disponible'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  ) : (
-    <p>No hay estaciones de roedores registradas.</p>
-  )}
-  <div className="d-flex justify-content-end mt-3">
-    <Button
-      variant="outline-success"
-      className="px-3 py-1"
-      onClick={handleShowAddRodentStationModal}
-    >
-      <i className="fas fa-plus"></i> Agregar Estación
-    </Button>
+      {/* Parte inferior izquierda: Estaciones Aéreas */}
+      <div className="col-md-6 mb-4">
+  <div className="bg-white shadow-sm rounded p-3 station-container">
+    <h5 className="text-secondary mb-3">
+      <BuildingFill className="me-2" /> Estaciones Aéreas
+    </h5>
+    <div className="table-container">
+      {airStations.length > 0 ? (
+        <table className="custom-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Método de Control</th>
+              <th>QR</th>
+            </tr>
+          </thead>
+          <tbody>
+            {airStations.map((station) => (
+              <tr key={station.id}>
+                <td>{station.description}</td>
+                <td>{station.control_method}</td>
+                <td>{station.qr_code || "No disponible"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p>No hay estaciones aéreas registradas.</p>
+      )}
+    </div>
+    <div className="d-flex justify-content-end mt-3">
+      <Button
+        variant="outline-success"
+        className="px-3 py-1"
+        onClick={handleShowAddAirStationModal}
+      >
+        <i className="fas fa-plus"></i> Agregar Estación
+      </Button>
+    </div>
   </div>
 </div>
 
-            <hr />
-            <div className="action-buttons d-flex justify-content-around">
-              <Button
-                className="ms-auto me-2 w-100"
-                variant="outline-primary"
-                onClick={() => handleShowActionModal("call")}
-              >
-                <i className="fas fa-phone"></i>
-              </Button>
-              <Button
-                variant="outline-success mx-2 w-100"
-                onClick={() => handleShowActionModal("whatsapp")}
-              >
-                <i className="fab fa-whatsapp"></i>
-              </Button>
-              <Button
-                variant="outline-dark mx-2 w-100"
-                onClick={() => window.open(`mailto:${selectedClient.email}`)}
-              >
-                <i className="fas fa-envelope"></i>
-              </Button>
-              <Button
-                variant="outline-danger mx-2 w-100"
-                onClick={() =>
-                  window.open(
-                    `https://www.google.com/maps?q=${encodeURIComponent(
-                      `${selectedClient.address || ""}, ${selectedClient.city || ""}, ${selectedClient.department || ""}`
-                    )}`,
-                    "_blank"
-                  )
-                }
-              >
-                <i className="fas fa-map-marker-alt"></i>
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <p>Cargando datos del cliente...</p>
-        )}
-      </Modal.Body>
-      <Modal.Footer>
-        <div className="d-flex justify-content-between w-100">
-          <Button
-            className="me-2 w-100"
-            variant="success"
-            onClick={() => {
-              handleShowModal(selectedClient); // Abre el modal para editar el cliente
-              handleCloseDetailsModal(); // Cierra el modal de detalles
-            }}
-          >
-            Editar
-          </Button>
-          <Button
-            className="me-2 w-100"
-            variant="danger"
-            onClick={() => {
-              handleShowConfirmation(() => deleteClient(selectedClient.id));
-              handleCloseDetailsModal();
-            }}
-          >
-            Eliminar
-          </Button>
-          <Button
-            className='w-100'
-            variant="secondary"
-            onClick={handleCloseDetailsModal}
-          >
-            Cerrar
-          </Button>
-        </div>
-      </Modal.Footer>
+      {/* Parte inferior derecha: Estaciones de Roedores */}
+      <div className="col-md-6 mb-4">
+  <div className="bg-white shadow-sm rounded p-3 station-container">
+    <h5 className="text-secondary mb-3">
+      <i className="fas fa-paw me-2"></i> Estaciones de Roedores
+    </h5>
+    <div className="table-container">
+      {rodentStations.length > 0 ? (
+        <table className="custom-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tipo</th>
+              <th>Método de Control</th>
+              <th>QR</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rodentStations.map((station) => (
+              <tr key={station.id}>
+                <td>{station.description}</td>
+                <td>{station.type}</td>
+                <td>{station.control_method}</td>
+                <td>{station.qr_code || "No disponible"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p>No hay estaciones de roedores registradas.</p>
+      )}
+    </div>
+    <div className="d-flex justify-content-end mt-3">
+      <Button
+        variant="outline-success"
+        className="px-3 py-1"
+        onClick={handleShowAddRodentStationModal}
+      >
+        <i className="fas fa-plus"></i> Agregar Estación
+      </Button>
+    </div>
+  </div>
+</div>
+    </div>
+  ) : (
+    <p>Cargando datos del cliente...</p>
+  )}
+</Modal.Body>
+<Modal.Footer>
+  <div className="w-100">
+    {/* Botones de acción */}
+    <div className="action-buttons d-flex justify-content-around mb-3">
+      <Button
+        className="btn-outline-primary"
+        onClick={() => window.open(`tel:${selectedClient?.phone || ""}`)}
+      >
+        <i className="fas fa-phone"></i>
+        <span style={{ marginLeft: "8px" }}>Llamar</span>
+      </Button>
+      <Button
+        className="btn-outline-success"
+        onClick={() =>
+          window.open(`https://wa.me/${selectedClient?.phone?.replace(/\D/g, "")}`, "_blank")
+        }
+      >
+        <i className="fab fa-whatsapp"></i>
+        <span style={{ marginLeft: "8px" }}>WhatsApp</span>
+      </Button>
+      <Button
+        className="btn-outline-dark"
+        onClick={() => window.open(`mailto:${selectedClient?.email || ""}`)}
+      >
+        <i className="fas fa-envelope"></i>
+        <span style={{ marginLeft: "8px" }}>Correo</span>
+      </Button>
+      <Button
+        className="btn-outline-danger"
+        onClick={() =>
+          window.open(
+            `https://www.google.com/maps?q=${encodeURIComponent(
+              `${selectedClient?.address || ""}, ${selectedClient?.city || ""}, ${selectedClient?.department || ""}`
+            )}`,
+            "_blank"
+          )
+        }
+      >
+        <i className="fas fa-map-marker-alt"></i>
+        <span style={{ marginLeft: "8px" }}>Ubicación</span>
+      </Button>
+    </div>
+
+    {/* Botones inferiores */}
+    <div className="d-flex justify-content-between">
+      <Button
+        className="me-2 w-100"
+        variant="success"
+        onClick={() => {
+          handleShowModal(selectedClient);
+          handleCloseDetailsModal();
+        }}
+      >
+        Editar
+      </Button>
+      <Button
+        className="me-2 w-100"
+        variant="danger"
+        onClick={() => {
+          handleShowConfirmation(() => deleteClient(selectedClient.id));
+          handleCloseDetailsModal();
+        }}
+      >
+        Eliminar
+      </Button>
+      <Button
+        className="w-100"
+        variant="secondary"
+        onClick={handleCloseDetailsModal}
+      >
+        Cerrar
+      </Button>
+    </div>
+  </div>
+</Modal.Footer>
     </Modal>
 
     {/* Modal de confirmación para llamar o enviar WhatsApp */}

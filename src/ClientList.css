@@ -1,68 +1,41 @@
-/* ClientList.css */
+/* Estilo para el contenedor de las tarjetas */
 .card-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
-  }
-  
-  .client-card {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 16px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-  }
-  
-  .client-card .map-placeholder {
-    background-color: #f5f5f5;
-    height: 100px;
-    margin-bottom: 8px;
-  }
-  
-  .client-card h5 {
-    font-size: 1.1em;
-    margin: 0;
-  }
-  
-  .client-card p {
-    font-size: 0.9em;
-    color: #555;
-  }
-  
-  .client-card .actions {
-    display: flex;
-    justify-content: flex-end; /* Cambia para alinear los iconos a la derecha */
-    gap: 10px; /* Agrega espacio entre los iconos */
-    margin-top: 10px;
-  }
-  
-  .map-container {
-    margin-top: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    overflow: hidden;
-    pointer-events: none; /* Desactiva la interacción del mapa */
-    z-index: 50;
-  }  
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+}
 
-  .map-snapshot-container {
-    margin-top: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    overflow: hidden;
-  }
-  
-  .map-snapshot {
-    width: 100%;
-    height: auto;
-    display: block;
-    border-radius: 5px;
-  }
-  
-  
-/* Estilo para tarjetas de secciones como estaciones */
+.client-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.client-card h5 {
+  font-size: 1.1em;
+  margin: 0;
+}
+
+.client-card p {
+  font-size: 0.9em;
+  color: #555;
+}
+
+/* Estilo para el mapa */
+.map-container {
+  margin-top: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* Tarjetas de contenido */
 .bg-white {
   background-color: #fff;
   border-radius: 8px;
@@ -71,28 +44,17 @@
   margin-bottom: 1.5rem;
 }
 
-/* Estilo de encabezado dentro de las tarjetas */
 .bg-white h5 {
-  color: #6c757d; /* Color gris oscuro para el texto */
+  color: #6c757d;
   font-size: 1.2rem;
   font-weight: bold;
   margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
 }
 
-/* Iconos al lado del título */
-.bg-white h5 i {
-  margin-right: 8px;
-  font-size: 1.2rem;
-  color: #6c757d;
-}
-
-/* Tablas personalizadas dentro de las tarjetas */
 .custom-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
+  table-layout: fixed; /* Asegura que las celdas tengan un tamaño fijo */
 }
 
 .custom-table th,
@@ -101,6 +63,17 @@
   border: 1px solid #dee2e6;
   text-align: center;
   font-size: 0.9rem;
+  word-wrap: break-word; /* Ajusta el texto dentro de las celdas */
+  overflow: hidden; /* Evita desbordamientos */
+}
+
+.table-container {
+  max-height: 300px; /* Aumenta la altura máxima del contenedor de la tabla */
+  overflow-y: auto; /* Habilita scroll vertical */
+  margin-top: 10px;
+  padding: 5px;
+  border: 1px solid #dee2e6; /* Añade borde para separación visual */
+  border-radius: 8px; /* Redondea bordes */
 }
 
 .custom-table th {
@@ -108,27 +81,134 @@
   font-weight: bold;
 }
 
-.custom-table td {
-  background-color: #fff;
+.custom-table th:nth-child(1),
+.custom-table td:nth-child(1) {
+  width: 10%;
 }
 
-/* Mensaje cuando no hay estaciones */
-.bg-white p {
-  font-size: 0.9rem;
-  color: #555;
-  margin: 0;
+.custom-table th:nth-child(2),
+.custom-table td:nth-child(2) {
+  width: 40%;
 }
 
-/* Botón para agregar estaciones */
-.bg-white .btn-outline-success {
-  font-size: 0.9rem;
-  font-weight: bold;
-  padding: 6px 12px;
+.custom-table th:nth-child(3),
+.custom-table td:nth-child(3) {
+  width: 55%;
+}
+
+
+/* Estilo para los botones de acción (llamar, WhatsApp, correo, ubicación) */
+.action-buttons {
+  display: flex;
+  justify-content: space-around;
+  margin: 10px 0;
+}
+
+.action-buttons .btn {
+  width: 120px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 20px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  color: currentColor;
+  border: 2px solid currentColor;
+  background-color: white; /* Fondo blanco inicial */
 }
 
-.bg-white .btn-outline-success i {
-  margin-right: 5px;
+/* Hover específico por tipo de botón */
+.action-buttons .btn-outline-primary:hover {
+  background-color: #007bff; /* Fondo azul */
+  color: white; /* Ícono blanco */
+  border-color: #007bff; /* Borde azul */
+}
+
+.action-buttons .btn-outline-success:hover {
+  background-color: #28a745; /* Fondo verde */
+  color: white; /* Ícono blanco */
+  border-color: #28a745; /* Borde verde */
+}
+
+.action-buttons .btn-outline-dark:hover {
+  background-color: #343a40; /* Fondo negro */
+  color: white; /* Ícono blanco */
+  border-color: #343a40; /* Borde negro */
+}
+
+.action-buttons .btn-outline-danger:hover {
+  background-color: #dc3545; /* Fondo rojo */
+  color: white; /* Ícono blanco */
+  border-color: #dc3545; /* Borde rojo */
+}
+
+/* Colores específicos por tipo de botón (estado inicial) */
+.action-buttons .btn-outline-primary {
+  color: #007bff; /* Azul inicial */
+  border-color: #007bff;
+  background-color: white; /* Fondo blanco */
+}
+
+.action-buttons .btn-outline-success {
+  color: #28a745; /* Verde inicial */
+  border-color: #28a745;
+  background-color: white; /* Fondo blanco */
+}
+
+.action-buttons .btn-outline-dark {
+  color: #343a40; /* Negro inicial */
+  border-color: #343a40;
+  background-color: white; /* Fondo blanco */
+}
+
+.action-buttons .btn-outline-danger {
+  color: #dc3545; /* Rojo inicial */
+  border-color: #dc3545;
+  background-color: white; /* Fondo blanco */
+}
+
+/* Modal detalles del cliente */
+.row.equal-height {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+.row.equal-height .col-md-6 {
+  flex: 1;
+  min-width: 48%; /* Asegura que las columnas ocupen un buen ancho */
+  max-width: 48%; /* Evita que se extiendan demasiado */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.station-container {
+  height: 100%; /* Asegura que el contenedor ocupe toda la altura */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.station-container .table-container {
+  flex-grow: 1; /* Hace que las tablas ocupen el espacio restante */
+}
+
+/* Estilo para agrandar el modal */
+.modal-lg {
+  max-width: 95%; /* Aumenta el ancho del modal */
+  padding: 20px; /* Añade espacio interno */
+}
+
+.modal-body {
+  padding: 20px; /* Espaciado interno */
+  overflow-y: auto; /* Habilita el scroll vertical si es necesario */
+  max-height: 80vh; /* Limita la altura máxima para evitar que se salga de la pantalla */
+}
+
+.modal-content {
+  border-radius: 10px; /* Redondea las esquinas del modal */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Añade sombra */
 }
