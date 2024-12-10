@@ -67,8 +67,10 @@ function ProductList() {
           ...product,
           category: Array.isArray(product.category)
             ? product.category
-            : JSON.parse(product.category) // Convierte a array si es un string JSON
-        }));
+            : typeof product.category === 'string'
+            ? product.category.split(',').map(cat => cat.trim()) // Convierte un string separado por comas a un arreglo
+            : [] // Si no es un arreglo válido o string, asigna un arreglo vacío
+        }));                     
         setProducts(productsWithCategories);
       } catch (error) {
         console.error("Error fetching products:", error);
@@ -100,10 +102,10 @@ function ProductList() {
         ...product,
         category: Array.isArray(product.category)
           ? product.category
-          : product.category
-          ? [product.category]
+          : typeof product.category === 'string'
+          ? product.category.split(',').map(cat => cat.trim()) // Convierte un string separado por comas a un arreglo
           : []
-      });
+      });             
     } else {
       setNewProduct({
         name: '',
@@ -141,7 +143,7 @@ function ProductList() {
   };
 
   const handleAddOrEditProduct = async () => {
-    console.log("Categorías seleccionadas antes de enviar:", newProduct.category);
+    console.log("Datos del nuevo producto antes de enviar:", newProduct);
   
     if (!newProduct.name || newProduct.name.trim() === '') {
       alert('El campo "Nombre" es obligatorio.');
@@ -153,13 +155,17 @@ function ProductList() {
       return;
     }
   
+    let response; // Declara response aquí
     try {
       const formData = new FormData();
       formData.append('name', newProduct.name);
       formData.append('description_type', newProduct.description_type);
       formData.append('dose', newProduct.dose);
       formData.append('residual_duration', newProduct.residual_duration);
-      formData.append('category', JSON.stringify(newProduct.category));
+      formData.append(
+        'category',
+        JSON.stringify(Array.isArray(newProduct.category) ? newProduct.category : [])
+      );
   
       // Archivos opcionales
       if (safetyDataSheetFile) formData.append('safety_data_sheet', safetyDataSheetFile);
@@ -167,31 +173,63 @@ function ProductList() {
       if (healthRegistrationFile) formData.append('health_registration', healthRegistrationFile);
       if (emergencyCardFile) formData.append('emergency_card', emergencyCardFile);
   
-      let response;
+      console.log("FormData enviado al servidor:");
+      formData.forEach((value, key) => console.log(`${key}: ${value}`)); // Log de FormData
+  
+      response = editingProduct
+        ? await axios.put(
+            `http://localhost:10000/api/products/${editingProduct.id}`,
+            formData,
+            { headers: { 'Content-Type': 'multipart/form-data' } }
+          )
+        : await axios.post('http://localhost:10000/api/products', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+  
+      console.log("Respuesta del servidor al guardar producto:", response.data);
+  
+      // Lógica para actualizar productos en el estado
       if (editingProduct) {
-        response = await axios.put(
-          `http://localhost:10000/api/products/${editingProduct.id}`,
-          formData,
-          { headers: { 'Content-Type': 'multipart/form-data' } }
+        setProducts((prevProducts) =>
+          prevProducts.map((product) =>
+            product.id === editingProduct.id
+              ? {
+                  ...response.data.product, // Accede directamente al producto dentro de la respuesta
+                  category: Array.isArray(response.data.product.category)
+                    ? response.data.product.category
+                    : typeof response.data.product.category === 'string'
+                    ? JSON.parse(response.data.product.category) // Convierte la cadena JSON a un arreglo
+                    : [],
+                }
+              : product
+          )
         );
       } else {
-        response = await axios.post('http://localhost:10000/api/products', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-      }
-  
+        const newProduct = {
+          ...response.data.product, // Usamos el producto directamente
+          category: Array.isArray(response.data.product.category)
+            ? response.data.product.category
+            : typeof response.data.product.category === 'string'
+            ? JSON.parse(response.data.product.category) // Convierte la cadena JSON a un arreglo
+            : [],
+          dose: response.data.product.dose || 'No especificada',
+          residual_duration: response.data.product.residual_duration || 'No especificada',
+        };
+      
+        setProducts((prevProducts) => [...prevProducts, newProduct]);
+      }      
+      
+      console.log("Estado de productos después de actualizar:", products);
+      
       alert('Producto registrado correctamente.');
       setShowConfirmationModal(false);
       handleCloseModal();
-  
-      // Actualiza la lista de productos
-      const updatedProducts = await axios.get('http://localhost:10000/api/products');
-      setProducts(updatedProducts.data);
     } catch (error) {
       console.error('Error al guardar el producto:', error);
       alert('Error al registrar el producto.');
     }
-  };  
+  };
+  
 
   const deleteProduct = async (id) => {
     if (window.confirm("¿Estás seguro de que deseas eliminar este producto?")) {
@@ -210,8 +248,6 @@ function ProductList() {
 
   return (
     <div className="container mt-4">
-      <h2 className="text-primary mb-4">Productos</h2>
-  
       <div className="d-flex justify-content-between align-items-center mb-4">
   <Form.Group controlId="searchProducts" className="mb-0 flex-grow-1 me-3">
     <Form.Control
@@ -231,7 +267,7 @@ function ProductList() {
       )}
   
   <div className="row">
-  {filteredProducts.map((product) => (
+  {filteredProducts.map((product, index) => (
   <div key={product.id} className="col-sm-6 col-md-4 col-lg-3 mb-4">
     <Card
       className="border"
@@ -243,29 +279,36 @@ function ProductList() {
       onClick={() => handleShowDetailModal(product)} // Abre el modal de detalles al hacer clic en la tarjeta
     >
       <Card.Body>
-  <div className="d-flex justify-content-center align-items-center mb-3">
-    <h5 className="fw-bold text-center">{product.name}</h5>
-  </div>
-  <hr />
-  <div className="mt-2">
-    <BsGrid className="text-warning me-2" />
-    <span>
-      <strong>Categoría:</strong> {product.category.join(', ') || 'Sin categoría'}
-    </span>
-  </div>
-  <div className="mt-2">
-    <BsDropletHalf className="text-info me-2" />
-    <span>
-      <strong>Dosis:</strong> {product.dose || 'No especificada'}
-    </span>
-  </div>
-  <div className="mt-2">
-    <BsClockHistory className="text-success me-2" />
-    <span>
-      <strong>Duración Residual:</strong> {product.residual_duration || 'No especificada'}
-    </span>
-  </div>
-</Card.Body>
+        <div className="d-flex justify-content-center align-items-center mb-3">
+          <h5 className="fw-bold text-center">{product.name}</h5>
+        </div>
+        <hr />
+        <div className="mt-2">
+          <BsGrid className="text-warning me-2" />
+          <span>
+            <strong>Categoría: </strong>
+            {Array.isArray(product.category) && product.category.length > 0
+              ? product.category
+                  .map((cat) => cat.replace(/[\[\]"]/g, ""))
+                  .join(", ") // Elimina corchetes y comillas y une con comas
+              : typeof product.category === "string"
+              ? product.category.replace(/[\[\]"]/g, "") // Elimina corchetes y comillas si es un string
+              : "Sin categoría"}
+          </span>
+        </div>
+        <div className="mt-2">
+          <BsDropletHalf className="text-info me-2" />
+          <span>
+            <strong>Dosis:</strong> {product.dose || "No especificada"}
+          </span>
+        </div>
+        <div className="mt-2">
+          <BsClockHistory className="text-success me-2" />
+          <span>
+            <strong>Duración Residual:</strong> {product.residual_duration || "No especificada"}
+          </span>
+        </div>
+      </Card.Body>
       <Card.Footer
         className="text-center position-relative"
         style={{ background: "#f9f9f9", cursor: "pointer" }}
@@ -528,9 +571,9 @@ function ProductList() {
             <BsGrid className="text-warning me-2" />
             Categoría:
           </strong>{" "}
-          {selectedProduct.category.length > 0
-            ? selectedProduct.category.join(", ")
-            : "Sin categoría"}
+          {Array.isArray(selectedProduct.category) && selectedProduct.category.length > 0
+  ? selectedProduct.category.join(", ")
+  : "Sin categoría"}
         </p>
 
         <p>
