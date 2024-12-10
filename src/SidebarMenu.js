@@ -95,61 +95,79 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
         </button>
       </div>
       <div className="nav-item">
-        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/users')}>
-          <PersonFillGear size={20} />
-          {isOpen && <span>Usuarios</span>}
-        </button>
+  {user?.rol === 'Superadministrador' || user?.rol === 'Administrador' ? (
+    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/users')}>
+      <PersonFillGear size={20} />
+      {isOpen && <span>Usuarios</span>}
+    </button>
+  ) : null}
+</div>
+<div className="nav-item">
+  {user?.rol !== 'Técnico' ? (
+    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/clients')}>
+      <People size={20} />
+      {isOpen && <span>Clientes</span>}
+    </button>
+  ) : null}
+</div>
+      <div className="nav-item">
+      {user?.rol !== 'Técnico' ? (
+    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/clients')}>
+      <Calendar3 size={20} />
+      {isOpen && <span>Calendario</span>}
+    </button>
+  ) : null}
       </div>
       <div className="nav-item">
-        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/clients')}>
-          <People size={20} />
-          {isOpen && <span>Clientes</span>}
-        </button>
-      </div>
+  {user?.rol !== 'Comercial' ? (
+    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/myservices-calendar')}>
+      <CalendarEvent size={20} />
+      {isOpen && <span>Mi Calendario</span>}
+    </button>
+  ) : null}
+</div>
+
       <div className="nav-item">
-        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/services-calendar')}>
-          <Calendar3 size={20} />
-          {isOpen && <span>Calendario</span>}
-        </button>
-      </div>
-      <div className="nav-item">
-        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/myservices-calendar')}>
-          <CalendarEvent size={20} />
-          {isOpen && <span>Mi Calendario</span>}
-        </button>
+      {user?.rol !== 'Técnico' ? (
+    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/services')}>
+      <ClipboardCheck size={20} />
+      {isOpen && <span>Servicios</span>}
+    </button>
+  ) : null}
       </div>
 
       <div className="nav-item">
-        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/services')}>
-          <ClipboardCheck size={20} />
-          {isOpen && <span>Servicios</span>}
-        </button>
-      </div>
-
-      <div className="nav-item">
-        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/myservices')}>
-          <BoxArrowInUpRight size={20} />
-          {isOpen && <span>Mis Servicios</span>}
-        </button>
+      {user?.rol !== 'Comercial' ? (
+    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/myservices')}>
+      <BoxArrowInUpRight size={20} />
+      {isOpen && <span>Mis Servicios</span>}
+    </button>
+  ) : null}
       </div>
       <div className="nav-item">
-        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/inspections')}>
-          <FileText size={20} />
-          {isOpen && <span>Inspecciones</span>}
-        </button>
-      </div>
-      <div className="nav-item">
-        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/products')}>
-          <Eyedropper size={20} />
-          {isOpen && <span>Productos</span>}
-        </button>
-      </div>
-      <div className="nav-item">
-        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/consumption')}>
-          <GraphUp size={20} />
-          {isOpen && <span>Consumo</span>}
-        </button>
-      </div>
+  {user?.rol !== 'Comercial' && user?.rol !== 'Técnico' ? (
+    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/inspections')}>
+      <FileText size={20} />
+      {isOpen && <span>Inspecciones</span>}
+    </button>
+  ) : null}
+</div>
+<div className="nav-item">
+  {user?.rol !== 'Comercial' && user?.rol !== 'Técnico' ? (
+    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/products')}>
+      <Eyedropper size={20} />
+      {isOpen && <span>Productos</span>}
+    </button>
+  ) : null}
+</div>
+<div className="nav-item">
+  {user?.rol !== 'Técnico' && user?.rol !== 'Comercial' && user?.rol !== 'Supervisor Técnico' ? (
+    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/consumption')}>
+      <GraphUp size={20} />
+      {isOpen && <span>Consumo</span>}
+    </button>
+  ) : null}
+</div>
       <div className="nav-item">
         <button className="nav-link btn btn-link" onClick={handleLogout} title="Cerrar Sesión">
           <BoxArrowRight size={20} />
