@@ -28,6 +28,13 @@ function Billing() {
   const [clientNames, setClientNames] = useState({});
   const [showPestOptions, setShowPestOptions] = useState(false);
   const [filterStatus, setFilterStatus] = useState(''); // Estado para el filtro de agendamiento
+  const [selectedInspections, setSelectedInspections] = useState([]);
+  const [billingData, setBillingData] = useState([]);
+  const [showBillingModal, setShowBillingModal] = useState(false);
+  const [billingFile, setBillingFile] = useState(null);
+  const [billedServices, setBilledServices] = useState([]); // Estado para almacenar los servicios facturados
+  const [showBilled, setShowBilled] = useState(null); // Estado para alternar entre facturados/no facturados
+  const [loadingAnimation, setLoadingAnimation] = useState(false);
   const [showInterventionAreasOptions, setShowInterventionAreasOptions] = useState(false);
   const [newInspection, setNewInspection] = useState({
     inspection_type: [], // Tipos de inspección seleccionados
@@ -94,6 +101,310 @@ function Billing() {
     }
   };
 
+  const showNotification = (title, message) => {
+    setNotification({ show: true, title, message });
+    setTimeout(() => {
+      setNotification({ show: false, title, message: '' });
+    }, 2500); // 2.5 segundos
+  };
+
+  const determineScheduleStatus = (service, events) => {
+    const serviceEvents = events.filter((event) => event.service_id === service.id);
+    const filteredEvents = serviceEvents.filter(
+      (event) =>
+        moment(event.date).month() + 1 === selectedMonth && moment(event.date).year() === selectedYear
+    );
+  
+    if (service.category === 'Puntual') {
+      return filteredEvents.length > 0 ? 'Agendado' : 'Pendiente de Agenda';
+    } else if (service.category === 'Periódico') {
+      if (filteredEvents.length >= service.quantity_per_month) {
+        return 'Agendado';
+      } else if (filteredEvents.length > 0) {
+        return 'Agendamiento Parcial';
+      } else {
+        return 'Pendiente de Agenda';
+      }
+    }
+  
+    return 'Sin Categoría';
+  };
+  
+
+  const fetchBilledServices = async () => {
+    try {
+      const response = await axios.get('http://localhost:10000/api/billing');
+      const billingData = response.data;
+  
+      console.log("Datos recibidos de facturación:", billingData);
+  
+      // Extraer IDs de servicios facturados desde billing_data
+      const billedServiceIds = billingData.flatMap((billing) => {
+        if (billing.billing_data && Array.isArray(billing.billing_data)) {
+          return billing.billing_data.flatMap((entry) =>
+            entry.services.map((service) => service.service_id)
+          );
+        } else {
+          console.warn("billing_data no encontrado o no es un array en:", billing);
+          return [];
+        }
+      });
+  
+      console.log("IDs de servicios facturados extraídos:", billedServiceIds);
+  
+      setBilledServices(billedServiceIds);
+    } catch (error) {
+      console.error("Error fetching billed services:", error);
+    }
+  }; 
+
+  const fetchTechnicians = async () => {
+    try {
+      const response = await axios.get('http://localhost:10000/api/users?role=Technician');
+      setTechnicians(response.data);
+    } catch (error) {
+      console.error("Error fetching technicians:", error);
+    }
+  }; 
+
+  const fetchInspections = async (serviceId) => {
+    try {
+      const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
+      const formattedInspections = response.data
+        .filter((inspection) => inspection.service_id === serviceId) // Filtra por `service_id`
+        .map((inspection) => ({
+          ...inspection,
+          date: moment(inspection.date).format("DD/MM/YYYY"), // Formato legible para la fecha
+          time: inspection.time ? moment(inspection.time, "HH:mm:ss").format("HH:mm") : "--",
+          exit_time: inspection.exit_time ? moment(inspection.exit_time, "HH:mm:ss").format("HH:mm") : "--",
+          observations: inspection.observations || "Sin observaciones",
+        }))
+        .sort((a, b) => b.datetime - a.datetime); // Ordena por fecha y hora
+      setInspections(formattedInspections);
+    } catch (error) {
+      console.error("Error fetching inspections:", error);
+    }
+  };
+
+  const applyFilters = () => {
+    if (services.length === 0) return; // Si no hay servicios, no hacer nada
+  
+    let filtered = services.map((service) => {
+      const status = determineScheduleStatus(service, scheduleEvents);
+  
+      // Determina si está facturado, manejando casos donde `billedServices` está vacío
+      const isBilled = 
+        service.category === 'Puntual'
+          ? billedServices.includes(service.id)
+          : service.category === 'Periódico'
+          ? billedServices.some(
+              (billedService) =>
+                billedService === service.id &&
+                moment(service.billing_date).year() === selectedYear &&
+                moment(service.billing_date).month() + 1 === selectedMonth
+            )
+          : false;
+  
+      return { ...service, scheduleStatus: status, isBilled };
+    });
+  
+    // Filtro por mes y año
+    if (selectedMonth && selectedYear) {
+        const selectedDate = moment(`${selectedYear}-${selectedMonth}-01`); // Fecha del primer día del mes seleccionado
+        filtered = filtered.filter((service) => {
+          const serviceCreatedAt = moment(service.created_at);
+          return serviceCreatedAt.isSameOrBefore(selectedDate, 'month'); // Verifica que sea menor o igual al mes y año seleccionados
+        });
+      }      
+  
+    // Filtro por texto de búsqueda
+    if (searchServiceText) {
+      filtered = filtered.filter(
+        (service) =>
+          service.id.toString().includes(searchServiceText) ||
+          (clients.find((client) => client.id === service.client_id)?.name || '')
+            .toLowerCase()
+            .includes(searchServiceText.toLowerCase()) ||
+          (technicians.find((tech) => tech.id === service.responsible)?.name || '')
+            .toLowerCase()
+            .includes(searchServiceText.toLowerCase())
+      );
+    }
+  
+    // Filtro por cliente
+    if (selectedClient) {
+      filtered = filtered.filter((service) => service.client_id === parseInt(selectedClient));
+    }
+  
+    // Filtro por responsable
+    if (selectedUser) {
+      filtered = filtered.filter((service) => service.responsible === selectedUser);
+    }
+  
+    // Filtro por estado de agenda
+    if (filterStatus) {
+      filtered = filtered.filter((service) => service.scheduleStatus === filterStatus);
+    }
+  
+    // Filtro por estado de facturación, independientemente de si `billedServices` está vacío
+    if (showBilled !== null) {
+      filtered = filtered.filter((service) => service.isBilled === showBilled);
+    }
+  
+    setFilteredServices(filtered); // Actualiza el estado con los datos filtrados
+  };  
+  
+  const handleAddToBilling = (selectedInspections) => {
+    setShowDetailsModal(false);
+    // Obtener inspecciones seleccionadas con sus servicios y clientes
+    const selectedDetails = selectedInspections.map((inspectionId) => {
+      const inspection = inspections.find((insp) => insp.id === inspectionId);
+      if (!inspection) return null; // Verifica que la inspección exista
+      const service = services.find((serv) => serv.id === inspection.service_id);
+      if (!service) return null; // Verifica que el servicio exista
+      return {
+        inspection_id: inspection.id,
+        service_id: service.id,
+        client_id: service.client_id,
+      };
+    }).filter(Boolean); // Elimina valores nulos del mapeo
+  
+    const updatedBillingData = [...billingData];
+  
+    selectedDetails.forEach((current) => {
+      // Buscar cliente en billingData
+      const clientIndex = updatedBillingData.findIndex((item) => item.client_id === current.client_id);
+  
+      if (clientIndex !== -1) {
+        // Si el cliente ya existe, buscar el servicio
+        const serviceIndex = updatedBillingData[clientIndex].services.findIndex(
+          (svc) => svc.service_id === current.service_id
+        );
+  
+        if (serviceIndex !== -1) {
+          // Si el servicio ya existe, agregar la inspección si no está duplicada
+          if (
+            !updatedBillingData[clientIndex].services[serviceIndex].inspections.includes(
+              current.inspection_id
+            )
+          ) {
+            updatedBillingData[clientIndex].services[serviceIndex].inspections.push(
+              current.inspection_id
+            );
+          }
+        } else {
+          // Si el servicio no existe, agregarlo al cliente
+          updatedBillingData[clientIndex].services.push({
+            service_id: current.service_id,
+            inspections: [current.inspection_id],
+          });
+        }
+      } else {
+        // Si el cliente no existe, agregarlo con el servicio y la inspección
+        updatedBillingData.push({
+          client_id: current.client_id,
+          services: [
+            {
+              service_id: current.service_id,
+              inspections: [current.inspection_id],
+            },
+          ],
+        });
+      }
+    });
+  
+    // Actualizar billingData con los datos organizados
+    setBillingData(updatedBillingData);
+  };  
+  
+  const isCheckboxDisabled = (inspection) => {
+    if (billingData.length === 0) return false; // Si no hay facturación activa, no bloquear
+    const service = services.find((svc) => svc.id === inspection.service_id);
+    if (!service) return true; // Si no encuentra el servicio, deshabilitar el checkbox
+    return billingData[0].client_id !== service.client_id; // Comparar cliente del servicio con el cliente en facturación
+  };
+  
+  // Función para limpiar la facturación
+  const resetBillingData = () => {
+    setBillingData([]);
+    setSelectedInspections([]);
+  };
+  
+  // Calcular totales para el botón Facturar
+  const totalServices = billingData.reduce((acc, client) => acc + client.services.length, 0);
+  const totalInspections = billingData.reduce(
+    (acc, client) => acc + client.services.reduce((sum, svc) => sum + svc.inspections.length, 0),
+    0
+  );
+
+  const openBillingModal = () => {
+    setShowBillingModal(true);
+  };
+  
+  const closeBillingModal = () => {
+    setShowBillingModal(false);
+  };  
+
+  // Función para enviar los datos al backend
+  const handleSubmitBilling = async () => {
+    // Verifica si hay un archivo seleccionado
+    if (!billingFile) {
+      showNotification('Error', 'Por favor selecciona un comprobante antes de facturar.');
+      return;
+    }
+  
+    console.log('Datos de facturación antes de enviar:', billingData);
+    console.log('Archivo seleccionado:', billingFile);
+  
+    // Crear el FormData para enviar el archivo y los datos
+    const formData = new FormData();
+    formData.append('billingData', JSON.stringify(billingData));
+    formData.append('file', billingFile);
+  
+    try {
+      // Enviar la facturación al backend
+      const response = await axios.post('http://localhost:10000/api/billing', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+  
+      console.log('Respuesta del backend:', response.data);
+  
+      // Limpia los datos de facturación y el archivo cargado
+      resetBillingData();
+      setBillingFile(null);
+  
+      // Actualiza los servicios localmente eliminando los facturados
+      setServices((prevServices) =>
+        prevServices.filter((service) =>
+          !billingData.some((client) =>
+            client.services.some((billedService) => billedService.service_id === service.id)
+          )
+        )
+      );
+  
+      // Vuelve a aplicar los filtros para reorganizar la lista
+      applyFilters();
+  
+      // Notifica el éxito
+      showNotification('Éxito', 'La facturación se procesó correctamente.');
+      setShowBillingModal(false);
+    } catch (error) {
+      console.error('Error al enviar los datos de facturación:', error);
+  
+      // Notifica el error
+      showNotification('Error', 'Hubo un problema al procesar la facturación.');
+    }
+  };
+  
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    setBillingFile(file);
+  };  
+
+   
+  
+   
   useEffect(() => {
     // Agregar evento de clic al documento cuando hay un menú desplegable abierto
     if (expandedCardId !== null) {
@@ -108,12 +419,7 @@ function Billing() {
     };
   }, [expandedCardId]);
 
-  const showNotification = (title, message) => {
-    setNotification({ show: true, title, message });
-    setTimeout(() => {
-      setNotification({ show: false, title, message: '' });
-    }, 2500); // 2.5 segundos
-  };
+  
 
   const serviceOptions = [
     "Desinsectación",
@@ -174,35 +480,59 @@ const interventionAreaOptions = [
 
   const navigate = useNavigate();
 
-  const fetchTechnicians = async () => {
-    try {
-      const response = await axios.get('http://localhost:10000/api/users?role=Technician');
-      setTechnicians(response.data);
-    } catch (error) {
-      console.error("Error fetching technicians:", error);
-    }
-  };  
-
   useEffect(() => {
     moment.locale('es');
     const fetchData = async () => {
-      try {
-        const servicesResponse = await axios.get('http://localhost:10000/api/services');
-        const clientsResponse = await axios.get('http://localhost:10000/api/clients');
-        const techniciansResponse = await axios.get('http://localhost:10000/api/users?role=Technician');
+        setLoading(true);
+        try {
+            const [servicesResponse, clientsResponse, techniciansResponse] = await Promise.all([
+                axios.get('http://localhost:10000/api/services'),
+                axios.get('http://localhost:10000/api/clients'),
+                axios.get('http://localhost:10000/api/users?role=Technician'),
+            ]);
+    
+            setServices(servicesResponse.data);
+            setClients(clientsResponse.data);
+            setTechnicians(techniciansResponse.data);
+    
+            await fetchBilledServices();
+    
+            setLoading(false); // Datos listos
+            applyFilters(); // Aplica los filtros una vez que los datos estén cargados
 
-        setServices(servicesResponse.data);
-        setClients(clientsResponse.data);
-        setTechnicians(techniciansResponse.data);
-        setFilteredServices(servicesResponse.data);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        setLoading(false);
-      }
+            // Activar animación durante 1 segundo después de que se complete la carga
+            setLoadingAnimation(true);
+            setTimeout(() => {
+              setLoadingAnimation(false);
+            }, 1000);
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            setLoading(false);
+        }
     };
-    fetchData();
-  }, []);
+    
+    
+      fetchData();
+    }, []);
+
+    // Condición para mostrar animación de carga
+  const isLoading = loading || loadingAnimation;
+
+  useEffect(() => {
+    if (!loading && services.length > 0 && billedServices.length > 0) {
+        applyFilters();
+    }
+  }, [loading, services, billedServices, searchServiceText, selectedClient, selectedUser, filterStatus, showBilled, selectedMonth, selectedYear, scheduleEvents]);
+ 
+  useEffect(() => {
+    if (!loading && services.length > 0 && clients.length > 0) {
+        setShowBilled(true);
+        setTimeout(() => {
+            setShowBilled(false);
+        }, 5);
+    }
+}, [loading, services, clients]);
+
 
   useEffect(() => {
     const fetchServicesAndClients = async () => {
@@ -241,132 +571,6 @@ const interventionAreaOptions = [
     fetchServicesAndClients();
     fetchTechnicians();
   }, []); // Asegúrate de que las dependencias sean vacías para ejecutarse solo al montar.
-  
-  
-  useEffect(() => {
-    const applyFilters = () => {
-      // Recalcular el estado de cada servicio
-      const updatedServices = services.map(service => {
-        const status = determineScheduleStatus(service, scheduleEvents); // Recalcula el estado basado en el mes y año seleccionados
-        return { ...service, scheduleStatus: status };
-      });
-  
-      let filtered = updatedServices;
-  
-      // Filtrar servicios creados en o antes del mes y año seleccionados
-      filtered = filtered.filter(service => {
-        const serviceCreatedAt = moment(service.created_at); // Deja que moment interprete el formato ISO automáticamente
-        const selectedDate = moment(`${selectedYear}-${selectedMonth}-01`, 'YYYY-MM-DD');
-        
-        console.log("Service ID:", service.id);
-        console.log("Created At:", service.created_at);
-        console.log("Parsed Created At:", serviceCreatedAt.format('YYYY-MM-DD'));
-        console.log("Selected Date:", selectedDate.format('YYYY-MM-DD'));
-        console.log("Is Same Or Before:", serviceCreatedAt.isSameOrBefore(selectedDate, 'month'));
-  
-        return serviceCreatedAt.isSameOrBefore(selectedDate, 'month'); // Verifica si la fecha de creación es menor o igual al mes seleccionado
-      });
-  
-      // Filtro por texto de búsqueda
-      if (searchServiceText) {
-        filtered = filtered.filter((service) =>
-          service.id.toString().includes(searchServiceText) || // Busca por ID
-          (clients.find((client) => client.id === service.client_id)?.name || "")
-            .toLowerCase()
-            .includes(searchServiceText.toLowerCase()) || // Busca por nombre del cliente
-          (technicians.find((tech) => tech.id === service.responsible)?.name || "")
-            .toLowerCase()
-            .includes(searchServiceText.toLowerCase()) // Busca por responsable
-        );
-      }
-  
-      // Filtro por cliente seleccionado
-      if (selectedClient) {
-        filtered = filtered.filter((service) => service.client_id === parseInt(selectedClient));
-      }
-  
-      // Filtro por responsable seleccionado
-      if (selectedUser) {
-        filtered = filtered.filter((service) => service.responsible === selectedUser);
-      }
-  
-      // Filtro por estado de agendamiento
-      if (filterStatus) {
-        filtered = filtered.filter((service) => service.scheduleStatus === filterStatus);
-      }
-  
-      // Actualizar servicios filtrados
-      setFilteredServices(filtered);
-    };
-  
-    applyFilters();
-  }, [
-    searchServiceText,
-    selectedClient,
-    selectedUser,
-    filterStatus,
-    services,
-    scheduleEvents,
-    selectedMonth,
-    selectedYear,
-    clients,
-    technicians
-  ]);
-  
-  
-  useEffect(() => {
-    let filtered = services;
-
-    // Aplicar filtro por texto de búsqueda
-    if (searchServiceText) {
-      filtered = filtered.filter(
-        (service) =>
-          service.id.toLowerCase().includes(searchServiceText.toLowerCase()) || // Buscar por ID completo
-          (clients.find((client) => client.id === service.client_id)?.name || "")
-            .toLowerCase()
-            .includes(searchServiceText.toLowerCase()) || // Buscar por cliente
-          (technicians.find((tech) => tech.id === service.responsible)?.name || "")
-            .toLowerCase()
-            .includes(searchServiceText.toLowerCase()) // Buscar por responsable
-      );      
-    }
-
-    // Aplicar filtro por cliente seleccionado
-    if (selectedClient) {
-      filtered = filtered.filter((service) => service.client_id === parseInt(selectedClient));
-    }
-
-    // Aplicar filtro por responsable seleccionado
-    if (selectedUser) {
-      filtered = filtered.filter((service) => service.responsible === selectedUser);
-    }
-
-    setFilteredServices(filtered);
-  }, [searchServiceText, selectedClient, selectedUser, services, clients, technicians]);
-
-  if (loading) return <div>Cargando servicios...</div>;
-
-  const determineScheduleStatus = (service, events) => {
-    const serviceEvents = events.filter(event => event.service_id === service.id);
-    const filteredEvents = serviceEvents.filter(event =>
-      moment(event.date).month() + 1 === selectedMonth && // Compara con el mes seleccionado
-      moment(event.date).year() === selectedYear // Compara con el año seleccionado
-    );
-  
-    if (service.category === 'Puntual') {
-      return filteredEvents.length > 0 ? 'Agendado' : 'Pendiente de Agenda';
-    } else if (service.category === 'Periódico') {
-      if (filteredEvents.length >= service.quantity_per_month) {
-        return 'Agendado';
-      } else if (filteredEvents.length > 0) {
-        return 'Agendamiento Parcial';
-      } else {
-        return 'Pendiente de Agenda';
-      }
-    }
-    return 'Sin Categoría';
-  };
-  
 
   const handleServiceSearchChange = (e) => {
     const input = e.target.value;
@@ -386,26 +590,7 @@ const interventionAreaOptions = [
     }
   
     setFilteredServices(filtered);
-  };  
-
-  const fetchInspections = async (serviceId) => {
-    try {
-      const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
-      const formattedInspections = response.data
-        .filter((inspection) => inspection.service_id === serviceId) // Filtra por `service_id`
-        .map((inspection) => ({
-          ...inspection,
-          date: moment(inspection.date).format("DD/MM/YYYY"), // Formato legible para la fecha
-          time: inspection.time ? moment(inspection.time, "HH:mm:ss").format("HH:mm") : "--",
-          exit_time: inspection.exit_time ? moment(inspection.exit_time, "HH:mm:ss").format("HH:mm") : "--",
-          observations: inspection.observations || "Sin observaciones",
-        }))
-        .sort((a, b) => b.datetime - a.datetime); // Ordena por fecha y hora
-      setInspections(formattedInspections);
-    } catch (error) {
-      console.error("Error fetching inspections:", error);
-    }
-  };  
+  };    
 
   const handleSearchChange = (e) => {
     const input = e.target.value;
@@ -439,12 +624,22 @@ const filteredTechniciansForCompanion = technicians.filter(
   (technician) => technician.id !== newService.responsible
 );  
 
-  if (loading) return <div>Cargando servicios...</div>;
-
-  return (
-      <div className="container mt-1">
-      <Row className="align-items-center mb-2" style={{ minHeight: 0, height: 'auto' }}>
-        <Col className='ms-auto' xs={6} md={2}>
+return (
+    <div className="container mt-1">
+      {isLoading ? (
+        <div className="loading-animation-container">
+          <div className="spinner"></div>
+          <p>Cargando datos...</p>
+        </div>
+      ) : (
+        <>
+          <Row className="align-items-center mb-2" style={{ minHeight: 0, height: 'auto' }}>
+        <Col className="ms-auto m-0" xs={6} md={2}>
+            <Button className='w-100' variant="outline-success" onClick={openBillingModal} disabled={billingData.length === 0}>
+                Facturar ({totalServices}) ({totalInspections})
+            </Button>
+        </Col>
+        <Col xs={6} md={2}>
             <Form.Group controlId="formMonthFilter">
                 <Form.Control
                 as="select"
@@ -630,83 +825,223 @@ const filteredTechniciansForCompanion = technicians.filter(
           </div>
         </Col>
       </Row>
-
+        </>
+      )}
       <Modal
-        show={showDetailsModal}
-        onHide={() => setShowDetailsModal(false)}
-        size="lg"
-        centered
-        >
-        <Modal.Header closeButton>
-            <Modal.Title className="fw-bold">
-            <GearFill className="me-2" /> Detalles del Servicio
-            </Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="bg-light p-4">
-            {selectedService && (
-            <div className="d-flex flex-column gap-4">
-                {/* Información General */}
-                <div className="bg-white shadow-sm rounded p-3">
-                <h5 className="text-secondary mb-3">
-                    <InfoCircle className="me-2" /> Información General
-                </h5>
-                <div className="d-flex flex-column gap-2">
-                    <p className="my-1">
-                    <strong>ID del Servicio:</strong> {selectedService.id}
-                    </p>
-                    <p className="my-1">
-                    <strong>Tipo de Servicio:</strong>{" "}
-                    {selectedService.service_type
-                        .replace(/[\{\}"]/g, "")
-                        .split(",")
-                        .join(", ")}
-                    </p>
-                    <p className="my-1">
-                    <strong>Cliente:</strong>{" "}
-                    {clientNames[selectedService.client_id] || "Cliente Desconocido"}
-                    </p>
-                    <p className="my-1">
-                    <strong>Responsable:</strong>{" "}
-                    {technicians.find((tech) => tech.id === selectedService.responsible)?.name || "No asignado"}
-                    </p>
-                    <p className="my-1">
-                    <strong>Valor:</strong> ${selectedService.value}
-                    </p>
-                </div>
-                </div>
+  show={showDetailsModal}
+  onHide={() => setShowDetailsModal(false)}
+  size="lg"
+  centered
+>
+  <Modal.Header closeButton>
+    <Modal.Title className="fw-bold">
+      <GearFill className="me-2" /> Detalles del Servicio
+    </Modal.Title>
+  </Modal.Header>
+  <Modal.Body className="bg-light p-4">
+    {selectedService && (
+      <div className="d-flex flex-column gap-4">
+        {/* Información General */}
+        <div className="bg-white shadow-sm rounded p-3">
+          <h5 className="text-secondary mb-3">
+            <InfoCircle className="me-2" /> Información General
+          </h5>
+          <div className="d-flex flex-column gap-2">
+            <p className="my-1">
+              <strong>ID del Servicio:</strong> {selectedService.id}
+            </p>
+            <p className="my-1">
+              <strong>Tipo de Servicio:</strong>{" "}
+              {selectedService.service_type
+                .replace(/[\{\}"]/g, "")
+                .split(",")
+                .join(", ")}
+            </p>
+            <p className="my-1">
+              <strong>Cliente:</strong>{" "}
+              {clientNames[selectedService.client_id] || "Cliente Desconocido"}
+            </p>
+            <p className="my-1">
+              <strong>Responsable:</strong>{" "}
+              {technicians.find((tech) => tech.id === selectedService.responsible)?.name || "No asignado"}
+            </p>
+            <p className="my-1">
+              <strong>Valor:</strong> ${selectedService.value}
+            </p>
+          </div>
+        </div>
 
-                {/* Inspecciones */}
-                <div className="bg-white shadow-sm rounded p-3">
-                <h5 className="text-secondary mb-3">
-                    <Clipboard className="me-2" /> Inspecciones
-                </h5>
-                {inspections.length > 0 ? (
-                    <ul className="list-unstyled">
-                    {inspections.map((inspection) => (
-                        <li key={inspection.id} className="mb-2">
-                        <strong>ID:</strong> {inspection.id} <br />
-                        <strong>Fecha:</strong> {inspection.date} <br />
-                        <strong>Inicio:</strong> {inspection.time} <br />
-                        <strong>Finalización:</strong> {inspection.exit_time} <br />
-                        <strong>Observaciones:</strong>{" "}
-                        {inspection.observations || "Sin observaciones"}
-                        </li>
-                    ))}
-                    </ul>
-                ) : (
-                    <p>No hay inspecciones registradas para este servicio.</p>
-                )}
-                </div>
-            </div>
-            )}
-        </Modal.Body>
-        <Modal.Footer>
-            <Button variant="dark" onClick={() => setShowDetailsModal(false)}>
-            Cerrar
+        {/* Inspecciones */}
+        <div className="bg-white shadow-sm rounded p-3">
+          <h5 className="text-secondary mb-3">
+            <Clipboard className="me-2" /> Inspecciones
+          </h5>
+          {inspections.length > 0 ? (
+            <Table bordered hover>
+            <thead>
+              <tr>
+                <th>
+                <Form.Check
+                    type="checkbox"
+                    onChange={(e) => {
+                        const isChecked = e.target.checked;
+                        setSelectedInspections(
+                        isChecked
+                            ? inspections
+                                .filter((inspection) => !isCheckboxDisabled(inspection)) // Solo agregar inspecciones habilitadas
+                                .map((inspection) => inspection.id)
+                            : []
+                        );
+                    }}
+                    checked={
+                        selectedInspections.length ===
+                        inspections.filter((inspection) => !isCheckboxDisabled(inspection)).length &&
+                        inspections.filter((inspection) => !isCheckboxDisabled(inspection)).length > 0
+                    }
+                />
+                </th>
+                <th>ID</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inspections.map((inspection) => {
+                let findings = {};
+                if (typeof inspection.findings === "string") {
+                  try {
+                    findings = JSON.parse(inspection.findings);
+                  } catch (error) {
+                    console.error(`Error parsing findings for inspection ID ${inspection.id}:`, error);
+                    findings = {};
+                  }
+                } else if (typeof inspection.findings === "object" && inspection.findings !== null) {
+                  findings = inspection.findings;
+                }
+          
+                const hasClientSignature = findings.signatures?.client?.signature || false;
+                const hasTechnicianSignature = findings.signatures?.technician?.signature || false;
+                const isFinalized = hasClientSignature && hasTechnicianSignature;
+          
+                return (
+                  <tr key={inspection.id}>
+                    <td>
+                    <Form.Check
+                        type="checkbox"
+                        disabled={isCheckboxDisabled(inspection)} // Bloquear inspecciones de otros clientes
+                        onChange={(e) => {
+                            const isChecked = e.target.checked;
+                            setSelectedInspections((prev) =>
+                            isChecked
+                                ? [...prev, inspection.id]
+                                : prev.filter((id) => id !== inspection.id)
+                            );
+                        }}
+                        checked={selectedInspections.includes(inspection.id)}
+                    />
+                    </td>
+                    <td>{inspection.id}</td>
+                    <td>{inspection.date}</td>
+                    <td>{isFinalized ? "Finalizada" : "Pendiente"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>              
+          ) : (
+            <p>No hay inspecciones registradas para este servicio.</p>
+          )}
+          {/* Botón Agregar a Facturación */}
+        <div className="d-flex justify-content-end mt-3">
+            <Button
+              variant="success"
+              onClick={() => handleAddToBilling(selectedInspections)}
+              disabled={selectedInspections.length === 0}
+            >
+              Agregar a Facturación
             </Button>
-        </Modal.Footer>
-        </Modal>
+          </div> 
+        </div>
+      </div>
+    )}
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="dark" onClick={() => setShowDetailsModal(false)}>
+      Cerrar
+    </Button>
+  </Modal.Footer>
+</Modal>
 
+<Modal
+  show={showBillingModal}
+  onHide={closeBillingModal}
+  size="lg"
+  centered
+>
+  <Modal.Header closeButton>
+    <Modal.Title className="fw-bold">
+      <GearFill className="me-2" /> Facturación
+    </Modal.Title>
+  </Modal.Header>
+  <Modal.Body className="bg-light p-4">
+    {billingData.length > 0 && (
+      <div>
+        {/* Información del cliente */}
+        <div className="bg-white shadow-sm rounded p-3 mb-3">
+          <h5 className="text-secondary">Información del Cliente</h5>
+          <p>
+            <strong>Tipo de Documento:</strong>{" "}
+            {clients.find((client) => client.id === billingData[0].client_id)?.document_type || "N/A"}
+          </p>
+          <p>
+            <strong>Número de Documento:</strong>{" "}
+            {clients.find((client) => client.id === billingData[0].client_id)?.document_number || "N/A"}
+          </p>
+        </div>
+
+        {/* Información por servicio */}
+        {billingData[0].services.map((service) => {
+          const serviceInfo = services.find((svc) => svc.id === service.service_id);
+          return (
+            <div key={service.service_id} className="bg-white shadow-sm rounded p-3 mb-3">
+              <h5 className="text-secondary">{serviceInfo?.id} | {serviceInfo?.service_type.replace(/[{}"]/g, '').split(',').join(', ')}</h5>
+              <p>
+                <strong>Valor del Servicio:</strong> ${serviceInfo?.value || "0"}
+              </p>
+              <h6>Inspecciones:</h6>
+              <ul>
+                {service.inspections.map((inspectionId) => (
+                  <li key={inspectionId}>Inspección: {inspectionId}</li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+
+        {/* Comprobante de Facturación */}
+        <div className="bg-white shadow-sm rounded p-3 mb-3">
+          <h5 className="text-secondary">Comprobante de Facturación</h5>
+          <Form.Group controlId="formFile" className="mb-3">
+            <Form.Label>Subir Comprobante</Form.Label>
+            <Form.Control
+              type="file"
+              onChange={handleFileChange}
+              accept=".pdf,.jpg,.png,.jpeg"
+            />
+          </Form.Group>
+        </div>
+      </div>
+    )}
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="danger" onClick={resetBillingData}>
+      Borrar
+    </Button>
+    <Button variant="success" onClick={handleSubmitBilling}>
+      Facturar
+    </Button>
+  </Modal.Footer>
+</Modal>
     </div>
     
   );
