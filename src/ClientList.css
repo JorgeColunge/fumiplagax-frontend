@@ -210,3 +210,80 @@
   border-radius: 10px; /* Redondea las esquinas del modal */
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Añade sombra */
 }
+
+.map-card-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 columnas fijas */
+  gap: 16px; /* Espaciado entre las tarjetas */
+  align-items: center; /* Centra las tarjetas verticalmente */
+  justify-items: center; /* Centra las tarjetas horizontalmente */
+}
+
+.map-card {
+  width: 220px; /* Ancho fijo */
+  height: 300px; /* Alto fijo */
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease; /* Efecto suave al pasar el mouse */
+}
+
+.map-card:hover {
+  transform: scale(1.05); /* Efecto hover */
+}
+
+.map-card img {
+  width: 100%; /* La imagen ocupa todo el ancho disponible */
+  height: 200px; /* Altura fija */
+  object-fit: cover; /* Se ajusta sin deformarse */
+  border-radius: 4px;
+}
+
+.map-card-description {
+  margin-top: 0.5rem;
+  font-size: 14px;
+  color: #333;
+}
+
+.custom-image-modal .modal-dialog {
+  width: auto; /* El modal se adapta al contenido */
+  max-width: 95%; /* Asegura que el modal no ocupe toda la pantalla */
+}
+
+.custom-image-modal .modal-content {
+  background-color: #f9f9f9;
+  padding: 15px;
+  border-radius: 12px;
+}
+
+.custom-image-modal .modal-body {
+  padding: 0; /* Elimina márgenes alrededor de la imagen */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.custom-image-modal img {
+  max-width: 120%; /* Permite que la imagen sea más grande */
+  width: auto;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Añade un efecto de sombra */
+}
+
+.image-modal {
+  display: flex;
+  align-items: center; /* Centra la imagen verticalmente */
+  justify-content: center; /* Centra la imagen horizontalmente */
+  overflow: hidden; /* Evita cualquier scroll dentro del modal */
+}
+
+.image-modal img {
+  height: 400px; /* Fija el alto de la imagen */
+  width: auto; /* El ancho se adapta automáticamente al alto */
+  max-width: 100%; /* Asegura que no desborde horizontalmente */
+  object-fit: contain; /* Mantiene las proporciones de la imagen */
+}

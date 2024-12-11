@@ -22,6 +22,8 @@ const customIcon = new L.Icon({
 
 function ClientList() {
   const [clients, setClients] = useState([]);
+  const [showAddMapModal, setShowAddMapModal] = useState(false); // ✅ Correcto
+  const [newMap, setNewMap] = useState({ description: "", image: null });
   const [filteredClients, setFilteredClients] = useState([]); // Para almacenar los clientes filtrados
   const [searchText, setSearchText] = useState(''); // Estado para el texto de búsqueda
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,8 @@ function ClientList() {
   const [selectedNumber, setSelectedNumber] = useState(null);
   const [airStations, setAirStations] = useState([]);
   const [rodentStations, setRodentStations] = useState([]);
+  const [showImageModal, setShowImageModal] = useState(false); // Controla la visualización del modal
+  const [selectedImage, setSelectedImage] = useState(null); // Almacena la URL de la imagen seleccionada
   const [newClient, setNewClient] = useState({
     name: '',
     address: '',
@@ -352,9 +356,9 @@ const handleSaveNewAirStation = async () => {
 
   // Función para manejar la visualización del modal de detalles
   const handleShowDetails = (client) => {
-  setSelectedClient(client);
-  fetchStationsByClient(client.id);
-  setShowDetailsModal(true);
+    setSelectedClient({ ...client, maps: client.maps || [] });
+    fetchStationsByClient(client.id);
+    setShowDetailsModal(true);    
   };
 
   const handleCloseDetailsModal = () => {
@@ -374,6 +378,57 @@ const handleSaveNewAirStation = async () => {
     }
   
     setRutFile(file); // Solo establece el archivo si pasa la validación
+  };  
+  const handleShowAddMapModal = () => setShowAddMapModal(true);
+  const handleCloseAddMapModal = () => setShowAddMapModal(false);
+  
+  const handleNewMapChange = (e) => {
+    const { name, value } = e.target;
+    setNewMap({ ...newMap, [name]: value });
+  };  
+  
+  const handleSaveNewMap = async () => {
+    if (!newMap.description || !newMap.image) {
+      alert("Por favor completa todos los campos y carga una imagen.");
+      return;
+    }
+  
+    try {
+      // Subir la imagen al servidor
+      const formData = new FormData();
+      formData.append("image", newMap.imageFile); // Archivo original cargado
+      formData.append("description", newMap.description); // Descripción del mapa
+      formData.append("idclient", selectedClient.id); // ID del cliente
+  
+      const response = await axios.post("http://localhost:10000/api/client_images", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+  
+      // Actualizar la lista de mapas en el cliente seleccionado
+      const savedMap = response.data.map; // Información del mapa guardado en la base de datos
+      const updatedMaps = [...(selectedClient.maps || []), savedMap];
+      setSelectedClient({ ...selectedClient, maps: updatedMaps });
+  
+      // Limpiar el formulario y cerrar el modal
+      setNewMap({ description: "", image: null, imageFile: null });
+      setShowAddMapModal(false);
+      alert("Mapa guardado exitosamente");
+    } catch (error) {
+      console.error("Error al guardar el mapa:", error);
+      alert("Hubo un error al guardar el mapa.");
+    }
+  };   
+
+  const handleShowImageModal = (image) => {
+    setSelectedImage(image); // Establece la imagen seleccionada
+    setShowImageModal(true); // Muestra el modal
+  };
+  
+  const handleCloseImageModal = () => {
+    setSelectedImage(null); // Limpia la imagen seleccionada
+    setShowImageModal(false); // Cierra el modal
   };  
 
   return (
@@ -801,6 +856,44 @@ const handleSaveNewAirStation = async () => {
                 </div>
               </div>
             </div>
+{/* Parte inferior central: Mapas */}
+<div className="col-md-12 mb-4">
+  <div className="bg-white shadow-sm rounded p-3">
+    <h5 className="text-secondary mb-3">
+      <GeoAltFill className="me-2" /> Mapas
+    </h5>
+    <div>
+    <div className="map-card-container">
+  {selectedClient?.maps?.length > 0 ? (
+    selectedClient.maps.map((map, index) => (
+      <div
+        key={index}
+        className="map-card"
+        onClick={() => handleShowImageModal(map.image)}
+        style={{ cursor: "pointer" }}
+      >
+        <img
+          src={map.image || "https://via.placeholder.com/150"}
+          alt={`Mapa ${index + 1}`}
+          className="map-card-image"
+        />
+        <p className="map-card-description">
+          {map.description || "Sin descripción"}
+        </p>
+      </div>
+    ))
+  ) : (
+    <p className="text-center text-muted">No hay mapas registrados.</p>
+  )}
+</div>
+  <div className="d-flex justify-content-end mt-3">
+    <Button variant="outline-success" className="px-3 py-1" onClick={handleShowAddMapModal}>
+      <i className="fas fa-plus"></i> Agregar
+    </Button>
+  </div>
+</div>
+  </div>
+</div>
           </div>
         ) : (
           <p>Cargando datos del cliente...</p>
@@ -1069,8 +1162,78 @@ const handleSaveNewAirStation = async () => {
           </Button>
         </Modal.Footer>
       </Modal>
+      <Modal show={showAddMapModal} onHide={handleCloseAddMapModal}>
+  <Modal.Header closeButton>
+    <Modal.Title>Agregar Mapa</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    <Form>
+      {/* Campo de descripción */}
+      <Form.Group controlId="formMapDescription" className="mb-3">
+        <Form.Label>Descripción</Form.Label>
+        <Form.Control
+          as="textarea"
+          name="description"
+          value={newMap.description}
+          onChange={handleNewMapChange}
+          placeholder="Ejemplo: Descripción del mapa..."
+          rows={3}
+          required
+        />
+      </Form.Group>
 
+      {/* Campo para cargar imagen */}
+      <Form.Group controlId="formMapImage" className="mb-3">
+        <Form.Label>Seleccionar Imagen</Form.Label>
+        <Form.Control
+  type="file"
+  accept="image/*"
+  onChange={(e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setNewMap({ ...newMap, image: URL.createObjectURL(file), imageFile: file });
+    }
+  }}
+/>
+      </Form.Group>
 
+      {/* Vista previa de la imagen cargada */}
+      {newMap.image && (
+        <div className="text-center mt-3">
+          <img
+            src={newMap.image}
+            alt="Vista previa del mapa"
+            style={{ maxWidth: "100%", maxHeight: "200px", borderRadius: "8px" }}
+          />
+        </div>
+      )}
+    </Form>
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={handleCloseAddMapModal}>
+      Cancelar
+    </Button>
+    <Button variant="success" onClick={handleSaveNewMap}>
+      Guardar
+    </Button>
+  </Modal.Footer>
+</Modal>
+<Modal
+  show={showImageModal}
+  onHide={handleCloseImageModal}
+  centered
+  dialogClassName="image-modal" /* Clase personalizada para estilos */
+>
+  <Modal.Body className="d-flex justify-content-center align-items-center">
+    {selectedImage && (
+      <img
+        src={selectedImage}
+        alt="Vista previa del mapa"
+        style={{ borderRadius: "8px" }}
+      />
+    )}
+  </Modal.Body>
+</Modal>
     </div>
   );  
 }
