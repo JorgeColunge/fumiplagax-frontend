@@ -64,116 +64,125 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
 
   const [profilePic, setProfilePic] = useState('/'); // Imagen predeterminada
 
+  const menuItems = [
+    {
+      label: "Perfil",
+      icon: <Person size={20} />,
+      path: "/profile",
+      roles: ["Técnico", "Comercial", "Supervisor Técnico", "Administrador", "Superadministrador"],
+    },
+    {
+      label: "Usuarios",
+      icon: <PersonFillGear size={20} />,
+      path: "/users",
+      roles: ["Administrador", "Superadministrador"],
+    },
+    {
+      label: "Clientes",
+      icon: <People size={20} />,
+      path: "/clients",
+      roles: ["Comercial", "Supervisor Técnico", "Administrador", "Superadministrador"],
+    },
+    {
+      label: "Calendario",
+      icon: <Calendar3 size={20} />,
+      path: "/clients",
+      roles: ["Comercial", "Supervisor Técnico", "Administrador", "Superadministrador"],
+    },
+    {
+      label: "Mi Calendario",
+      icon: <CalendarEvent size={20} />,
+      path: "/myservices-calendar",
+      roles: ["Técnico", "Supervisor Técnico", "Administrador", "Superadministrador"],
+    },
+    {
+      label: "Servicios",
+      icon: <ClipboardCheck size={20} />,
+      path: "/services",
+      roles: ["Comercial", "Supervisor Técnico", "Administrador", "Superadministrador"],
+    },
+    {
+      label: "Mis Servicios",
+      icon: <BoxArrowInUpRight size={20} />,
+      path: "/myservices",
+      roles: ["Técnico", "Supervisor Técnico", "Administrador", "Superadministrador"],
+    },
+    {
+      label: "Inspecciones",
+      icon: <FileText size={20} />,
+      path: "/inspections",
+      roles: ["Supervisor Técnico", "Administrador", "Superadministrador"],
+    },
+    {
+      label: "Productos",
+      icon: <Eyedropper size={20} />,
+      path: "/products",
+      roles: ["Supervisor Técnico", "Administrador", "Superadministrador"],
+    },
+    {
+      label: "Facturación",
+      icon: <CurrencyDollar size={20} />,
+      path: "/billing",
+      roles: ["Administrador", "Superadministrador"],
+    },
+    {
+      label: "Consumo",
+      icon: <GraphUp size={20} />,
+      path: "/consumption",
+      roles: ["Administrador", "Superadministrador"],
+    },
+    {
+      label: "Cerrar Sesión",
+      icon: <BoxArrowRight size={20} />,
+      action: handleLogout,
+      roles: ["Técnico", "Comercial", "Supervisor Técnico", "Administrador", "Superadministrador"],
+    },
+  ];
+
   return (
-<div
-  className={`sidebar ${isSidebarVisible ? 'visible' : 'hidden'} ${
-    isOpen ? 'open' : 'collapsed'
-  }`}
->
+    <div
+      className={`sidebar ${isSidebarVisible ? "visible" : "hidden"} ${
+        isOpen ? "open" : "collapsed"
+      }`}
+    >
       <div className="menu-toggle" onClick={toggleMenu}>
         <List size={30} />
       </div>
       <div className="logo-container">
-      <div className="logo-mask">
-        <img
-          src={`http://localhost:10000${user?.image || '/images/default-profile.png'}`}
-          alt="Profile"
-          className="logo"
-        />
-      </div>
+        <div className="logo-mask">
+          <img
+            src={`http://localhost:10000${user?.image || "/images/default-profile.png"}`}
+            alt="Profile"
+            className="logo"
+          />
+        </div>
         {isOpen && (
           <div className="user-info">
-            <h5>{userInfo?.name || 'Usuario'}</h5>
-<span>{user?.rol || 'Cargo'}</span>
+            <h5>{userInfo?.name || "Usuario"}</h5>
+            <span>{user?.rol || "Cargo"}</span>
           </div>
         )}
       </div>
-      <div className="nav-item">
-        <button className="nav-link btn btn-link" onClick={() => handleNavigation('/profile')}>
-          <Person size={20} />
-          {isOpen && <span>Perfil</span>}
-        </button>
-      </div>
-      <div className="nav-item">
-  {user?.rol === 'Superadministrador' || user?.rol === 'Administrador' ? (
-    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/users')}>
-      <PersonFillGear size={20} />
-      {isOpen && <span>Usuarios</span>}
-    </button>
-  ) : null}
-</div>
-<div className="nav-item">
-  {user?.rol !== 'Técnico' ? (
-    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/clients')}>
-      <People size={20} />
-      {isOpen && <span>Clientes</span>}
-    </button>
-  ) : null}
-</div>
-      <div className="nav-item">
-      {user?.rol !== 'Técnico' ? (
-    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/clients')}>
-      <Calendar3 size={20} />
-      {isOpen && <span>Calendario</span>}
-    </button>
-  ) : null}
-      </div>
-      <div className="nav-item">
-  {user?.rol !== 'Comercial' ? (
-    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/myservices-calendar')}>
-      <CalendarEvent size={20} />
-      {isOpen && <span>Mi Calendario</span>}
-    </button>
-  ) : null}
-</div>
-
-      <div className="nav-item">
-      {user?.rol !== 'Técnico' ? (
-    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/services')}>
-      <ClipboardCheck size={20} />
-      {isOpen && <span>Servicios</span>}
-    </button>
-  ) : null}
-      </div>
-
-      <div className="nav-item">
-      {user?.rol !== 'Comercial' ? (
-    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/myservices')}>
-      <BoxArrowInUpRight size={20} />
-      {isOpen && <span>Mis Servicios</span>}
-    </button>
-  ) : null}
-      </div>
-      <div className="nav-item">
-  {user?.rol !== 'Comercial' && user?.rol !== 'Técnico' ? (
-    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/inspections')}>
-      <FileText size={20} />
-      {isOpen && <span>Inspecciones</span>}
-    </button>
-  ) : null}
-</div>
-<div className="nav-item">
-  {user?.rol !== 'Comercial' && user?.rol !== 'Técnico' ? (
-    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/products')}>
-      <Eyedropper size={20} />
-      {isOpen && <span>Productos</span>}
-    </button>
-  ) : null}
-</div>
-<div className="nav-item">
-  {user?.rol !== 'Técnico' && user?.rol !== 'Comercial' && user?.rol !== 'Supervisor Técnico' ? (
-    <button className="nav-link btn btn-link" onClick={() => handleNavigation('/consumption')}>
-      <GraphUp size={20} />
-      {isOpen && <span>Consumo</span>}
-    </button>
-  ) : null}
-</div>
-      <div className="nav-item">
-        <button className="nav-link btn btn-link" onClick={handleLogout} title="Cerrar Sesión">
-          <BoxArrowRight size={20} />
-          {isOpen && <span>Cerrar Sesión</span>}
-        </button>
-      </div>
+      {menuItems
+        .filter((item) => item.roles.includes(user?.rol))
+        .map((item, index) => (
+          <div key={index} className="nav-item">
+            {item.action ? (
+              <button className="nav-link btn btn-link" onClick={item.action}>
+                {item.icon}
+                {isOpen && <span>{item.label}</span>}
+              </button>
+            ) : (
+              <button
+                className="nav-link btn btn-link"
+                onClick={() => handleNavigation(item.path)}
+              >
+                {item.icon}
+                {isOpen && <span>{item.label}</span>}
+              </button>
+            )}
+          </div>
+        ))}
     </div>
   );
 }
