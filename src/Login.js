@@ -67,13 +67,8 @@ function Login({ onLogin }) {
             <button type="submit" className="btn btn-primary w-100 mb-3">Iniciar Sesión</button>
             {error && <p className="text-danger text-center">{error}</p>}
           </form>
-          <div className="text-center">
-            <p className="mt-3">
-              ¿No tienes una cuenta? <a href="/register" className="text-decoration-none">Regístrate aquí</a>
-            </p>
-          </div>
         </div>
-        <div className="col-md-6 d-none d-md-flex align-items-center justify-content-center bg-primary rounded-end">
+        <div className="col-md-6 d-flex align-items-center justify-content-center bg-primary rounded-end">
           <div className="text-center text-white">
             <h1>¡Limpieza impecable!</h1>
             <p>Tu aliado en el aseo.</p>

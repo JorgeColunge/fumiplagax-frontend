@@ -18,7 +18,7 @@ function UserList() {
     name: '',
     lastname: '',
     phone: '',
-    rol: 'técnico',
+    rol: 'Técnico',
     password: '',
     email: '', // Campo agregado para email
     image: null,
@@ -27,7 +27,7 @@ function UserList() {
   const navigate = useNavigate();
 
   const userInfo = JSON.parse(localStorage.getItem("user_info"));
-  const canAddUser = userInfo?.rol === "Auperadministrador" || userInfo?.rol === "Administrador";
+  const canAddUser = userInfo?.rol === "Superadministrador" || userInfo?.rol === "Administrador";
   const [profilePicPreview, setProfilePicPreview] = useState('/images/default-profile.png');
   const [searchTerm, setSearchTerm] = useState('');
   const [dropdownPosition, setDropdownPosition] = useState(null);
