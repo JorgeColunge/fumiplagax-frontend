@@ -645,218 +645,242 @@ const handleSaveNewAirStation = async () => {
 
       {/* Modal para mostrar detalles del cliente */}
       <Modal show={showDetailsModal} onHide={handleCloseDetailsModal} size="lg">
-  <Modal.Header closeButton className="bg-light">
-    <Modal.Title className="fw-bold">
-      <BuildingFill className="me-2" /> Detalles del Cliente
-    </Modal.Title>
-  </Modal.Header>
-<Modal.Body>
-  {selectedClient ? (
-    <div className="row">
-      {/* Parte superior izquierda: Información de la Empresa */}
-      <div className="col-md-6 mb-1">
-        <div className="bg-white shadow-sm rounded p-3 h-75">
-          <h5 className="text-secondary mb-3">
-            <GeoAltFill className="me-2" /> Información de la Empresa
-          </h5>
-          <p><strong>Dirección:</strong> {selectedClient.address || "No disponible"}</p>
-          <p><strong>Teléfono Empresa:</strong> {selectedClient.phone || "No disponible"}</p>
-          <p><strong>Tipo de Documento:</strong> {selectedClient.document_type || "No disponible"}</p>
-          <p><strong>Número de Documento:</strong> {selectedClient.document_number || "No disponible"}</p>
-          <p>
-            <strong>RUT:</strong>{" "}
-            {selectedClient?.rut ? (
-              <a
-                href={`http://localhost:10000${selectedClient.rut}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Ver RUT
-              </a>
-            ) : (
-              "No disponible"
-            )}
-          </p>
+        <Modal.Header closeButton className="bg-light">
+          <Modal.Title className="fw-bold">
+            <BuildingFill className="me-2" /> Detalles del Cliente
+          </Modal.Title>
+        </Modal.Header>
+      <Modal.Body style={{height:'55vh'}}>
+        {selectedClient ? (
+          <div className="row">
+            {/* Parte superior izquierda: Información de la Empresa */}
+            <div className="col-md-6 mb-4">
+              <div className="bg-white shadow-sm rounded px-3 pt-3 pb-0" style={{height:'100%'}}>
+                <h5 className="text-secondary mb-3">
+                  <GeoAltFill className="me-2" /> Información de la Empresa
+                </h5>
+                <p><strong>Dirección:</strong> {selectedClient.address || "No disponible"}</p>
+                <p><strong>Teléfono Empresa:</strong> {selectedClient.phone || "No disponible"}</p>
+                <p><strong>Tipo de Documento:</strong> {selectedClient.document_type || "No disponible"}</p>
+                <p><strong>Número de Documento:</strong> {selectedClient.document_number || "No disponible"}</p>
+                <p>
+                  <strong>RUT:</strong>{" "}
+                  {selectedClient?.rut ? (
+                    <a
+                      href={`http://localhost:10000${selectedClient.rut}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Ver RUT
+                    </a>
+                  ) : (
+                    "No disponible"
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Parte superior derecha: Información del Contacto */}
+            <div className="col-md-6 mb-4">
+              <div className="bg-white shadow-sm rounded px-3 pt-3 pb-0" style={{height:'100%'}}>
+                <h5 className="text-secondary mb-3">
+                  <i className="fas fa-user me-2"></i> Información del Contacto
+                </h5>
+                <p><strong>Nombre:</strong> {selectedClient.contact_name || "No disponible"}</p>
+                <p><strong>Teléfono:</strong> {selectedClient.contact_phone || "No disponible"}</p>
+                <p><strong>Correo:</strong> {selectedClient.email || "No disponible"}</p>
+              </div>
+            </div>
+
+            {/* Parte inferior izquierda: Estaciones Aéreas */}
+            <div className="col-md-6 mb-4">
+              <div className="bg-white shadow-sm rounded p-3 station-container">
+                <h5 className="text-secondary mb-3">
+                  <BuildingFill className="me-2" /> Estaciones Aéreas
+                </h5>
+              <div className="table-container">
+                {airStations.length > 0 ? (
+                  <div className="table-responsive">
+                  <table className="table table-bordered table-hover">
+                    <thead className="table-light">
+                      <tr>
+                        <th>#</th>
+                        <th>Método de Control</th>
+                        <th>QR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {airStations.map((station) => (
+                        <tr key={station.id}>
+                          <td>{station.description}</td>
+                          <td>{station.control_method}</td>
+                          <td className="text-center">
+                            {station.qr_code ? (
+                              <img
+                                src={`http://localhost:10000${station.qr_code}`}
+                                alt={`QR de estación aérea ${station.description}`}
+                                className="img-fluid rounded"
+                                style={{ maxWidth: '150px' }}
+                              />
+                            ) : (
+                              <span className="text-muted">No disponible</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>      
+                ) : (
+                  <p>No hay estaciones aéreas registradas.</p>
+                )}
+              </div>
+              <div className="d-flex justify-content-end mt-3">
+                <Button
+                  variant="outline-success"
+                  className="px-3 py-1"
+                  onClick={handleShowAddAirStationModal}
+                >
+                  <i className="fas fa-plus"></i> Agregar Estación
+                </Button>
+              </div>
+            </div>
+          </div>
+
+            {/* Parte inferior derecha: Estaciones de Roedores */}
+            <div className="col-md-6 mb-4">
+              <div className="bg-white shadow-sm rounded p-3 station-container">
+                <h5 className="text-secondary mb-3">
+                  <i className="fas fa-paw me-2"></i> Estaciones de Roedores
+                </h5>
+                <div className="table-responsive">
+                {rodentStations.length > 0 ? (
+                  <table className="table table-bordered table-hover">
+                    <thead className="table-light">
+                      <tr>
+                        <th>#</th>
+                        <th>Tipo</th>
+                        <th>Método de Control</th>
+                        <th>QR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rodentStations.map((station) => (
+                        <tr key={station.id}>
+                          <td>{station.description}</td>
+                          <td>{station.type}</td>
+                          <td>{station.control_method}</td>
+                          <td className="text-center">
+                            {station.qr_code ? (
+                              <img
+                                src={`http://localhost:10000${station.qr_code}`}
+                                alt={`QR de estación de roedores ${station.description}`}
+                                className="img-fluid rounded"
+                                style={{ maxWidth: '150px' }}
+                              />
+                            ) : (
+                              <span className="text-muted">No disponible</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  ) : (
+                    <p>No hay estaciones de roedores registradas.</p>
+                  )}
+                </div>
+                <div className="d-flex justify-content-end mt-3">
+                  <Button
+                    variant="outline-success"
+                    className="px-3 py-1"
+                    onClick={handleShowAddRodentStationModal}
+                  >
+                    <i className="fas fa-plus"></i> Agregar Estación
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p>Cargando datos del cliente...</p>
+        )}
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="w-100">
+          {/* Botones de acción */}
+          <div className="action-buttons d-flex justify-content-around mb-4">
+            <Button
+              className="btn-outline-primary w-100 mx-2"
+              onClick={() => window.open(`tel:${selectedClient?.phone || ""}`)}
+            >
+              <i className="fas fa-phone"></i>
+              <span style={{ marginLeft: "8px" }}>Llamar</span>
+            </Button>
+            <Button
+              className="btn-outline-success w-100 mx-2"
+              onClick={() =>
+                window.open(`https://wa.me/${selectedClient?.phone?.replace(/\D/g, "")}`, "_blank")
+              }
+            >
+              <i className="fab fa-whatsapp"></i>
+              <span style={{ marginLeft: "8px" }}>WhatsApp</span>
+            </Button>
+            <Button
+              className="btn-outline-dark w-100 mx-2"
+              onClick={() => window.open(`mailto:${selectedClient?.email || ""}`)}
+            >
+              <i className="fas fa-envelope"></i>
+              <span style={{ marginLeft: "8px" }}>Correo</span>
+            </Button>
+            <Button
+              className="btn-outline-danger w-100 mx-2"
+              onClick={() =>
+                window.open(
+                  `https://www.google.com/maps?q=${encodeURIComponent(
+                    `${selectedClient?.address || ""}, ${selectedClient?.city || ""}, ${selectedClient?.department || ""}`
+                  )}`,
+                  "_blank"
+                )
+              }
+            >
+              <i className="fas fa-map-marker-alt"></i>
+              <span style={{ marginLeft: "8px" }}>Ubicación</span>
+            </Button>
+          </div>
+
+          {/* Botones inferiores */}
+          <div className="d-flex justify-content-between">
+            <Button
+              className="me-2 w-100"
+              variant="success"
+              onClick={() => {
+                handleShowModal(selectedClient);
+                handleCloseDetailsModal();
+              }}
+            >
+              Editar
+            </Button>
+            <Button
+              className="me-2 w-100"
+              variant="danger"
+              onClick={() => {
+                handleShowConfirmation(() => deleteClient(selectedClient.id));
+                handleCloseDetailsModal();
+              }}
+            >
+              Eliminar
+            </Button>
+            <Button
+              className="w-100"
+              variant="secondary"
+              onClick={handleCloseDetailsModal}
+            >
+              Cerrar
+            </Button>
+          </div>
         </div>
-      </div>
-
-      {/* Parte superior derecha: Información del Contacto */}
-      <div className="col-md-6 mb-1">
-        <div className="bg-white shadow-sm rounded p-3 h-75">
-          <h5 className="text-secondary mb-3">
-            <i className="fas fa-user me-2"></i> Información del Contacto
-          </h5>
-          <p><strong>Nombre:</strong> {selectedClient.contact_name || "No disponible"}</p>
-          <p><strong>Teléfono:</strong> {selectedClient.contact_phone || "No disponible"}</p>
-          <p><strong>Correo:</strong> {selectedClient.email || "No disponible"}</p>
-        </div>
-      </div>
-
-      {/* Parte inferior izquierda: Estaciones Aéreas */}
-      <div className="col-md-6 mb-4">
-  <div className="bg-white shadow-sm rounded p-3 station-container">
-    <h5 className="text-secondary mb-3">
-      <BuildingFill className="me-2" /> Estaciones Aéreas
-    </h5>
-    <div className="table-container">
-      {airStations.length > 0 ? (
-        <table className="custom-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Método de Control</th>
-              <th>QR</th>
-            </tr>
-          </thead>
-          <tbody>
-            {airStations.map((station) => (
-              <tr key={station.id}>
-                <td>{station.description}</td>
-                <td>{station.control_method}</td>
-                <td>{station.qr_code || "No disponible"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>No hay estaciones aéreas registradas.</p>
-      )}
-    </div>
-    <div className="d-flex justify-content-end mt-3">
-      <Button
-        variant="outline-success"
-        className="px-3 py-1"
-        onClick={handleShowAddAirStationModal}
-      >
-        <i className="fas fa-plus"></i> Agregar Estación
-      </Button>
-    </div>
-  </div>
-</div>
-
-      {/* Parte inferior derecha: Estaciones de Roedores */}
-      <div className="col-md-6 mb-4">
-  <div className="bg-white shadow-sm rounded p-3 station-container">
-    <h5 className="text-secondary mb-3">
-      <i className="fas fa-paw me-2"></i> Estaciones de Roedores
-    </h5>
-    <div className="table-container">
-      {rodentStations.length > 0 ? (
-        <table className="custom-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Tipo</th>
-              <th>Método de Control</th>
-              <th>QR</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rodentStations.map((station) => (
-              <tr key={station.id}>
-                <td>{station.description}</td>
-                <td>{station.type}</td>
-                <td>{station.control_method}</td>
-                <td>{station.qr_code || "No disponible"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>No hay estaciones de roedores registradas.</p>
-      )}
-    </div>
-    <div className="d-flex justify-content-end mt-3">
-      <Button
-        variant="outline-success"
-        className="px-3 py-1"
-        onClick={handleShowAddRodentStationModal}
-      >
-        <i className="fas fa-plus"></i> Agregar Estación
-      </Button>
-    </div>
-  </div>
-</div>
-    </div>
-  ) : (
-    <p>Cargando datos del cliente...</p>
-  )}
-</Modal.Body>
-<Modal.Footer>
-  <div className="w-100">
-    {/* Botones de acción */}
-    <div className="action-buttons d-flex justify-content-around mb-3">
-      <Button
-        className="btn-outline-primary"
-        onClick={() => window.open(`tel:${selectedClient?.phone || ""}`)}
-      >
-        <i className="fas fa-phone"></i>
-        <span style={{ marginLeft: "8px" }}>Llamar</span>
-      </Button>
-      <Button
-        className="btn-outline-success"
-        onClick={() =>
-          window.open(`https://wa.me/${selectedClient?.phone?.replace(/\D/g, "")}`, "_blank")
-        }
-      >
-        <i className="fab fa-whatsapp"></i>
-        <span style={{ marginLeft: "8px" }}>WhatsApp</span>
-      </Button>
-      <Button
-        className="btn-outline-dark"
-        onClick={() => window.open(`mailto:${selectedClient?.email || ""}`)}
-      >
-        <i className="fas fa-envelope"></i>
-        <span style={{ marginLeft: "8px" }}>Correo</span>
-      </Button>
-      <Button
-        className="btn-outline-danger"
-        onClick={() =>
-          window.open(
-            `https://www.google.com/maps?q=${encodeURIComponent(
-              `${selectedClient?.address || ""}, ${selectedClient?.city || ""}, ${selectedClient?.department || ""}`
-            )}`,
-            "_blank"
-          )
-        }
-      >
-        <i className="fas fa-map-marker-alt"></i>
-        <span style={{ marginLeft: "8px" }}>Ubicación</span>
-      </Button>
-    </div>
-
-    {/* Botones inferiores */}
-    <div className="d-flex justify-content-between">
-      <Button
-        className="me-2 w-100"
-        variant="success"
-        onClick={() => {
-          handleShowModal(selectedClient);
-          handleCloseDetailsModal();
-        }}
-      >
-        Editar
-      </Button>
-      <Button
-        className="me-2 w-100"
-        variant="danger"
-        onClick={() => {
-          handleShowConfirmation(() => deleteClient(selectedClient.id));
-          handleCloseDetailsModal();
-        }}
-      >
-        Eliminar
-      </Button>
-      <Button
-        className="w-100"
-        variant="secondary"
-        onClick={handleCloseDetailsModal}
-      >
-        Cerrar
-      </Button>
-    </div>
-  </div>
-</Modal.Footer>
+      </Modal.Footer>
     </Modal>
 
     {/* Modal de confirmación para llamar o enviar WhatsApp */}

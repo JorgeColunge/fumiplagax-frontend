@@ -52,7 +52,6 @@
 }
 
 .custom-table {
-  width: 100%;
   border-collapse: collapse;
   table-layout: fixed; /* Asegura que las celdas tengan un tamaño fijo */
 }
@@ -189,7 +188,6 @@
   height: 100%; /* Asegura que el contenedor ocupe toda la altura */
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
 }
 
 .station-container .table-container {

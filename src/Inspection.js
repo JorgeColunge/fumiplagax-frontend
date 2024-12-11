@@ -6,8 +6,10 @@ import { saveRequest, isOffline } from './offlineHandler';
 import { initDB, initUsersDB, saveUsers, getUsers } from './indexedDBHandler';
 import SignatureCanvas from 'react-signature-canvas';
 import "./Inspection.css";
-import { ArrowDownSquare, ArrowUpSquare, Eye, PencilSquare, XCircle } from 'react-bootstrap-icons';
+import { ArrowDownSquare, ArrowUpSquare, Eye, PencilSquare, QrCodeScan, XCircle } from 'react-bootstrap-icons';
 import  {useUnsavedChanges} from './UnsavedChangesContext'
+import QrScannerComponent from './QrScannerComponent';
+import moment from 'moment';
 
 function Inspection() {
   const { inspectionId } = useParams();
@@ -64,6 +66,17 @@ function Inspection() {
   const sigCanvasClient = useRef();
   const location = useLocation();
   const { setHasUnsavedChanges, setUnsavedRoute } = useUnsavedChanges();
+  const [notification, setNotification] = useState({ show: false, message: '' });
+  const [confirmDelete, setConfirmDelete] = useState({ show: false, type: null, index: null });
+  const [searchTermDesratizacion, setSearchTermDesratizacion] = useState('');
+  const [searchTermDesinsectacion, setSearchTermDesinsectacion] = useState('');
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [currentQrStationType, setCurrentQrStationType] = useState(null);
+
+  const showNotification = (message) => {
+    setNotification({ show: true, message });
+    setTimeout(() => setNotification({ show: false, message: '' }), 1500); // Cerrar después de 1.5 segundos
+  };
 
   const handleClearTechSignature = () => {
     sigCanvasTech.current.clear();
@@ -206,6 +219,26 @@ function Inspection() {
     fetchInspectionData();
   }, [inspectionId]); 
 
+  const handleQrScan = (scannedValue) => {
+    console.log("Valor recibido del escáner QR:", scannedValue);
+    const normalizedValue = scannedValue.toLowerCase();
+  
+    if (currentQrStationType === "Desratización") {
+      setSearchTermDesratizacion(normalizedValue);
+      console.log("Estado de búsqueda actualizado (Desratización):", normalizedValue);
+    } else if (currentQrStationType === "Desinsectación") {
+      setSearchTermDesinsectacion(normalizedValue);
+      console.log("Estado de búsqueda actualizado (Desinsectación):", normalizedValue);
+    }
+  
+    setQrScannerOpen(false); // Cierra el modal
+  };  
+  
+  const handleOpenQrScanner = (type) => {
+    setCurrentQrStationType(type); // Define el tipo antes de abrir el escáner
+    setQrScannerOpen(true); // Abre el modal de escáner QR
+  };
+    
   useEffect(() => {
     return () => {
       if (stationFinding.photo) {
@@ -269,7 +302,21 @@ const handleSaveChanges = async () => {
     });
 
     formData.append("findingsByType", JSON.stringify(findingsByTypeProcessed));
-    formData.append("productsByType", JSON.stringify(productsByType));
+    
+    // Procesar productsByType con ID
+    const productsByTypeProcessed = {};
+    Object.keys(productsByType).forEach((type) => {
+      const productData = productsByType[type];
+      if (productData) {
+        productsByTypeProcessed[type] = {
+          id: productData.id || null, // Incluir el ID
+          product: productData.product || '',
+          dosage: productData.dosage || '',
+        };
+      }
+    });
+
+    formData.append("productsByType", JSON.stringify(productsByTypeProcessed));
 
     // Procesar stationsFindings
     const stationsFindingsArray = Object.entries(clientStations).map(([stationId, finding]) => ({
@@ -280,17 +327,23 @@ const handleSaveChanges = async () => {
 
     formData.append("stationsFindings", JSON.stringify(stationsFindingsArray));
 
+    // Ajuste en las firmas: eliminar el prefijo completo si existe
+    const removePrefix = (url) => {
+      const prefix = "http://localhost:10000";
+      return url && url.startsWith(prefix) ? url.replace(prefix, "") : url;
+    };
+
     // Construir el objeto signatures
     const signatures = {
       client: {
         id: signData.id,
         name: signData.name,
         position: signData.position,
-        signature: clientSignature instanceof Blob ? null : clientSignaturePreview, // Usar la URL si no hay nueva firma
+        signature: clientSignature instanceof Blob ? null : removePrefix(clientSignaturePreview), // Usar la URL si no hay nueva firma
       },
       technician: {
         name: "Técnico",
-        signature: techSignature instanceof Blob ? null : techSignaturePreview, // Usar la URL si no hay nueva firma
+        signature: techSignature instanceof Blob ? null : removePrefix(techSignaturePreview), // Usar la URL si no hay nueva firma
       },
     };
 
@@ -325,7 +378,7 @@ const handleSaveChanges = async () => {
       headers: { "Content-Type": "multipart/form-data" },
     });
 
-    alert("Cambios guardados exitosamente.");
+    showNotification("Cambios guardados exitosamente.");
 
     // Resetear el estado de cambios no guardados
     setHasUnsavedChanges(false);
@@ -334,11 +387,11 @@ const handleSaveChanges = async () => {
     console.error("Error guardando los cambios:", error);
 
     if (error.message.includes("Offline")) {
-      alert(
+      showNotification(
         "Cambios guardados localmente. Se sincronizarán automáticamente cuando vuelva la conexión."
       );
     } else {
-      alert("Hubo un error al guardar los cambios.");
+      showNotification("Hubo un error al guardar los cambios.");
     }
   }
 };
@@ -398,7 +451,7 @@ const dataURLtoBlob = (dataURL) => {
 
   const handleFindingPhotoChange = (type, index, file) => {
     if (!file || !file.type.startsWith('image/')) {
-      alert('Seleccione un archivo válido de tipo imagen.');
+      showNotification('Seleccione un archivo válido de tipo imagen.');
       return;
     }
   
@@ -419,14 +472,27 @@ const dataURLtoBlob = (dataURL) => {
   };    
 
   const handleProductChange = (type, field, value) => {
-    setProductsByType((prevProducts) => ({
-      ...prevProducts,
-      [type]: { ...prevProducts[type], [field]: value },
-    }));
+    setProductsByType((prevProducts) => {
+      const updatedProduct = { ...prevProducts[type] };
+  
+      if (field === 'product') {
+        const selectedProduct = availableProducts.find((product) => product.name === value);
+        updatedProduct.product = value;
+        updatedProduct.id = selectedProduct ? selectedProduct.id : null; // Agregar el ID del producto
+      } else {
+        updatedProduct[field] = value;
+      }
+  
+      return {
+        ...prevProducts,
+        [type]: updatedProduct,
+      };
+    });
+  
     // Marcar cambios detectados
     setHasUnsavedChanges(true);
     setUnsavedRoute(location.pathname);
-  };
+  };  
 
   const getFilteredProducts = (type) => {
     if (!availableProducts || !type) {
@@ -449,11 +515,11 @@ const dataURLtoBlob = (dataURL) => {
       }
   
       try {
-        // Limpiar las categorías y dividir en un array
+        // Limpiar las categorías, eliminar corchetes y dividir en un array
         const cleanedCategory = product.category
-          .replace(/[\{\}"]/g, "")
+          .replace(/[\{\}\[\]"]/g, "") // Elimina `{`, `}`, `[`, `]`, y comillas
           .split(",")
-          .map((cat) => cat.trim());
+          .map((cat) => cat.trim().toLowerCase()); // Convierte a minúsculas para comparación
   
         console.log(
           `Categorías procesadas del producto (${product.name}):`,
@@ -462,9 +528,9 @@ const dataURLtoBlob = (dataURL) => {
   
         // Verificar si alguna categoría coincide con el tipo de inspección
         const match = cleanedCategory.some((category) => {
-          const isMatch = category.toLowerCase() === type.toLowerCase();
+          const isMatch = category === type.toLowerCase();
           console.log(
-            `Comparando categoría (${category.toLowerCase()}) con tipo (${type.toLowerCase()}):`,
+            `Comparando categoría (${category}) con tipo (${type.toLowerCase()}):`,
             isMatch ? "Coincide" : "No coincide"
           );
           return isMatch;
@@ -485,7 +551,7 @@ const dataURLtoBlob = (dataURL) => {
         return false; // Omitir producto en caso de error
       }
     });
-  };
+  };  
   
 
   const handleOpenStationModal = (stationId) => {
@@ -553,7 +619,7 @@ const dataURLtoBlob = (dataURL) => {
   const handleStationFindingPhotoChange = (file) => {
     if (!file || !file.type.startsWith('image/')) {
       console.error('No se seleccionó un archivo válido o no es una imagen.');
-      alert('Seleccione un archivo válido de tipo imagen.');
+      showNotification('Seleccione un archivo válido de tipo imagen.');
       return;
     }
   
@@ -656,7 +722,7 @@ const dataURLtoBlob = (dataURL) => {
   const handleStationFindingPhotoChangeDesinsectacion = (file) => {
     if (!file || !file.type.startsWith("image/")) {
       console.error("No se seleccionó un archivo válido o no es una imagen.");
-      alert("Seleccione un archivo válido de tipo imagen.");
+      showNotification("Seleccione un archivo válido de tipo imagen.");
       return;
     }
   
@@ -732,17 +798,35 @@ const handleViewStationDesinsectacion = (stationId) => {
   setViewStationModalOpen(true);
 };
 
-const handleDeleteFinding = (type, index) => {
-  if (window.confirm("¿Estás seguro de que deseas eliminar este hallazgo?")) {
-    setFindingsByType((prevFindings) => {
-      const updatedFindings = { ...prevFindings };
-      updatedFindings[type].splice(index, 1);
-      if (updatedFindings[type].length === 0) {
-        delete updatedFindings[type];
-      }
-      return updatedFindings;
-    });
+const handleShowConfirmDelete = (type, index) => {
+  setConfirmDelete({ show: true, type, index });
+};
+
+const handleCloseConfirmDelete = () => {
+  setConfirmDelete({ show: false, type: null, index: null });
+};
+
+const handleDeleteFinding = () => {
+  const { type, index } = confirmDelete;
+
+  if (!type || index === null || index === undefined) {
+    console.error(`El tipo ${type} o el índice ${index} no son válidos.`);
+    handleCloseConfirmDelete();
+    return;
   }
+
+  setFindingsByType((prevFindings) => {
+    const updatedFindings = { ...prevFindings };
+    updatedFindings[type].splice(index, 1);
+
+    if (updatedFindings[type].length === 0) {
+      delete updatedFindings[type];
+    }
+
+    return updatedFindings;
+  });
+
+  handleCloseConfirmDelete();
 };
 
   if (loading) return <div>Cargando detalles de la inspección...</div>;
@@ -762,14 +846,13 @@ const handleDeleteFinding = (type, index) => {
 
   return (
     <div className="container mt-4">
-      <h2 className="text-success mb-4">Detalles de la Inspección</h2>
 
       {/* Sección General */}
       <div className="card border-success mb-3" style={{ minHeight: 0, height: 'auto' }}>
         <div className="card-header">General</div>
         <div className="card-body">
           <p><strong>Inspección:</strong> {inspectionId}</p>
-          <p><strong>Fecha:</strong> {date}</p>
+          <p><strong>Fecha:</strong> {moment(date).format('DD/MM/YYYY')}</p>
           <p><strong>Hora:</strong> {time}</p>
           <p><strong>Servicio:</strong> {service_id}</p>
           <div className="mt-3">
@@ -789,6 +872,7 @@ const handleDeleteFinding = (type, index) => {
               }
             }}
             placeholder="Ingrese sus observaciones generales aquí"
+            disabled={techSignaturePreview && clientSignaturePreview}
           ></textarea>
           </div>
         </div>
@@ -803,11 +887,48 @@ const handleDeleteFinding = (type, index) => {
             {type === 'Desratización' && stations.length > 0 && (
               <div className="mt-1">
                 <h6>Hallazgos en Estaciones</h6>
+                <div className="mb-3 d-flex">
+                  <input
+                    type="text"
+                    className="form-control me-2"
+                    placeholder="Buscar estación por descripción"
+                    value={searchTermDesratizacion}
+                    onChange={(e) => setSearchTermDesratizacion(e.target.value)}
+                  />
+                  <QrCodeScan
+                    size={40}
+                    className="btn p-0 mx-4"
+                    onClick={() => handleOpenQrScanner("Desratización")}
+                  />
+                </div>
                 <div className="table-responsive mt-3">
                   {isMobile ? (
                     // Vista móvil con colapso
                     stations
-                      .filter((station) => station.category === 'Roedores')
+                      .filter((station) => {
+                        // Validar primero que la categoría sea "Roedores"
+                        if (station.category !== "Roedores") {
+                          return false;
+                        }
+
+                        // Normalizamos el término de búsqueda
+                        const search = searchTermDesratizacion.trim().toLowerCase();
+
+                        // Verificamos si el término de búsqueda tiene el formato "station-<id>"
+                        const stationPrefix = "station-";
+                        const isStationSearch = search.startsWith(stationPrefix);
+
+                        // Búsqueda por ID exacto
+                        if (isStationSearch) {
+                          const stationId = Number(search.replace(stationPrefix, ""));
+                          return !isNaN(stationId) && station.id === stationId;
+                        }
+
+                        // Búsqueda general en nombre y descripción
+                        const stationName = station.name ? station.name.toLowerCase() : "";
+                        const stationDescription = station.description ? station.description.toLowerCase() : "";
+                        return stationName.includes(search) || stationDescription.includes(search);
+                      })
                       .map((station) => {
                         const currentKey = `station-${station.id}`;
                         return (
@@ -817,7 +938,7 @@ const handleDeleteFinding = (type, index) => {
                             style={{ borderRadius: '5px', backgroundColor: '#f8f9fa' }}
                           >
                             <div className="d-flex justify-content-between align-items-center">
-                              <strong>{station.name || `Estación ${station.id}`}</strong>
+                              <strong>{station.name || `Estación ${station.description}`}</strong>
                               <div
                                 className="icon-toggle"
                                 onClick={() => handleCollapseToggle(currentKey)}
@@ -907,11 +1028,42 @@ const handleDeleteFinding = (type, index) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {stations
-                          .filter((station) => station.category === 'Roedores')
+                      {stations.filter((station) => {
+  console.log("Evaluando estación:", station);
+
+  // Verificar categoría
+  if (station.category !== "Roedores") {
+    console.log(`Estación ${station.name || `ID: ${station.id}`} excluida por categoría:`, station.category);
+    return false;
+  }
+
+  // Normalizamos el término de búsqueda
+  const search = searchTermDesratizacion.trim().toLowerCase();
+  console.log("Término de búsqueda utilizado:", search); // Log del término de búsqueda
+
+  const stationPrefix = "station-";
+  const isStationSearch = search.startsWith(stationPrefix);
+
+  // Búsqueda por ID exacto usando el prefijo
+  if (isStationSearch) {
+    const stationId = Number(search.replace(stationPrefix, ""));
+    console.log(`Buscando estación con ID ${stationId} en estación con ID:`, station.id);
+    const match = !isNaN(stationId) && station.id === stationId;
+    console.log(`Resultado de búsqueda exacta para estación ${station.id}:`, match ? "Coincide" : "No coincide");
+    return match;
+  }
+
+  // Búsqueda general en nombre o descripción
+  const stationName = station.name ? station.name.toLowerCase() : "";
+  const stationDescription = station.description ? station.description.toLowerCase() : "";
+  const matches = stationName.includes(search) || stationDescription.includes(search);
+
+  console.log(`Resultado del filtro general para estación ${station.name || `ID: ${station.id}`}:`, matches ? "Incluida" : "Excluida");
+  return matches;
+})
                           .map((station) => (
                             <tr key={station.id}>
-                              <td className='align-middle'>{station.name || `Estación ${station.id}`}</td>
+                              <td className='align-middle'>{station.name || `Estación ${station.description}`}</td>
                               {clientStations[station.id] ? (
                               <>
                                 <td className='align-middle'>{clientStations[station.id].purpose || '-'}</td>
@@ -986,11 +1138,48 @@ const handleDeleteFinding = (type, index) => {
             {type === 'Desinsectación' && stations.length > 0 && (
               <div className="mt-1">
                 <h6>Hallazgos en Estaciones</h6>
+                <div className="mb-3 d-flex">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Buscar estación por descripción"
+                    value={searchTermDesinsectacion}
+                    onChange={(e) => setSearchTermDesinsectacion(e.target.value)}
+                  />
+                  <QrCodeScan
+                    size={40}
+                    className="btn p-0 mx-4"
+                    onClick={() => handleOpenQrScanner("Desinsectación")}
+                  />
+                </div>
                 <div className="table-responsive mt-3">
                   {isMobile ? (
                     // Vista móvil con colapso
                     stations
-                      .filter((station) => station.category === 'Aéreas')
+                      .filter((station) => {
+                        // Validar primero que la categoría sea "Aéreas"
+                        if (station.category !== "Aéreas") {
+                          return false;
+                        }
+
+                        // Normalizamos el término de búsqueda
+                        const search = searchTermDesinsectacion.trim().toLowerCase();
+
+                        // Verificamos si el término de búsqueda tiene el formato "station-<id>"
+                        const stationPrefix = "station-";
+                        const isStationSearch = search.startsWith(stationPrefix);
+
+                        // Búsqueda por ID exacto
+                        if (isStationSearch) {
+                          const stationId = Number(search.replace(stationPrefix, ""));
+                          return !isNaN(stationId) && station.id === stationId;
+                        }
+
+                        // Búsqueda general en nombre y descripción
+                        const stationName = station.name ? station.name.toLowerCase() : "";
+                        const stationDescription = station.description ? station.description.toLowerCase() : "";
+                        return stationName.includes(search) || stationDescription.includes(search);
+                      })
                       .map((station) => {
                         const currentKey = `station-desinsectacion-${station.id}`;
                         return (
@@ -1000,7 +1189,7 @@ const handleDeleteFinding = (type, index) => {
                             style={{ borderRadius: '5px', backgroundColor: '#f8f9fa' }}
                           >
                             <div className="d-flex justify-content-between align-items-center">
-                              <strong>{station.name || `Estación ${station.id}`}</strong>
+                              <strong>{station.name || `Estación ${station.description}`}</strong>
                               <div
                                 className="icon-toggle"
                                 onClick={() => handleCollapseToggle(currentKey)}
@@ -1073,10 +1262,36 @@ const handleDeleteFinding = (type, index) => {
                       </thead>
                       <tbody>
                         {stations
-                          .filter((station) => station.category === 'Aéreas')
+                          .filter((station) => {
+                            const search = searchTermDesinsectacion.trim().toLowerCase(); // Normalizamos el término de búsqueda
+                            const stationPrefix = "station-"; // Prefijo esperado para búsqueda por ID
+                            const isStationSearch = search.startsWith(stationPrefix);
+
+                            // Verificar primero que la categoría sea "Aéreas"
+                            if (station.category !== "Aéreas") {
+                              return false;
+                            }
+
+                            // Búsqueda por ID exacto
+                            if (isStationSearch) {
+                              const stationId = Number(search.replace(stationPrefix, ""));
+                              return !isNaN(stationId) && station.id === stationId;
+                            }
+
+                            // Búsqueda general en nombre, descripción o ID
+                            const stationName = station.name ? station.name.toLowerCase() : "";
+                            const stationDescription = station.description ? station.description.toLowerCase() : "";
+                            const stationId = station.id ? station.id.toString().toLowerCase() : "";
+
+                            return (
+                              stationName.includes(search) ||
+                              stationDescription.includes(search) ||
+                              stationId.includes(search)
+                            );
+                          })
                           .map((station) => (
                             <tr key={station.id}>
-                              <td className='align-middle'>{station.name || `Estación ${station.id}`}</td>
+                              <td className='align-middle'>{station.name || `Estación ${station.description}`}</td>
                               {clientStations[station.id] ? (
                                 <>
                                   <td className='align-middle'>{clientStations[station.id].captureQuantity || '-'}</td>
@@ -1199,6 +1414,7 @@ const handleDeleteFinding = (type, index) => {
                                 handleFindingChange(type, idx, "place", e.target.value)
                               }
                               placeholder="Lugar"
+                              disabled={techSignaturePreview && clientSignaturePreview}
                             />
                           </div>
                           <div className="col-md-8">
@@ -1217,6 +1433,7 @@ const handleDeleteFinding = (type, index) => {
                                 handleFindingChange(type, idx, "description", e.target.value)
                               }
                               placeholder="Descripción"
+                              disabled={techSignaturePreview && clientSignaturePreview}
                             ></textarea>
                           </div>
                           <div className="col-md-2">
@@ -1236,6 +1453,7 @@ const handleDeleteFinding = (type, index) => {
                               <input
                                 type="file"
                                 className="image-input"
+                                disabled={techSignaturePreview && clientSignaturePreview}
                                 onChange={(e) =>
                                   handleFindingPhotoChange(type, idx, e.target.files[0])
                                 }
@@ -1249,11 +1467,24 @@ const handleDeleteFinding = (type, index) => {
                     // Para tablet y computadoras: mostrar todo expandido
                     <div className="finding-details d-block">
                       <div className="col-md-2 mt-0 mb-0 ms-auto text-end">
-                        <XCircle
-                          size={"20px"}
-                          color='red'
-                          onClick={() => handleDeleteFinding(type, idx)}
-                        ></XCircle>
+                      <XCircle
+                        size={"20px"}
+                        color={techSignaturePreview && clientSignaturePreview ? "gray" : "red"} // Cambiar color si está bloqueado
+                        onClick={() => {
+                          if (techSignaturePreview && clientSignaturePreview) {
+                            return;
+                          }
+                          handleShowConfirmDelete(type, idx);
+                        }}
+                        style={{
+                          cursor: techSignaturePreview && clientSignaturePreview ? "not-allowed" : "pointer", // Cambiar cursor si está bloqueado
+                        }}
+                        title={
+                          techSignaturePreview && clientSignaturePreview
+                            ? "Inspección firmada, acción bloqueada"
+                            : "Eliminar hallazgo"
+                        }
+                      />
                       </div>
                       <div className="row mt-3" style={{ minHeight: 0, height: 'auto' }}>
                         <div className="col-md-2">
@@ -1269,6 +1500,7 @@ const handleDeleteFinding = (type, index) => {
                               handleFindingChange(type, idx, "place", e.target.value)
                             }
                             placeholder="Lugar"
+                            disabled={techSignaturePreview && clientSignaturePreview}
                           />
                         </div>
                         <div className="col-md-8">
@@ -1287,6 +1519,7 @@ const handleDeleteFinding = (type, index) => {
                               handleFindingChange(type, idx, "description", e.target.value)
                             }
                             placeholder="Descripción"
+                            disabled={techSignaturePreview && clientSignaturePreview}
                           ></textarea>
                         </div>
                         <div className="col-md-2">
@@ -1306,6 +1539,7 @@ const handleDeleteFinding = (type, index) => {
                             <input
                               type="file"
                               className="image-input"
+                              disabled={techSignaturePreview && clientSignaturePreview}
                               onChange={(e) =>
                                 handleFindingPhotoChange(type, idx, e.target.files[0])
                               }
@@ -1338,6 +1572,7 @@ const handleDeleteFinding = (type, index) => {
                   className="form-select"
                   value={productsByType[type]?.product || ''}
                   onChange={(e) => handleProductChange(type, 'product', e.target.value)}
+                  disabled={techSignaturePreview && clientSignaturePreview}
                 >
                   <option value="">Seleccione un producto</option>
                   {getFilteredProducts(type).map((product) => (
@@ -1355,6 +1590,7 @@ const handleDeleteFinding = (type, index) => {
                   value={productsByType[type]?.dosage || ''}
                   onChange={(e) => handleProductChange(type, 'dosage', e.target.value)}
                   placeholder="Ingrese la dosificación en gr/ml"
+                  disabled={techSignaturePreview && clientSignaturePreview}
                 />
               </div>
             </div>
@@ -1531,6 +1767,7 @@ const handleDeleteFinding = (type, index) => {
                 
                 onChange={(e) => handleStationFindingChange('description', e.target.value)}
                 placeholder="Ingrese una descripción del hallazgo"
+                disabled={techSignaturePreview && clientSignaturePreview}
             ></textarea>
             </div>
             <div className="mb-3">
@@ -1550,6 +1787,7 @@ const handleDeleteFinding = (type, index) => {
               <input
                 type="file"
                 className="image-input"
+                disabled={techSignaturePreview && clientSignaturePreview}
                 onChange={(e) => {
                   const file = e.target.files[0];
                   if (file) {
@@ -1645,6 +1883,7 @@ const handleDeleteFinding = (type, index) => {
                 value={stationFindingDesinsectacion.description}
                 onChange={(e) => handleStationFindingChangeDesinsectacion('description', e.target.value)}
                 placeholder="Ingrese una descripción del hallazgo"
+                disabled={techSignaturePreview && clientSignaturePreview}
             ></textarea>
             </div>
             <div className="mb-3">
@@ -1664,6 +1903,7 @@ const handleDeleteFinding = (type, index) => {
               <input
                 type="file"
                 className="image-input"
+                disabled={techSignaturePreview && clientSignaturePreview}
                 onChange={(e) => {
                   const file = e.target.files[0];
                   if (file) {
@@ -1760,6 +2000,7 @@ const handleDeleteFinding = (type, index) => {
                 style={{ cursor: "pointer" }}
                 title="Limpiar Firma Técnico"
                 onClick={handleClearTechSignature}
+                disabled={techSignaturePreview && clientSignaturePreview}
               />
             </div>
           </div>
@@ -1783,6 +2024,7 @@ const handleDeleteFinding = (type, index) => {
                 style={{ cursor: "pointer" }}
                 title="Limpiar Firma Cliente"
                 onClick={handleClearClientSignature}
+                disabled={techSignaturePreview && clientSignaturePreview}
               />
             </div>
           </div>
@@ -1827,35 +2069,73 @@ const handleDeleteFinding = (type, index) => {
             Cancelar
           </button>
           <button
-  className="btn btn-success"
-  onClick={() => {
-    // Validación de firmas
-    if (sigCanvasTech.current.isEmpty() || sigCanvasClient.current.isEmpty()) {
-      alert("Ambas firmas (Técnico y Cliente) son obligatorias.");
-      return;
-    }
+            className="btn btn-success"
+            onClick={() => {
+              // Validación de firmas
+              if (sigCanvasTech.current.isEmpty() || sigCanvasClient.current.isEmpty()) {
+                showNotification("Ambas firmas (Técnico y Cliente) son obligatorias.");
+                return;
+              }
 
-    // Validación de campos del cliente
-    if (!signData.name.trim() || !signData.id.trim() || !signData.position.trim()) {
-      alert("Todos los campos del cliente (Nombre, Cédula, Cargo) son obligatorios.");
-      return;
-    }
+              // Validación de campos del cliente
+              if (!signData.name.trim() || !signData.id.trim() || !signData.position.trim()) {
+                showNotification("Todos los campos del cliente (Nombre, Cédula, Cargo) son obligatorios.");
+                return;
+              }
 
-    // Guardar las firmas y los datos del cliente
-    handleSaveSignature();
-    setSignData((prevData) => ({
-      ...prevData,
-      name: signData.name.trim(),
-      id: signData.id.trim(),
-      position: signData.position.trim(),
-    }));
-    alert('Firmas y datos guardados correctamente.');
-    handleSignModalClose();
-  }}
->
-  Guardar Firmas
-</button>
+              // Guardar las firmas y los datos del cliente
+              handleSaveSignature();
+              setSignData((prevData) => ({
+                ...prevData,
+                name: signData.name.trim(),
+                id: signData.id.trim(),
+                position: signData.position.trim(),
+              }));
+              showNotification('Firmas y datos guardados correctamente.');
+              handleSignModalClose();
+            }}
+          >
+            Guardar Firmas
+          </button>
         </Modal.Footer>
+      </Modal>
+
+      <Modal
+        show={notification.show}
+        centered
+        onHide={() => setNotification({ show: false, message: '' })}
+        backdrop="static"
+        keyboard={false}
+      >
+        <Modal.Body className="text-center">
+          <p>{notification.message}</p>
+        </Modal.Body>
+      </Modal>
+
+      <Modal show={confirmDelete.show} onHide={handleCloseConfirmDelete} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirmar Eliminación</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          ¿Estás seguro de que deseas eliminar este hallazgo?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseConfirmDelete}>
+            Cancelar
+          </Button>
+          <Button variant="danger" onClick={handleDeleteFinding}>
+            Eliminar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={qrScannerOpen} onHide={() => setQrScannerOpen(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Escanear Código QR</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <QrScannerComponent onScan={handleQrScan} />
+        </Modal.Body>
       </Modal>
 
     </div>
