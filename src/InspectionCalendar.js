@@ -1056,7 +1056,7 @@ const InspectionCalendar = () => {
                                         ></div>
 
                                         <img
-                                            src={`http://localhost:10000${user.image}`}
+                                            src={`${user.image}`}
                                             alt={user.name}
                                             className="rounded-circle"
                                             style={{

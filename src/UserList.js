@@ -325,7 +325,7 @@ const deleteUser = async (id) => {
                   user.image ? (
                     <div className="img-mask-sm mx-auto">
                       <img
-                        src={`http://localhost:10000${user.image}`}
+                        src={`${user.image}`}
                         alt="Foto de perfil"
                         className="rounded-img-sm"
                         width="50"
