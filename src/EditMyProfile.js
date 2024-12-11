@@ -28,7 +28,7 @@ function EditMyProfile({ userInfo, onProfileUpdate }) {
         setEmail(userData.email);
         setPhone(userData.phone);
         if (userData.image) {
-          setProfilePic(`http://localhost:10000${userData.image}`);
+          setProfilePic(`${userData.image}`);
         }
       } catch (error) {
         console.error('Error al obtener información del usuario:', error);

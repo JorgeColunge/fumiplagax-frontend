@@ -30,7 +30,7 @@ function EditProfile() {
         setEmail(userData.email);
         setPhone(userData.phone);
         if (userData.image) {
-          setProfilePic(`http://localhost:10000${userData.image}`);
+          setProfilePic(`${userData.image}`);
         }
         if (userData.color) {
           setProfileColor(userData.color);
