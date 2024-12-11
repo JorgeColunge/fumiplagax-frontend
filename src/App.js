@@ -143,6 +143,10 @@ function App() {
 
   if (loading) return <div className="text-center mt-5">Cargando...</div>;
 
+  const isAuthorized = (allowedRoles) => {
+    return isLoggedIn && userInfo && allowedRoles.includes(userInfo.rol);
+  };  
+
   return (
     <SocketProvider>
     <UnsavedChangesProvider>
@@ -176,38 +180,99 @@ function App() {
           marginLeft: isSidebarVisible ? (isSidebarOpen ? '200px' : '60px') : '0px' // Ajusta el margen izquierdo según el estado del Sidebar
           }}
         >
-        <Routes>
-          <Route path="/" element={isLoggedIn ? <Navigate to="/profile" /> : <Navigate to="/login" />} />
-          <Route path="/login" element={isLoggedIn ? <Navigate to="/profile" /> : <Login onLogin={handleLogin} />} />
-          <Route path="/register" element={isLoggedIn ? <Navigate to="/profile" /> : <Register />} />
-          <Route path="/profile" element={isLoggedIn ? <UserProfile userInfo={userInfo} /> : <Navigate to="/login" />} />
-          <Route path="/edit-profile/:id" element={isLoggedIn ? <EditProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />} />
-          <Route
-  path="/edit-my-profile/:id"
-  element={
-    isLoggedIn ? (
-      <EditMyProfile
-        userInfo={userInfo}
-        onProfileUpdate={handleProfileUpdate} // Pasa la función
-      />
-    ) : (
-      <Navigate to="/login" />
-    )
-  }
-/>
-          <Route path="/users" element={isLoggedIn ? <UserList /> : <Navigate to="/login" />} />
-          <Route path="/inspections" element={isLoggedIn ? <Inspections /> : <Navigate to="/login" />} />
-          <Route path="/inspection/:inspectionId" element={isLoggedIn ? <Inspection /> : <Navigate to="/login" />} />
-          <Route path="/products" element={isLoggedIn ? <ProductList /> : <Navigate to="/login" />} />
-          <Route path="/services-calendar" element={isLoggedIn ? <InspectionCalendar /> : <Navigate to="/login" />} />
-          <Route path="/myservices-calendar" element={isLoggedIn ? <MyServicesCalendar /> : <Navigate to="/login" />} />
-          <Route path="/clients" element={isLoggedIn ? <ClientList /> : <Navigate to="/login" />} />
-          <Route path="/show-profile/:id" element={<ShowProfile />} />
-          <Route path="/services" element={isLoggedIn ? <ServiceList /> : <Navigate to="/login" />} />
-          <Route path="/billing" element={isLoggedIn ? <Billing /> : <Navigate to="/login" />} />
-          <Route path="/myservices" element={isLoggedIn ? <MyServices /> : <Navigate to="/login" />} />
-          <Route path="/stations/client/:client_id" element={isLoggedIn ? <CompanyStations /> : <Navigate to="/login" />} />
-        </Routes>       
+<Routes>
+  <Route path="/" element={isLoggedIn ? <Navigate to="/profile" /> : <Navigate to="/login" />} />
+  <Route path="/login" element={isLoggedIn ? <Navigate to="/profile" /> : <Login onLogin={handleLogin} />} />
+  <Route path="/register" element={isLoggedIn ? <Navigate to="/profile" /> : <Register />} />
+  <Route
+    path="/profile"
+    element={isLoggedIn ? <UserProfile userInfo={userInfo} /> : <Navigate to="/login" />}
+  />
+  <Route
+    path="/edit-profile/:id"
+    element={isLoggedIn ? <EditProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} /> : <Navigate to="/login" />}
+  />
+  <Route
+    path="/edit-my-profile/:id"
+    element={
+      isLoggedIn ? (
+        <EditMyProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} />
+      ) : (
+        <Navigate to="/login" />
+      )
+    }
+  />
+  <Route
+    path="/users"
+    element={
+      isAuthorized(['Administrador', 'Superadministrador']) ? (
+        <UserList />
+      ) : (
+        <Navigate to="/login" />
+      )
+    }
+  />
+  <Route
+    path="/clients"
+    element={
+      isAuthorized(['Comercial', 'Supervisor Técnico', 'Administrador', 'Superadministrador']) ? (
+        <ClientList />
+      ) : (
+        <Navigate to="/login" />
+      )
+    }
+  />
+  <Route
+    path="/products"
+    element={
+      isAuthorized(['Supervisor Técnico', 'Administrador', 'Superadministrador']) ? (
+        <ProductList />
+      ) : (
+        <Navigate to="/login" />
+      )
+    }
+  />
+  <Route
+    path="/billing"
+    element={
+      isAuthorized(['Administrador', 'Superadministrador']) ? (
+        <Billing />
+      ) : (
+        <Navigate to="/login" />
+      )
+    }
+  />
+  <Route
+    path="/services"
+    element={
+      isAuthorized(['Comercial', 'Supervisor Técnico', 'Administrador', 'Superadministrador']) ? (
+        <ServiceList />
+      ) : (
+        <Navigate to="/login" />
+      )
+    }
+  />
+  <Route
+    path="/services-calendar"
+    element={
+      isAuthorized(['Comercial', 'Supervisor Técnico', 'Administrador', 'Superadministrador']) ? (
+        <InspectionCalendar />
+      ) : (
+        <Navigate to="/login" />
+      )
+    }
+  />
+  <Route
+    path="/myservices-calendar"
+    element={
+      isAuthorized(['Técnico', 'Supervisor Técnico', 'Administrador', 'Superadministrador']) ? (
+        <MyServicesCalendar />
+      ) : (
+        <Navigate to="/login" />
+      )
+    }
+  />
+</Routes>      
         </div>
       </div>
     </Router>

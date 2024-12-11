@@ -86,7 +86,7 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
     {
       label: "Calendario",
       icon: <Calendar3 size={20} />,
-      path: "/clients",
+      path: "/services-calendar",
       roles: ["Comercial", "Supervisor Técnico", "Administrador", "Superadministrador"],
     },
     {
