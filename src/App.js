@@ -20,6 +20,7 @@ import ServiceList from './ServiceList';
 import Inspection from './Inspection';
 import MyServices from './MyServices';
 import Billing from './Billing';
+import Rules from './Rules'
 import CompanyStations from './CompanyStations';
 import UnsavedChangesModal from './UnsavedChangesModal';
 import { UnsavedChangesProvider } from './UnsavedChangesContext';
@@ -199,6 +200,7 @@ function App() {
                 <Route path="/show-profile/:id" element={<ShowProfile />} />
                 <Route path="/myservices" element={isAuthorized(["Técnico", "Supervisor Técnico", "Administrador", "Superadministrador"]) ? <MyServices /> : <Navigate to="/login" />} />
                 <Route path="/stations/client/:client_id" element={isAuthorized(["Supervisor Técnico", "Administrador", "Superadministrador"]) ? <CompanyStations /> : <Navigate to="/login" />} />
+                <Route path="/rules" element={isAuthorized(["Supervisor Técnico", "Administrador", "Superadministrador"]) ? <Rules /> : <Navigate to="/login" />} />
               </Routes>
         </div>
       </div>
