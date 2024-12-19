@@ -50,7 +50,7 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
   // Mapeo de columnas para "Mapas"
   const mapFields = [
     { label: "Descripción", value: "description" },
-    { label: "Mapa", value: "map" },
+    { label: "Imagen", value: "image" },
   ];
 
   const serviceFields = [
@@ -287,7 +287,15 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
   const handleTableFieldSelect = (tableName, rowIndex, colIndex, field) => {
     const key = `${tableName}_${rowIndex}_${colIndex}`;
     const source = tableSelectedSource[key] || "";
-    const combinedValue = `${source}-${field}`;
+    const period = tableIntermediateSelection[key] || "all";
+    const serviceType = tableServiceTypeSelection[key] || "all";
+  
+    let combinedValue = `${source}-${field}`;
+  
+    // Agregar período y tipo de servicio si la fuente es "Inspecciones" o "Servicios"
+    if (source === "Inspecciones" || source === "Servicios") {
+      combinedValue = `${source}-${period}-${serviceType}-${field}`;
+    }
   
     setTableData((prevTables) => {
       const updatedTable = { ...prevTables[tableName] };
@@ -297,7 +305,7 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     });
   
     setTableSelectedField((prev) => ({ ...prev, [key]: field }));
-  };  
+  };   
   
   const handleIntermediateSelect = (variable, selection) => {
     setIntermediateSelection((prev) => ({ ...prev, [variable]: selection }));
