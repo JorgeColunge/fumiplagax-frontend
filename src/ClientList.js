@@ -22,6 +22,8 @@ const customIcon = new L.Icon({
 
 function ClientList() {
   const [clients, setClients] = useState([]);
+  const [showAddMapModal, setShowAddMapModal] = useState(false); // ✅ Correcto
+  const [newMap, setNewMap] = useState({ description: "", image: null });
   const [filteredClients, setFilteredClients] = useState([]); // Para almacenar los clientes filtrados
   const [searchText, setSearchText] = useState(''); // Estado para el texto de búsqueda
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,10 @@ function ClientList() {
   const [selectedNumber, setSelectedNumber] = useState(null);
   const [airStations, setAirStations] = useState([]);
   const [rodentStations, setRodentStations] = useState([]);
+  const [showImageModal, setShowImageModal] = useState(false); // Controla la visualización del modal
+  const [selectedImage, setSelectedImage] = useState(null); // Almacena la URL de la imagen seleccionada
+  const [maps, setMaps] = useState([]);
+  const [categories, setCategories] = useState([]); // Nuevo estado para las categorías
   const [newClient, setNewClient] = useState({
     name: '',
     address: '',
@@ -51,6 +57,7 @@ function ClientList() {
     contact_name: '',
     contact_phone: '',
     rut: '',
+    category: ''
   });
 
   const [showAddAirStationModal, setShowAddAirStationModal] = useState(false);
@@ -72,18 +79,20 @@ function ClientList() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchClients = async () => {
+    const fetchClientsAndCategories = async () => {
       try {
         const response = await axios.get('http://localhost:10000/api/clients');
         setClients(response.data);
         setFilteredClients(response.data); // Inicialmente muestra todos los clientes
-        setLoading(false);        
+        setLoading(false);
+        const categoriesResponse = await axios.get('http://localhost:10000/api/rules/categories'); // Ruta para categorías
+      setCategories(categoriesResponse.data); // Guardar las categorías en el estado        
       } catch (error) {
         console.error("Error fetching clients:", error);
         setLoading(false);
       }
     };
-    fetchClients();
+    fetchClientsAndCategories();
   }, []);
 
   // Función para manejar el cambio en el campo de búsqueda
@@ -122,6 +131,7 @@ const handleSearch = (e) => {
         contact_name: '',
         contact_phone: '',
         rut: '',
+        category:'',
       });
     }
     setShowModal(true);
@@ -264,6 +274,19 @@ const handleSaveNewAirStation = async () => {
       setAirStations([]);
       setRodentStations([]);
     }
+  }; 
+
+  
+  const fetchMapsByClient = async (clientId) => {
+    try {
+      const response = await axios.get(`http://localhost:10000/api/maps/${clientId}`);
+      const { maps } = response.data; // Ajusta la estructura según el backend
+      console.log("mapas encontrados: ", maps);
+      setMaps(maps);
+    } catch (error) {
+      console.error("Error fetching maps by client:", error);
+      setMaps([]);
+    }
   };  
 
   const uploadRutFile = async () => {
@@ -320,6 +343,7 @@ const handleSaveNewAirStation = async () => {
         const response = await axios.post('http://localhost:10000/api/clients', {
           ...newClient,
           rut: rutFileUrl, // Agregar la URL del archivo RUT
+          category: newClient.category, // Asegúrate de incluir la categoría seleccionada
         });
   
         // Agregar el nuevo cliente a la lista
@@ -352,9 +376,10 @@ const handleSaveNewAirStation = async () => {
 
   // Función para manejar la visualización del modal de detalles
   const handleShowDetails = (client) => {
-  setSelectedClient(client);
-  fetchStationsByClient(client.id);
-  setShowDetailsModal(true);
+    setSelectedClient({ ...client, maps: client.maps || [] });
+    fetchStationsByClient(client.id);
+    fetchMapsByClient(client.id);
+    setShowDetailsModal(true);    
   };
 
   const handleCloseDetailsModal = () => {
@@ -374,6 +399,57 @@ const handleSaveNewAirStation = async () => {
     }
   
     setRutFile(file); // Solo establece el archivo si pasa la validación
+  };  
+  const handleShowAddMapModal = () => setShowAddMapModal(true);
+  const handleCloseAddMapModal = () => setShowAddMapModal(false);
+  
+  const handleNewMapChange = (e) => {
+    const { name, value } = e.target;
+    setNewMap({ ...newMap, [name]: value });
+  };  
+  
+  const handleSaveNewMap = async () => {
+    if (!newMap.description || !newMap.imageFile) {
+      alert("Por favor completa todos los campos y carga una imagen.");
+      return;
+    }
+  
+    try {
+      const formData = new FormData();
+      formData.append('description', newMap.description);
+      formData.append('image', newMap.imageFile); // Archivo de imagen
+      formData.append('client_id', selectedClient.id); // ID del cliente
+  
+      const response = await axios.post("http://localhost:10000/api/maps", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+  
+      // Actualizar la lista de mapas en tiempo real
+      const savedMap = response.data.map;
+      setMaps((prevMaps) => [...prevMaps, savedMap]); // Agrega el nuevo mapa a la lista
+      setSelectedClient((prevClient) => ({
+        ...prevClient,
+        maps: [...(prevClient.maps || []), savedMap], // Actualiza los mapas del cliente seleccionado
+      }));
+  
+      // Limpiar el formulario y cerrar el modal
+      setNewMap({ description: "", image: null, imageFile: null });
+      setShowAddMapModal(false);
+      alert("Mapa guardado exitosamente");
+    } catch (error) {
+      console.error("Error al guardar el mapa:", error);
+      alert("Hubo un error al guardar el mapa.");
+    }
+  };  
+
+  const handleShowImageModal = (image) => {
+    setSelectedImage(image); // Establece la imagen seleccionada
+    setShowImageModal(true); // Muestra el modal
+  };
+  
+  const handleCloseImageModal = () => {
+    setSelectedImage(null); // Limpia la imagen seleccionada
+    setShowImageModal(false); // Cierra el modal
   };  
 
   return (
@@ -591,6 +667,22 @@ const handleSaveNewAirStation = async () => {
                 required
               />
             </Form.Group>
+              {/* Nueva casilla para categoría */}
+  <Form.Group controlId="formClientCategory" className="mb-3">
+    <Form.Label>Categoría</Form.Label>
+    <Form.Control
+      as="select"
+      value={newClient.category}
+      onChange={(e) => setNewClient({ ...newClient, category: e.target.value })}
+    >
+      <option value="">Seleccione una categoría</option>
+      {categories.map((category) => (
+        <option key={category.id} value={category.id}>
+          {category.name}
+        </option>
+      ))}
+    </Form.Control>
+  </Form.Group>
             <Form.Group controlId="formClientContactName" className="mb-3">
               <Form.Label>Nombre de Contacto</Form.Label>
               <Form.Control
@@ -801,10 +893,42 @@ const handleSaveNewAirStation = async () => {
                 </div>
               </div>
             </div>
+        {/* Parte inferior central: Mapas */}
+        <div className="col-md-12 mb-4">
+          <div className="bg-white shadow-sm rounded p-3">
+            <h5 className="text-secondary mb-3">
+              <GeoAltFill className="me-2" /> Mapas
+            </h5>
+            <div>
+            <div className="map-card-container">
+            {maps.length > 0 ? (
+              maps.map((map) => (
+                <div
+                  key={map.id} // Usa `id` como clave única
+                  className="map-card"
+                  onClick={() => handleShowImageModal(map.image)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <img src={map.image} alt={map.description} className="map-image" />
+                  <p>{map.description}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-center text-muted">No hay mapas registrados.</p>
+            )}
           </div>
-        ) : (
-          <p>Cargando datos del cliente...</p>
-        )}
+              <div className="d-flex justify-content-end mt-3">
+                <Button variant="outline-success" className="px-3 py-1" onClick={handleShowAddMapModal}>
+                  <i className="fas fa-plus"></i> Agregar
+                </Button>
+              </div>
+            </div>
+              </div>
+            </div>
+              </div>
+            ) : (
+              <p>Cargando datos del cliente...</p>
+            )}
       </Modal.Body>
       <Modal.Footer>
         <div className="w-100">
@@ -1069,8 +1193,78 @@ const handleSaveNewAirStation = async () => {
           </Button>
         </Modal.Footer>
       </Modal>
+      <Modal show={showAddMapModal} onHide={handleCloseAddMapModal}>
+  <Modal.Header closeButton>
+    <Modal.Title>Agregar Mapa</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    <Form>
+      {/* Campo de descripción */}
+      <Form.Group controlId="formMapDescription" className="mb-3">
+        <Form.Label>Descripción</Form.Label>
+        <Form.Control
+          as="textarea"
+          name="description"
+          value={newMap.description}
+          onChange={handleNewMapChange}
+          placeholder="Ejemplo: Descripción del mapa..."
+          rows={3}
+          required
+        />
+      </Form.Group>
 
+      {/* Campo para cargar imagen */}
+      <Form.Group controlId="formMapImage" className="mb-3">
+        <Form.Label>Seleccionar Imagen</Form.Label>
+        <Form.Control
+  type="file"
+  accept="image/*"
+  onChange={(e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setNewMap({ ...newMap, image: URL.createObjectURL(file), imageFile: file });
+    }
+  }}
+/>
+      </Form.Group>
 
+      {/* Vista previa de la imagen cargada */}
+      {newMap.image && (
+        <div className="text-center mt-3">
+          <img
+            src={newMap.image}
+            alt="Vista previa del mapa"
+            style={{ maxWidth: "100%", maxHeight: "200px", borderRadius: "8px" }}
+          />
+        </div>
+      )}
+    </Form>
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={handleCloseAddMapModal}>
+      Cancelar
+    </Button>
+    <Button variant="success" onClick={handleSaveNewMap}>
+      Guardar
+    </Button>
+  </Modal.Footer>
+</Modal>
+<Modal
+  show={showImageModal}
+  onHide={handleCloseImageModal}
+  centered
+  dialogClassName="image-modal" /* Clase personalizada para estilos */
+>
+  <Modal.Body className="d-flex justify-content-center align-items-center">
+    {selectedImage && (
+      <img
+        src={selectedImage}
+        alt="Vista previa del mapa"
+        style={{ borderRadius: "8px" }}
+      />
+    )}
+  </Modal.Body>
+</Modal>
     </div>
   );  
 }

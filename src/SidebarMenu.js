@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUnsavedChanges } from './UnsavedChangesContext';
-import { List, Person, People, Calendar3, Clipboard, FileText, BarChart, ClipboardCheck, BoxArrowRight, Search, Megaphone, CurrencyDollar, Gear, CalendarDate, CalendarEvent, Eyedropper, PersonFillGear, GraphUp, ChatLeftDots, BoxArrowInUpRight } from 'react-bootstrap-icons';
+import { List, Person, People, Calendar3, JournalBookmarkFill, FileText, BarChart, ClipboardCheck, BoxArrowRight, Search, Megaphone, CurrencyDollar, Gear, CalendarDate, CalendarEvent, Eyedropper, PersonFillGear, GraphUp, ChatLeftDots, BoxArrowInUpRight } from 'react-bootstrap-icons';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './SidebarMenu.css';
@@ -124,6 +124,12 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
       icon: <CurrencyDollar size={20} />,
       path: "/billing",
       roles: ["Administrador", "Superadministrador"],
+    },
+    {
+      label: "Normas", // Botón agregado
+      icon: <JournalBookmarkFill size={20} />, // Puedes usar cualquier icono que desees
+      path: "/rules", // Define la ruta correspondiente
+      roles: ["Administrador", "Superadministrador"], // Ajusta los roles si es necesario
     },
     {
       label: "Consumo",

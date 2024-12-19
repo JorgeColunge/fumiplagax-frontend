@@ -20,6 +20,7 @@ import ServiceList from './ServiceList';
 import Inspection from './Inspection';
 import MyServices from './MyServices';
 import Billing from './Billing';
+import Rules from './Rules'
 import DocumentUploader from './DocumentUploader';
 import DocumentAutomation from './DocumentAutomation';
 import CompanyStations from './CompanyStations';
@@ -203,6 +204,7 @@ function App() {
                 <Route path="/upload-document" element={isAuthorized(["Técnico", "Supervisor Técnico", "Administrador", "Superadministrador"]) ? <DocumentUploader /> : <Navigate to="/login" />} />
                 <Route path="/document-automation" element={isAuthorized(["Técnico", "Supervisor Técnico", "Administrador", "Superadministrador"]) ? <DocumentAutomation /> : <Navigate to="/login" />} />
                 <Route path="/stations/client/:client_id" element={isAuthorized(["Supervisor Técnico", "Administrador", "Superadministrador"]) ? <CompanyStations /> : <Navigate to="/login" />} />
+                <Route path="/rules" element={isAuthorized(["Supervisor Técnico", "Administrador", "Superadministrador"]) ? <Rules /> : <Navigate to="/login" />} />
               </Routes>
         </div>
       </div>
