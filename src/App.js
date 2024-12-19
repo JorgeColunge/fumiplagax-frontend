@@ -20,6 +20,8 @@ import ServiceList from './ServiceList';
 import Inspection from './Inspection';
 import MyServices from './MyServices';
 import Billing from './Billing';
+import DocumentUploader from './DocumentUploader';
+import DocumentAutomation from './DocumentAutomation';
 import CompanyStations from './CompanyStations';
 import UnsavedChangesModal from './UnsavedChangesModal';
 import { UnsavedChangesProvider } from './UnsavedChangesContext';
@@ -198,6 +200,8 @@ function App() {
                 <Route path="/inspection/:inspectionId" element={isAuthorized(["Supervisor Técnico", "Administrador", "Superadministrador"]) ? <Inspection /> : <Navigate to="/login" />} />
                 <Route path="/show-profile/:id" element={<ShowProfile />} />
                 <Route path="/myservices" element={isAuthorized(["Técnico", "Supervisor Técnico", "Administrador", "Superadministrador"]) ? <MyServices /> : <Navigate to="/login" />} />
+                <Route path="/upload-document" element={isAuthorized(["Técnico", "Supervisor Técnico", "Administrador", "Superadministrador"]) ? <DocumentUploader /> : <Navigate to="/login" />} />
+                <Route path="/document-automation" element={isAuthorized(["Técnico", "Supervisor Técnico", "Administrador", "Superadministrador"]) ? <DocumentAutomation /> : <Navigate to="/login" />} />
                 <Route path="/stations/client/:client_id" element={isAuthorized(["Supervisor Técnico", "Administrador", "Superadministrador"]) ? <CompanyStations /> : <Navigate to="/login" />} />
               </Routes>
         </div>

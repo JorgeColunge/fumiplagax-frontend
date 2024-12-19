@@ -4,9 +4,10 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import ClientInfoModal from './ClientInfoModal';
 import esLocale from '@fullcalendar/core/locales/es';
 import { Button, Modal, Form, Col, Row, Table } from 'react-bootstrap';
-import { ChevronLeft, ChevronRight, Plus, GearFill, InfoCircle, Bug, GeoAlt, FileText, Clipboard, PlusCircle, PencilSquare, Trash } from 'react-bootstrap-icons';
+import { ChevronLeft, ChevronRight, Plus, GearFill, InfoCircle, Bug, GeoAlt, FileText, Clipboard, PlusCircle, PencilSquare, Trash, Building, BuildingFill, EyeFill } from 'react-bootstrap-icons';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './InspectionCalendar.css';
 import moment from 'moment-timezone';
@@ -34,6 +35,8 @@ const InspectionCalendar = () => {
     const [alertMessage, setAlertMessage] = useState('');
     const [scheduleConflictMessage, setScheduleConflictMessage] = useState('');
     const [inspections, setInspections] = useState([]);
+    const [showClientModal, setShowClientModal] = useState(false);
+    const [selectedClientId, setSelectedClientId] = useState(null);
     const [showAddInspectionModal, setShowAddInspectionModal] = useState(false);
     const [newInspection, setNewInspection] = useState({
         inspection_type: [],
@@ -641,6 +644,7 @@ const InspectionCalendar = () => {
                                 category: serviceData.category || 'Sin categoría', // Nueva propiedad
                                 quantyPerMonth: serviceData.quantity_per_month || null, // Nueva propiedad
                                 clientName,
+                                clientId: serviceData.client_id,
                                 responsibleId: serviceData.responsible,
                                 responsibleName,
                                 address: clientData?.address || 'Sin dirección',
@@ -820,6 +824,7 @@ const InspectionCalendar = () => {
             description: extendedProps.description || 'Sin descripción',
             responsibleName: extendedProps.responsibleName || 'Sin responsable',
             clientName: extendedProps.clientName || 'Sin empresa',
+            clientId: extendedProps.clientId,
             address: extendedProps.address || 'Sin dirección',
             phone: extendedProps.phone || 'Sin teléfono',
             category: extendedProps.category || 'Sin categoría', // Nueva propiedad
@@ -854,6 +859,19 @@ const InspectionCalendar = () => {
         openScheduleModal(); // Abre el modal
     };
     
+    const handleShowClientModal = (clientId) => {
+        setSelectedClientId(clientId);
+        setShowClientModal(true);
+      };
+      
+      const handleCloseClientModal = () => {
+        setShowClientModal(false);
+        setSelectedClientId(null);
+      };  
+
+      const handleEditServiceClick = (serviceId) => {
+        navigate('/services', { state: { serviceId } });
+    };
 
     const handleScheduleService = async () => {
         try {
@@ -910,6 +928,7 @@ const InspectionCalendar = () => {
                 title: `${selectedServiceData.id}`,
                 serviceType: selectedServiceData.service_type || 'Sin tipo',
                 clientName: selectedServiceData.clientName || 'Sin empresa',
+                clientId: selectedServiceData.clientId,
                 description: selectedServiceData.description || 'Sin descripción',
                 color: responsibleColor, // Agregar el color del responsable
                 backgroundColor: responsibleColor,
@@ -1188,9 +1207,33 @@ const InspectionCalendar = () => {
                                 </div>
                                 
                                 <div className="d-flex flex-column gap-2">
-                                    <p><strong>ID del Servicio:</strong> {selectedEvent.title}</p>
+                                    <div className='p-0 m-0 d-flex'>
+                                        <p><strong>ID del Servicio:</strong> {selectedEvent.title}</p>
+                                        <EyeFill
+                                            className='ms-2'
+                                            style={{cursor: "pointer"}}
+                                            size={22}
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // Evita otros eventos
+                                                handleEditServiceClick(selectedEvent.title);
+                                            }}
+                                        />
+                                    </div>
                                     <p><strong>Tipo de Servicio:</strong> {selectedEvent.serviceType.replace(/[\{\}"]/g, '').split(',').join(', ')}</p>
-                                    <p><strong>Empresa:</strong> {selectedEvent.clientName}</p>
+                                    <div className='p-0 m-0 d-flex'>
+                                        <p className="my-1"><strong>Empresa:</strong> {selectedEvent.clientName || "Cliente Desconocido"}</p>
+                                        {selectedEvent.clientId && (
+                                        <Building
+                                            className='ms-2 mt-1'
+                                            style={{cursor: "pointer"}}
+                                            size={22}
+                                            onClick={(e) => {
+                                            e.stopPropagation(); // Evita que se activen otros eventos del Card
+                                            handleShowClientModal(selectedEvent.clientId);
+                                            }}
+                                        />
+                                        )}
+                                    </div>
                                     <p><strong>Responsable:</strong> {selectedEvent.responsibleName}</p>
                                     {selectedEvent.companion && selectedEvent.companion !== "{}" && selectedEvent.companion !== '{""}' && (
                                         <p>
@@ -1440,24 +1483,29 @@ const InspectionCalendar = () => {
             </Modal>
 
             <Modal show={deleteEventModalOpen} onHide={() => setDeleteEventModalOpen(false)} backdrop="static" centered>
-    <Modal.Header closeButton>
-        <Modal.Title>Eliminar Evento</Modal.Title>
-    </Modal.Header>
-    <Modal.Body>
-        <p>¿Estás seguro de que deseas eliminar este evento?</p>
-        <p><strong>ID:</strong> {selectedEvent?.id}</p>
-        <p><strong>Servicio:</strong> {selectedEvent?.serviceType}</p>
-    </Modal.Body>
-    <Modal.Footer>
-        <Button variant="secondary" onClick={() => setDeleteEventModalOpen(false)}>
-            Cancelar
-        </Button>
-        <Button variant="danger" onClick={handleDeleteEvent}>
-            Eliminar
-        </Button>
-    </Modal.Footer>
-</Modal>
-
+                <Modal.Header closeButton>
+                    <Modal.Title>Eliminar Evento</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <p>¿Estás seguro de que deseas eliminar este evento?</p>
+                    <p><strong>ID:</strong> {selectedEvent?.id}</p>
+                    <p><strong>Servicio:</strong> {selectedEvent?.serviceType}</p>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setDeleteEventModalOpen(false)}>
+                        Cancelar
+                    </Button>
+                    <Button variant="danger" onClick={handleDeleteEvent}>
+                        Eliminar
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+        
+            <ClientInfoModal
+                clientId={selectedClientId}
+                show={showClientModal}
+                onClose={handleCloseClientModal}
+            />
 
         </div>
     );

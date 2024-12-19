@@ -717,7 +717,7 @@ const handleSaveNewAirStation = async () => {
                           <td className="text-center">
                             {station.qr_code ? (
                               <img
-                                src={`http://localhost:10000${station.qr_code}`}
+                                src={`${station.qr_code}`}
                                 alt={`QR de estación aérea ${station.description}`}
                                 className="img-fluid rounded"
                                 style={{ maxWidth: '150px' }}
@@ -773,7 +773,7 @@ const handleSaveNewAirStation = async () => {
                           <td className="text-center">
                             {station.qr_code ? (
                               <img
-                                src={`http://localhost:10000${station.qr_code}`}
+                                src={`${station.qr_code}`}
                                 alt={`QR de estación de roedores ${station.description}`}
                                 className="img-fluid rounded"
                                 style={{ maxWidth: '150px' }}

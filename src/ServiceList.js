@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
-import { useNavigate } from 'react-router-dom'; // Asegúrate de tener configurado react-router
+import { useNavigate, useLocation } from 'react-router-dom'; // Asegúrate de tener configurado react-router
 import { Calendar, Person, Bag, Building, PencilSquare, Trash, Bug, Diagram3, GearFill, Clipboard, PlusCircle, InfoCircle, FileText, GeoAlt } from 'react-bootstrap-icons';
 import { Card, Col, Row, Collapse, Button, Table, Modal, Form, CardFooter, ModalTitle } from 'react-bootstrap';
+import ClientInfoModal from './ClientInfoModal'; // Ajusta la ruta según la ubicación del componente
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ServiceList.css'
 
@@ -54,6 +55,8 @@ function ServiceList() {
   const [filteredClients, setFilteredClients] = useState([]); // Clientes filtrados para la búsqueda
   const [showSuggestions, setShowSuggestions] = useState(false); // Controla si se muestran las sugerencias
   const [searchServiceText, setSearchServiceText] = useState(''); // Estado para el texto de búsqueda en servicios
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState(null);
   const [newService, setNewService] = useState({
     service_type: [],
     description: '',
@@ -88,6 +91,41 @@ function ServiceList() {
       setExpandedCardId(null);
     }
   };
+
+  const fetchInspections = async (serviceId) => {
+    try {
+      const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
+      const formattedInspections = response.data
+        .filter((inspection) => inspection.service_id === serviceId) // Filtra por `service_id`
+        .map((inspection) => ({
+          ...inspection,
+          date: moment(inspection.date).format("DD/MM/YYYY"), // Formato legible para la fecha
+          time: inspection.time ? moment(inspection.time, "HH:mm:ss").format("HH:mm") : "--",
+          exit_time: inspection.exit_time ? moment(inspection.exit_time, "HH:mm:ss").format("HH:mm") : "--",
+          observations: inspection.observations || "Sin observaciones",
+        }))
+        .sort((a, b) => b.datetime - a.datetime); // Ordena por fecha y hora
+      setInspections(formattedInspections);
+    } catch (error) {
+      console.error("Error fetching inspections:", error);
+    }
+  };
+
+  // Dentro de tu componente MyServices
+  const location = useLocation();
+  const serviceIdFromState = location.state?.serviceId;
+
+  // Si el estado contiene un serviceId, selecciona automáticamente ese servicio y abre el modal.
+  useEffect(() => {
+      if (serviceIdFromState) {
+          const service = services.find(s => s.id === serviceIdFromState);
+          if (service) {
+              setSelectedService(service);
+              fetchInspections(service.id);
+              setShowDetailsModal(true);
+          }
+      }
+  }, [serviceIdFromState, services]);
 
   useEffect(() => {
     // Agregar evento de clic al documento cuando hay un menú desplegable abierto
@@ -422,6 +460,16 @@ const handleEditClick = (service) => {
 
   if (loading) return <div>Cargando servicios...</div>;
 
+  const handleShowClientModal = (clientId) => {
+    setSelectedClientId(clientId);
+    setShowClientModal(true);
+  };
+  
+  const handleCloseClientModal = () => {
+    setShowClientModal(false);
+    setSelectedClientId(null);
+  };
+
 
   const handleServiceSearchChange = (e) => {
     const input = e.target.value;
@@ -441,26 +489,7 @@ const handleEditClick = (service) => {
     }
   
     setFilteredServices(filtered);
-  };  
-
-  const fetchInspections = async (serviceId) => {
-    try {
-      const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
-      const formattedInspections = response.data
-        .filter((inspection) => inspection.service_id === serviceId) // Filtra por `service_id`
-        .map((inspection) => ({
-          ...inspection,
-          date: moment(inspection.date).format("DD/MM/YYYY"), // Formato legible para la fecha
-          time: inspection.time ? moment(inspection.time, "HH:mm:ss").format("HH:mm") : "--",
-          exit_time: inspection.exit_time ? moment(inspection.exit_time, "HH:mm:ss").format("HH:mm") : "--",
-          observations: inspection.observations || "Sin observaciones",
-        }))
-        .sort((a, b) => b.datetime - a.datetime); // Ordena por fecha y hora
-      setInspections(formattedInspections);
-    } catch (error) {
-      console.error("Error fetching inspections:", error);
-    }
-  };  
+  };    
 
   const handleSearchChange = (e) => {
     const input = e.target.value;
@@ -1297,7 +1326,20 @@ const filteredTechniciansForCompanion = technicians.filter(
                       .join(", ")}
                   </p>
                   <p className='my-1'><strong>Categoría:</strong> {selectedService.category}</p>
-                  <p className='my-1'><strong>Empresa:</strong> {clientNames[selectedService.client_id] || "Cliente Desconocido"}</p>
+                  <div className='p-0 m-0 d-flex'>
+                    <p className="my-1"><strong>Empresa:</strong> {clientNames[selectedService.client_id] || "Cliente Desconocido"}</p>
+                    {selectedService.client_id && (
+                      <Building
+                        className='ms-2 mt-1'
+                        style={{cursor: "pointer"}}
+                        size={22}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Evita que se activen otros eventos del Card
+                          handleShowClientModal(selectedService.client_id);
+                        }}
+                      />
+                    )}
+                  </div>
                   <p className='my-1'><strong>Responsable:</strong> {technicians.find((tech) => tech.id === selectedService.responsible)?.name || "No asignado"}</p>
                   {selectedService.category === "Periódico" && (
                     <p><strong>Cantidad al Mes:</strong> {selectedService.quantity_per_month}</p>
@@ -1414,6 +1456,11 @@ const filteredTechniciansForCompanion = technicians.filter(
         </Modal.Body>
       </Modal>
 
+      <ClientInfoModal
+        clientId={selectedClientId}
+        show={showClientModal}
+        onClose={handleCloseClientModal}
+      />
 
     </div>
     

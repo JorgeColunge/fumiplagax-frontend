@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useRef  } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
 import { Card, Col, Row, Button, Table, Modal, Form, ModalTitle } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { Calendar, Person, Bag, Building, PencilSquare, Trash, Bug, Diagram3, GearFill, Clipboard, PlusCircle, InfoCircle, FileText, GeoAlt } from 'react-bootstrap-icons';
-import { useNavigate } from 'react-router-dom';
+import { Calendar, Person, Bag, Building, PencilSquare, Trash, Bug, Diagram3, GearFill, Clipboard, PlusCircle, InfoCircle, FileText, GeoAlt, PersonFill } from 'react-bootstrap-icons';
+import { useNavigate, useLocation } from 'react-router-dom';
+import ClientInfoModal from './ClientInfoModal'; // Ajusta la ruta según la ubicación del componente
 import './ServiceList.css'
 
 function MyServices() {
@@ -20,6 +21,8 @@ function MyServices() {
   const userId = storedUserInfo?.id_usuario || '';
   const [technicians, setTechnicians] = useState([]);
   const [expandedCardId, setExpandedCardId] = useState(null);
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState(null);
   const [newInspection, setNewInspection] = useState({
     inspection_type: [],
     inspection_sub_type: "",
@@ -47,6 +50,22 @@ function MyServices() {
       setExpandedCardId(null);
     }
   };
+
+  // Dentro de tu componente MyServices
+  const location = useLocation();
+  const serviceIdFromState = location.state?.serviceId;
+
+  // Si el estado contiene un serviceId, selecciona automáticamente ese servicio y abre el modal.
+  useEffect(() => {
+      if (serviceIdFromState) {
+          const service = services.find(s => s.id === serviceIdFromState);
+          if (service) {
+              setSelectedService(service);
+              fetchInspections(service.id);
+              setShowServiceModal(true);
+          }
+      }
+  }, [serviceIdFromState, services]);
   
   useEffect(() => {
     // Agregar evento de clic al documento cuando hay un menú desplegable abierto
@@ -61,7 +80,16 @@ function MyServices() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [expandedCardId]);
+
+  const handleShowClientModal = (clientId) => {
+    setSelectedClientId(clientId);
+    setShowClientModal(true);
+  };
   
+  const handleCloseClientModal = () => {
+    setShowClientModal(false);
+    setSelectedClientId(null);
+  };  
 
   useEffect(() => {
     const fetchMyServices = async () => {
@@ -434,7 +462,20 @@ function MyServices() {
                     {selectedService.service_type.replace(/[\{\}"]/g, "").split(",").join(", ")}
                   </p>
                   <p className="my-1"><strong>Categoría:</strong> {selectedService.category}</p>
-                  <p className="my-1"><strong>Empresa:</strong> {clientNames[selectedService.client_id] || "Cliente Desconocido"}</p>
+                  <div className='p-0 m-0 d-flex'>
+                    <p className="my-1"><strong>Empresa:</strong> {clientNames[selectedService.client_id] || "Cliente Desconocido"}</p>
+                    {selectedService.client_id && (
+                      <Building
+                        className='ms-2 mt-1'
+                        style={{cursor: "pointer"}}
+                        size={22}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Evita que se activen otros eventos del Card
+                          handleShowClientModal(selectedService.client_id);
+                        }}
+                      />
+                    )}
+                  </div>
                   <p className="my-1"><strong>Responsable:</strong> {technicians.find((tech) => tech.id === selectedService.responsible)?.name || "No asignado"}</p>
                   {selectedService.category === "Periódico" && (
                     <p><strong>Cantidad al Mes:</strong> {selectedService.quantity_per_month}</p>
@@ -614,6 +655,12 @@ function MyServices() {
           <p className="m-0">{notification.message}</p>
         </Modal.Body>
       </Modal>
+
+      <ClientInfoModal
+        clientId={selectedClientId}
+        show={showClientModal}
+        onClose={handleCloseClientModal}
+      />
 
     </div>
   );
