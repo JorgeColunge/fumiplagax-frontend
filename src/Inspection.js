@@ -24,6 +24,7 @@ function Inspection() {
   const [stationModalOpen, setStationModalOpen] = useState(false);
   const [currentStationId, setCurrentStationId] = useState(null);
   const [stationFinding, setStationFinding] = useState({
+    category: 'Roedores',
     purpose: 'Consumo', // Valor predeterminado
     consumptionAmount: 'Nada', // Valor predeterminado
     captureQuantity: '',
@@ -38,6 +39,7 @@ function Inspection() {
   const [stationModalOpenDesinsectacion, setStationModalOpenDesinsectacion] = useState(false);
   const [currentStationIdDesinsectacion, setCurrentStationIdDesinsectacion] = useState(null);
   const [stationFindingDesinsectacion, setStationFindingDesinsectacion] = useState({
+    category: 'Aéreas',
     captureQuantity: '',
     physicalState: 'Buena', // Default: Buena
     damageLocation: '',
@@ -556,15 +558,20 @@ const dataURLtoBlob = (dataURL) => {
 
   const handleOpenStationModal = (stationId) => {
     setCurrentStationId(stationId);
+
+    const station = stations.find((s) => s.id === stationId); // Encuentra la estación por su ID
+    const stationCategory = station?.category || ''; // Obtén la categoría o un valor por defecto
   
     if (clientStations[stationId]) {
       setStationFinding({
         ...clientStations[stationId], // Carga los datos existentes
         photoBlob: null, // Asegúrate de que `photoBlob` esté vacío para nuevas selecciones
+        category: stationCategory,
       });
     } else {
       // Si no hay hallazgo previo, usa valores predeterminados
       setStationFinding({
+        category: stationCategory,
         purpose: 'Consumo',
         consumptionAmount: 'Nada',
         captureQuantity: '',
@@ -665,15 +672,20 @@ const dataURLtoBlob = (dataURL) => {
 
   const handleOpenStationModalDesinsectacion = (stationId) => {
     setCurrentStationIdDesinsectacion(stationId);
+
+    const station = stations.find((s) => s.id === stationId); // Encuentra la estación por su ID
+    const stationCategory = station?.category || ''; // Obtén la categoría o un valor por defecto
   
     if (clientStations[stationId]) {
       setStationFindingDesinsectacion({
         ...clientStations[stationId], // Carga los datos existentes
         photoBlob: null, // Asegúrate de que `photoBlob` esté vacío para nuevas selecciones
+        category: stationCategory,
       });
     } else {
       // Si no hay hallazgo previo, usa valores predeterminados
       setStationFindingDesinsectacion({
+        category: stationCategory,
         captureQuantity: '',
         physicalState: 'Buena',
         damageLocation: '',
