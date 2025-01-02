@@ -44,17 +44,20 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
     fetchUser();
   }, [userInfo?.id_usuario, userInfo]);  
 
+  const [activePath, setActivePath] = useState(""); // Estado para la ruta activa
+
   const handleNavigation = (path) => {
     if (hasUnsavedChanges) {
       setUnsavedRoute(path); // Configura la ruta pendiente
       setShowUnsavedModal(true); // Muestra el modal
       return;
     }
+    setActivePath(path); // Actualiza la ruta activa
     navigate(path); // Navega directamente si no hay cambios pendientes
     if (isOpen) {
       toggleMenu(); // Colapsa la barra si está abierta
     }
-  };
+  };  
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
@@ -170,25 +173,28 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
         )}
       </div>
       {menuItems
-        .filter((item) => item.roles.includes(user?.rol))
-        .map((item, index) => (
-          <div key={index} className="nav-item">
-            {item.action ? (
-              <button className="nav-link btn btn-link" onClick={item.action}>
-                {item.icon}
-                {isOpen && <span>{item.label}</span>}
-              </button>
-            ) : (
-              <button
-                className="nav-link btn btn-link"
-                onClick={() => handleNavigation(item.path)}
-              >
-                {item.icon}
-                {isOpen && <span>{item.label}</span>}
-              </button>
-            )}
-          </div>
-        ))}
+  .filter((item) => item.roles.includes(user?.rol))
+  .map((item, index) => (
+    <div
+      key={index}
+      className={`nav-item ${activePath === item.path ? "active" : ""}`} // Añade la clase "active"
+    >
+      {item.action ? (
+        <button className="nav-link btn btn-link" onClick={item.action}>
+          {item.icon}
+          {isOpen && <span>{item.label}</span>}
+        </button>
+      ) : (
+        <button
+          className="nav-link btn btn-link"
+          onClick={() => handleNavigation(item.path)}
+        >
+          {item.icon}
+          {isOpen && <span>{item.label}</span>}
+        </button>
+      )}
+    </div>
+  ))}
     </div>
   );
 }

@@ -92,9 +92,10 @@
   height: 35px;
   margin: 2px 0;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background 0.3s, color 0.3s;
 }
 
+/* Estado normal */
 .nav-link {
   color: #fff;
   text-decoration: none;
@@ -105,8 +106,13 @@
   transition: color 0.3s;
 }
 
-.nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+/* Estado activo */
+.nav-item.active {
+  background-color: #fff; /* Fondo blanco */
+}
+
+.nav-item.active .nav-link {
+  color: #000; /* Cambiar color del ícono y texto a negro */
 }
 
 .nav-link span {
