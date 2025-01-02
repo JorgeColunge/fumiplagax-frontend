@@ -38,6 +38,15 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     { label: "Ciudad", value: "city" },
   ];
 
+  const responsibleFields = [
+    { label: "Nombre", value: "name" },
+    { label: "Apellido", value: "lastname" },
+    { label: "Teléfono", value: "phone" },
+    { label: "Correo Electrónico", value: "email" },
+    { label: "Foto", value: "image" },
+    { label: "Documento", value: "id" },
+  ];
+
   const stationFields = [
     { label: "Descripción", value: "description" },
     { label: "Categoría", value: "category" },
@@ -80,36 +89,55 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
       { label: "Hora de Salida", value: "exit_time" },
       { label: "Tipo de Inspección", value: "inspection_type" },
       { label: "Subtipo de Inspección", value: "inspection_sub_" },
-      { label: "Responsable", value: "responsable" },
-      { label: "Número del Responsable", value: "numero_responsable" },
-      { label: "Firma del Técnico", value: "firma_tecnico" },
-      { label: "Firma del Cliente", value: "firma_cliente" },
-      { label: "Nombre del Cliente", value: "nombre_cliente" },
-      { label: "Cédula Cliente", value: "cedula_cliente" },
-      { label: "Cargo", value: "cargo" },
+      { label: "Responsable", value: "findings_signatures_technician_name" },
+      { label: "Cédula del Responsable", value: "findings_signatures_technician_id" },
+      { label: "Firma del Técnico", value: "findings_signatures_technician_signature" },
+      { label: "Firma del Cliente", value: "findings_signatures_client_signature" },
+      { label: "Nombre del Cliente", value: "findings_signatures_client_name" },
+      { label: "Cédula Cliente", value: "findings_signatures_client_id" },
+      { label: "Cargo", value: "findings_signatures_client_position" },
       { label: "Hallazgos (Todo)", value: "findings_all" },
-      { label: "Lugar Hallazgo", value: "findings_location" },
-      { label: "Descripción Hallazgo", value: "findings_description" },
-      { label: "Foto Hallazgo", value: "findings_photo" },
-      { label: "Producto", value: "findings_product" },
-      { label: "Dosificación", value: "findings_dosage" },
+      { label: "Lugar Hallazgo", value: "findings_findingsByType_place" },
+      { label: "Descripción Hallazgo", value: "findings_findingsByType_description" },
+      { label: "Foto Hallazgo", value: "findings_findingsByType_photo" },
+      { label: "Producto", value: "findings_productsByType_product" },
+      { label: "Dosificación", value: "findings_productsByType_dosage" },
     ];
   
     const stationDesratizacion = [
-      { label: "Finalidad Estación", value: "station_purpose" },
-      { label: "Cantidad Consumo Estación", value: "station_consumption" },
-      { label: "Cantidad de Capturas Estación", value: "station_captures" },
-      { label: "Estación Señalizada", value: "station_signaled" },
-      { label: "Estado Físico Estación", value: "station_physical_state" },
-      { label: "Descripción Hallazgo Estación", value: "station_findings_description" },
-      { label: "Fotografía Hallazgo Estación", value: "station_findings_photo" },
+      { label: "Finalidad Estación", value: "findings_stationsFindings_Roedores_purpose" },
+      { label: "Cantidad Consumo Estación", value: "findings_stationsFindings_Roedores_consumptionAmount" },
+      { label: "Cantidad de Capturas Estación", value: "findings_stationsFindings_Roedores_captureQuantity" },
+      { label: "Estación Señalizada", value: "findings_stationsFindings_Roedores_marked" },
+      { label: "Estado Físico Estación", value: "findings_stationsFindings_Roedores_physicalState" },
+      { label: "Lugar del Daño", value: "findings_stationsFindings_Roedores_damageLocation" },
+      { label: "¿Requiere Cambio?", value: "findings_stationsFindings_Roedores_requiresChange" },
+      { label: "¿Prioridad de Cambio?", value: "findings_stationsFindings_Roedores_changePriority" },
+      { label: "Descripción Hallazgo Estación", value: "findings_stationsFindings_Roedores_description" },
+      { label: "Fotografía Hallazgo Estación", value: "findings_stationsFindings_Roedores_photo" },
     ];
   
     const stationDesinsectacion = [
-      { label: "Cantidad de Capturas Estación", value: "captures_station" },
-      { label: "Estado Físico Estación", value: "station_physical_state" },
-      { label: "Descripción Estación", value: "station_description" },
-      { label: "Fotografía Hallazgo Estación", value: "station_photo" },
+      { label: "Cantidad de Capturas Estación", value: "findings_stationsFindings_Aéreas_captureQuantity" },
+      { label: "Estado Físico Estación", value: "findings_stationsFindings_Aéreas_physicalState" },
+      { label: "Lugar del Daño", value: "findings_stationsFindings_Aéreas_damageLocation" },
+      { label: "¿Requiere Cambio?", value: "findings_stationsFindings_Aéreas_requiresChange" },
+      { label: "¿Prioridad de Cambio?", value: "findings_stationsFindings_Aéreas_changePriority" },
+      { label: "Descripción Estación", value: "findings_stationsFindings_Aéreas_description" },
+      { label: "Fotografía Hallazgo Estación", value: "findings_stationsFindings_Aéreas_photo" },
+    ];
+
+    const allStation = [
+      { label: "Finalidad Estación", value: "findings_stationsFindings_all_purpose" },
+      { label: "Cantidad Consumo Estación", value: "findings_stationsFindings_all_consumptionAmount" },
+      { label: "Cantidad de Capturas Estación", value: "findings_stationsFindings_all_captureQuantity" },
+      { label: "Estación Señalizada", value: "findings_stationsFindings_all_marked" },
+      { label: "Estado Físico Estación", value: "findings_stationsFindings_all_physicalState" },
+      { label: "Lugar del Daño", value: "findings_stationsFindings_all_damageLocation" },
+      { label: "¿Requiere Cambio?", value: "findings_stationsFindings_all_requiresChange" },
+      { label: "¿Prioridad de Cambio?", value: "findings_stationsFindings_all_changePriority" },
+      { label: "Descripción Hallazgo Estación", value: "findings_stationsFindings_all_description" },
+      { label: "Fotografía Hallazgo Estación", value: "findings_stationsFindings_all_photo" },
     ];
   
     // Condicional para agregar campos de estaciones
@@ -117,6 +145,8 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
       return [...commonFields, ...stationDesratizacion];
     } else if (serviceType === "Desinsectación") {
       return [...commonFields, ...stationDesinsectacion];
+    } else if (serviceType === "all") {
+      return [...commonFields,...allStation];
     } else {
       return commonFields; // Sin estaciones
     }
@@ -180,7 +210,7 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
   
 
   const handleFuenteClick = (variable) => {
-    const options = [
+    let options = [
       "Cliente",
       "Estaciones Aéreas",
       "Estaciones Roedores",
@@ -188,13 +218,23 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
       "Servicios",
       "Inspecciones",
     ];
+  
+    // Ajustar opciones si la entidad es "Servicio"
+    if (selectedEntity === "servicio") {
+      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente"];
+    }
+    else if (selectedEntity === "inspeccion") {
+      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente"];
+    }
+  
     setSourceOptions((prev) => ({ ...prev, [variable]: options }));
     setShowSourceDropdown((prev) => ({ ...prev, [variable]: true }));
   };
+  
 
   const handleTableFuenteClick = (tableName, rowIndex, colIndex) => {
     const key = `${tableName}_${rowIndex}_${colIndex}`;
-    const options = [
+    let options = [
       "Cliente",
       "Estaciones Aéreas",
       "Estaciones Roedores",
@@ -202,27 +242,46 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
       "Servicios",
       "Inspecciones",
     ];
+  
+    // Ajustar opciones si la entidad es "Servicio"
+    if (selectedEntity === "servicio") {
+      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente"];
+    } else if (selectedEntity === "inspeccion") {
+      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente"];
+    }
+  
     setTableSourceOptions((prev) => ({ ...prev, [key]: options }));
     setTableShowSourceDropdown((prev) => ({ ...prev, [key]: true }));
-  };
+  };  
   
 
   const handleSourceSelect = (variable, source) => {
     setSelectedSource((prev) => ({ ...prev, [variable]: source }));
   
     if (source === "Inspecciones") {
-      // Opciones de campos para Inspecciones
       setFieldOptions((prev) => ({ ...prev, [variable]: getInspectionFields("") })); // Por defecto sin filtro
       setIntermediateSelection((prev) => ({ ...prev, [variable]: "" })); // Reset período
+      setServiceTypeSelection((prev) => ({ ...prev, [variable]: "" })); // Reset subtipo
+    } else if (source === "Inspección") {
+      setFieldOptions((prev) => ({ ...prev, [variable]: getInspectionFields("") }));
       setServiceTypeSelection((prev) => ({ ...prev, [variable]: "" })); // Reset subtipo
     } else if (source === "Servicios") {
       // Opciones de campos para Servicios
       setFieldOptions((prev) => ({ ...prev, [variable]: serviceFields }));
       setIntermediateSelection((prev) => ({ ...prev, [variable]: "" })); // Reset período
       setServiceTypeSelection((prev) => ({ ...prev, [variable]: "" })); // Reset tipo de servicio
+    } else if (source === "Servicio") {
+      // Opciones de campos para Servicios
+      setFieldOptions((prev) => ({ ...prev, [variable]: serviceFields }));
     } else if (source === "Cliente") {
       // Opciones de campos para Cliente
       setFieldOptions((prev) => ({ ...prev, [variable]: clientFields }));
+    } else if (source === "Responsable") {
+      // Opciones de campos para Responsable
+      setFieldOptions((prev) => ({ ...prev, [variable]: responsibleFields }));
+    } else if (source === "Acompañante") {
+      // Opciones de campos para Acompañante
+      setFieldOptions((prev) => ({ ...prev, [variable]: responsibleFields }));
     } else if (source === "Estaciones Aéreas" || source === "Estaciones Roedores") {
       // Opciones de campos para Estaciones
       setFieldOptions((prev) => ({ ...prev, [variable]: stationFields }));
@@ -243,12 +302,20 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
       setTableFieldOptions((prev) => ({ ...prev, [key]: getInspectionFields("") }));
       setTableIntermediateSelection((prev) => ({ ...prev, [key]: "" })); // Reset período
       setTableServiceTypeSelection((prev) => ({ ...prev, [key]: "" })); // Reset subtipo
+    } else if (source === "Inspección") {
+      setTableFieldOptions((prev) => ({ ...prev, [key]: getInspectionFields("") }));
     } else if (source === "Servicios") {
       setTableFieldOptions((prev) => ({ ...prev, [key]: serviceFields }));
       setTableIntermediateSelection((prev) => ({ ...prev, [key]: "" }));
       setTableServiceTypeSelection((prev) => ({ ...prev, [key]: "" }));
+    } else if (source === "Servicio") {
+      setTableFieldOptions((prev) => ({ ...prev, [key]: serviceFields }));
     } else if (source === "Cliente") {
       setTableFieldOptions((prev) => ({ ...prev, [key]: clientFields }));
+    } else if (source === "Responsable") {
+      setTableFieldOptions((prev) => ({ ...prev, [key]: responsibleFields }));
+    } else if (source === "Acompañante") {
+      setTableFieldOptions((prev) => ({ ...prev, [key]: responsibleFields }));
     } else if (source === "Estaciones Aéreas" || source === "Estaciones Roedores") {
       setTableFieldOptions((prev) => ({ ...prev, [key]: stationFields })); // Asignar campos de estaciones
     } else if (source === "Mapas") {
@@ -271,6 +338,9 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     if (tableSelectedSource[key] === "Inspecciones") {
       const updatedFields = getInspectionFields(serviceType);
       setTableFieldOptions((prev) => ({ ...prev, [key]: updatedFields }));
+    } else if (tableSelectedSource[key] === "Inspección") {
+      const updatedFields = getInspectionFields(serviceType);
+      setTableFieldOptions((prev) => ({ ...prev, [key]: updatedFields }));
     }
   };  
   
@@ -279,6 +349,9 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
   
     // Actualizar dinámicamente los campos según el tipo de inspección seleccionado
     if (selectedSource[variable] === "Inspecciones") {
+      const updatedFields = getInspectionFields(serviceType);
+      setFieldOptions((prev) => ({ ...prev, [variable]: updatedFields }));
+    } else if (selectedSource[variable] === "Inspección") {
       const updatedFields = getInspectionFields(serviceType);
       setFieldOptions((prev) => ({ ...prev, [variable]: updatedFields }));
     }
@@ -293,7 +366,7 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     let combinedValue = `${source}-${field}`;
   
     // Agregar período y tipo de servicio si la fuente es "Inspecciones" o "Servicios"
-    if (source === "Inspecciones" || source === "Servicios") {
+    if (source === "Inspecciones" || source === "Inspección" || source === "Servicios") {
       combinedValue = `${source}-${period}-${serviceType}-${field}`;
     }
   
@@ -318,7 +391,7 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     let combinedValue = `${source}-${field}`;
   
     // Incluir el período y tipo si la fuente es "Inspecciones" o "Servicios"
-    if (source === "Inspecciones" || source === "Servicios") {
+    if (source === "Inspecciones" || source === "Inspección" || source === "Servicios") {
       combinedValue = `${source}-${period}-${serviceType}-${field}`;
     }
   
@@ -340,7 +413,6 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     });
   };
 
-  // Guardar configuración
   // Guardar configuración
 const handleSaveConfiguration = async () => {
     // Preparar las tablas con el tipo incluido
@@ -455,6 +527,34 @@ const handleSaveConfiguration = async () => {
                     <option value="this_week">Esta semana</option>
                 </Form.Select>
                 </Col>
+                <Col sm={12} className="mt-2">
+                <Form.Select
+                    onChange={(e) =>
+                    handleServiceTypeSelect(variable.nombre, e.target.value)
+                    }
+                    value={serviceTypeSelection[variable.nombre] || ""}
+                >
+                    <option value="">-- Selecciona un tipo de servicio --</option>
+                    <option value="all">Todos</option>
+                    <option value="Desinsectación">Desinsectación</option>
+                    <option value="Desratización">Desratización</option>
+                    <option value="Desinfección">Desinfección</option>
+                    <option value="Roceria">Roceria</option>
+                    <option value="Limpieza y aseo de archivos">
+                    Limpieza y aseo de archivos
+                    </option>
+                    <option value="Lavado shut basura">Lavado shut basura</option>
+                    <option value="Encarpado">Encarpado</option>
+                    <option value="Lavado de tanque">Lavado de tanque</option>
+                    <option value="Inspección">Inspección</option>
+                    <option value="Diagnostico">Diagnostico</option>
+                </Form.Select>
+                </Col>
+            </>
+            )}
+
+            {(selectedSource[variable.nombre] === "Inspección") && (
+            <>
                 <Col sm={12} className="mt-2">
                 <Form.Select
                     onChange={(e) =>
@@ -646,6 +746,35 @@ const handleSaveConfiguration = async () => {
                                   <option value="last_month">Último mes</option>
                                   <option value="this_week">Esta semana</option>
                                 </Form.Select>
+                        
+                                {/* Selector de Tipo de Servicio */}
+                                <Form.Select
+                                  className="mt-2"
+                                  onChange={(e) =>
+                                    handleTableServiceTypeSelect(
+                                      table.nombre,
+                                      rowIndex,
+                                      colIndex,
+                                      e.target.value
+                                    )
+                                  }
+                                  value={
+                                    tableServiceTypeSelection[`${table.nombre}_${rowIndex}_${colIndex}`] || ""
+                                  }
+                                >
+                                  <option value="">-- Selecciona un tipo de servicio --</option>
+                                  <option value="all">Todos</option>
+                                  <option value="Desinsectación">Desinsectación</option>
+                                  <option value="Desratización">Desratización</option>
+                                  <option value="Desinfección">Desinfección</option>
+                                  <option value="Roceria">Roceria</option>
+                                </Form.Select>
+                              </>
+                            )}
+
+                            {/* Selector intermedio para "Inspección" */}
+                            {(tableSelectedSource[`${table.nombre}_${rowIndex}_${colIndex}`] === "Inspección") && (
+                              <>
                         
                                 {/* Selector de Tipo de Servicio */}
                                 <Form.Select
