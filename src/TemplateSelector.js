@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Form, Button } from "react-bootstrap";
+import { Form } from "react-bootstrap";
 
 const TemplateSelector = ({ onTemplateSelect }) => {
   const [templates, setTemplates] = useState([]);
@@ -25,14 +25,10 @@ const TemplateSelector = ({ onTemplateSelect }) => {
   }, []);
 
   const handleTemplateChange = (event) => {
-    setSelectedTemplate(event.target.value);
-  };
-
-  const handleSelectClick = () => {
-    if (selectedTemplate) {
-      onTemplateSelect(selectedTemplate);
-    } else {
-      alert("Por favor selecciona una plantilla");
+    const selectedValue = event.target.value;
+    setSelectedTemplate(selectedValue);
+    if (selectedValue) {
+      onTemplateSelect(selectedValue);
     }
   };
 
@@ -54,13 +50,6 @@ const TemplateSelector = ({ onTemplateSelect }) => {
             ))}
           </Form.Control>
         </Form.Group>
-        <Button
-          variant="primary"
-          className="mt-3"
-          onClick={handleSelectClick}
-        >
-          Seleccionar
-        </Button>
       </Form>
     </div>
   );
