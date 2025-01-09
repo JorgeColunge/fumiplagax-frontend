@@ -211,6 +211,16 @@ const handleNewAirStationInputChange = (e) => {
   setNewAirStation({ ...newAirStation, [name]: value });
 };
 
+const getSignedUrl = async (url) => {
+  try {
+    const response = await axios.post('http://localhost:10000/api/PrefirmarArchivos', { url });
+    return response.data.signedUrl; // Devuelve la URL prefirmada
+  } catch (error) {
+    console.error("Error al obtener la URL prefirmada:", error);
+    throw new Error("No se pudo obtener la URL prefirmada.");
+  }
+};
+
 // Función para guardar una nueva estación aérea
 const handleSaveNewAirStation = async () => {
   try {
@@ -756,19 +766,25 @@ const handleSaveNewAirStation = async () => {
                 <p><strong>Tipo de Documento:</strong> {selectedClient.document_type || "No disponible"}</p>
                 <p><strong>Número de Documento:</strong> {selectedClient.document_number || "No disponible"}</p>
                 <p>
-                  <strong>RUT:</strong>{" "}
-                  {selectedClient?.rut ? (
-                    <a
-                      href={`http://localhost:10000${selectedClient.rut}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Ver RUT
-                    </a>
-                  ) : (
-                    "No disponible"
-                  )}
-                </p>
+  <strong>RUT:</strong>{" "}
+  {selectedClient?.rut ? (
+    <button
+      className="btn btn-link p-0"
+      onClick={async () => {
+        try {
+          const signedUrl = await getSignedUrl(selectedClient.rut);
+          window.open(signedUrl, "_blank");
+        } catch (error) {
+          alert("No se pudo generar la URL prefirmada para el archivo.");
+        }
+      }}
+    >
+      Ver RUT
+    </button>
+  ) : (
+    "No disponible"
+  )}
+</p>
               </div>
             </div>
 

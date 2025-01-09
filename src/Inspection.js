@@ -135,41 +135,86 @@ function Inspection() {
   };
 
   useEffect(() => {
+    const preSignUrl = async (url) => {
+      try {
+        console.log(`Intentando pre-firmar la URL: ${url}`); // Log de inicio
+        const response = await api.post('/PrefirmarArchivos', { url });
+        console.log(`URL pre-firmada con éxito: ${response.data.signedUrl}`); // Log de éxito
+        return response.data.signedUrl;
+      } catch (error) {
+        console.error(`Error al pre-firmar la URL: ${url}`, error); // Log de error
+        return null; // Retorna null si hay un error
+      }
+    };
+  
     const fetchInspectionData = async () => {
       try {
+        console.log('Iniciando la carga de datos de inspección...');
         const response = await api.get(`http://localhost:10000/api/inspections/${inspectionId}`);
+        console.log('Datos de inspección obtenidos:', response.data);
+  
         setInspectionData(response.data);
   
         // Cargar observaciones generales
         setGeneralObservations(response.data.observations || '');
   
-        // Inicializar findingsByType y productsByType
+        // Inicializar findingsByType
         const initialFindings = response.data.findings?.findingsByType || {};
-        const initialProducts = response.data.findings?.productsByType || {};
-  
-        Object.keys(initialFindings).forEach((type) => {
-          initialFindings[type] = initialFindings[type].map((finding) => ({
-            ...finding,
-            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null,
-            photoRelative: finding.photo || null,
-            photoBlob: null,
-          }));
-        });
+        console.log('Hallazgos iniciales:', initialFindings);
+
+        for (const type of Object.keys(initialFindings)) {
+          console.log(`Procesando hallazgos para el tipo: ${type}`);
+          initialFindings[type] = await Promise.all(
+            initialFindings[type].map(async (finding) => {
+              console.log(`Procesando hallazgo con ID: ${finding.id}`);
+        
+              // Validación para verificar si existe una URL de foto
+              if (!finding.photo) {
+                console.warn(`El hallazgo con ID ${finding.id} no tiene foto asociada.`);
+                return {
+                  ...finding,
+                  photo: null,
+                  photoRelative: null,
+                  photoBlob: null,
+                };
+              }
+        
+              // Intentar pre-firmar la URL
+              let signedUrl = null;
+              try {
+                signedUrl = await preSignUrl(finding.photo);
+                console.log(`URL pre-firmada para hallazgo con ID ${finding.id}: ${signedUrl}`);
+              } catch (error) {
+                console.error(`Error al pre-firmar la URL para hallazgo con ID ${finding.id}:`, error);
+              }
+        
+              return {
+                ...finding,
+                photo: signedUrl, // Usar la URL pre-firmada
+                photoRelative: finding.photo || null,
+                photoBlob: null,
+              };
+            })
+          );
+        }        
   
         setFindingsByType(initialFindings);
-        setProductsByType(initialProducts);
+        console.log('findingsByType actualizado:', initialFindings);
+
+        const initialProducts = response.data.findings?.productsByType || {};
+setProductsByType(initialProducts);
   
-        // Cargar firmas si existen
+        // Cargar firmas si existen y prefirmar URLs
         const signatures = response.data.findings?.signatures || {};
         if (signatures.technician?.signature) {
-          const techSignatureUrl = `http://localhost:10000${signatures.technician.signature}`;
-          setTechSignaturePreview(techSignatureUrl);
+          const techSignedUrl = await preSignUrl(signatures.technician.signature);
+          setTechSignaturePreview(techSignedUrl || signatures.technician.signature);
         }
         if (signatures.client?.signature) {
-          const clientSignatureUrl = `http://localhost:10000${signatures.client.signature}`;
-          setClientSignaturePreview(clientSignatureUrl);
+          const clientSignedUrl = await preSignUrl(signatures.client.signature);
+          setClientSignaturePreview(clientSignedUrl || signatures.client.signature);
         }
-
+  
         // Cargar datos del cliente
         if (signatures.client) {
           setSignData({
@@ -179,19 +224,22 @@ function Inspection() {
           });
         }
   
-        // Cargar estaciones
-        const initialStationsFindings = response.data.findings?.stationsFindings || [];
-        const clientStationsData = {};
-        initialStationsFindings.forEach((finding) => {
-          clientStationsData[finding.stationId] = {
-            ...finding,
-            photo: finding.photo ? `http://localhost:10000${finding.photo}` : null,
-            photoRelative: finding.photo || null,
-            photoBlob: null,
-          };
-        });
-  
-        setClientStations(clientStationsData);
+      // Estaciones
+      const initialStationsFindings = response.data.findings?.stationsFindings || [];
+      console.log('Datos iniciales de hallazgos en estaciones:', initialStationsFindings);
+
+      const clientStationsData = {};
+      for (const finding of initialStationsFindings) {
+        const signedUrl = finding.photo ? await preSignUrl(finding.photo) : null;
+        clientStationsData[finding.stationId] = {
+          ...finding,
+          photo: signedUrl, // URL pre-firmada
+          photoRelative: finding.photo || null,
+          photoBlob: null,
+        };
+      }
+      setClientStations(clientStationsData);
+      console.log('Datos de estaciones procesados:', clientStationsData);
   
         // Cargar estaciones relacionadas
         const clientId = response.data.service_id
@@ -205,21 +253,22 @@ function Inspection() {
           );
           setStations(stationsResponse.data);
         }
-
+  
         // Consultar productos disponibles
         const productsResponse = await api.get(`http://localhost:10000/api/products`);
-        console.log("Productos obtenidos desde la API:", productsResponse.data);
+        console.log('Productos obtenidos desde la API:', productsResponse.data);
         setAvailableProducts(productsResponse.data);
   
         setLoading(false);
+        console.log('Carga de datos de inspección completada.');
       } catch (error) {
-        console.error('Error fetching inspection data:', error);
+        console.error('Error al cargar los datos de inspección:', error);
         setLoading(false);
       }
     };
   
     fetchInspectionData();
-  }, [inspectionId]); 
+  }, [inspectionId]);  
 
   const handleQrScan = (scannedValue) => {
     console.log("Valor recibido del escáner QR:", scannedValue);

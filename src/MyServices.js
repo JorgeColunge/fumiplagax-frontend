@@ -7,6 +7,7 @@ import { Calendar, Person, Bag, Building, PencilSquare, Trash, Bug, Diagram3, Ge
 import { useNavigate, useLocation } from 'react-router-dom';
 import ClientInfoModal from './ClientInfoModal'; // Ajusta la ruta según la ubicación del componente
 import './ServiceList.css'
+import { useSocket } from './SocketContext';
 
 function MyServices() {
   const [services, setServices] = useState([]);
@@ -39,6 +40,7 @@ function MyServices() {
     message: '',
   });
   const dropdownRef = useRef(null);
+  const socket = useSocket();
 
   const toggleActions = (uniqueKey) => {
     setExpandedCardId((prevKey) => (prevKey === uniqueKey ? null : uniqueKey)); // Alterna el estado abierto/cerrado del menú
@@ -80,6 +82,43 @@ function MyServices() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [expandedCardId]);
+
+  useEffect(() => {
+    if (socket) {
+        socket.on("newEvent", async (newEvent) => {
+            console.log("Nuevo evento recibido:", newEvent);
+
+            try {
+                // Consultar los detalles del evento si no están completos en `newEvent`
+                const response = await axios.get(`http://localhost:10000/api/service-schedule/${newEvent.id}`);
+                const detailedEvent = response.data;
+
+                // Formatea el evento y actualiza el estado
+                setScheduledEvents((prevEvents) => [
+                    ...prevEvents,
+                    {
+                        ...detailedEvent,
+                        start: detailedEvent.start,
+                        end: detailedEvent.end,
+                        color: detailedEvent.color || '#007bff',
+                    },
+                ]);
+
+                // Opcional: Mostrar notificación o alerta
+                showNotification("Nuevo Evento", "Se ha añadido un nuevo evento al calendario.");
+            } catch (error) {
+                console.error("Error al obtener detalles del evento:", error);
+            }
+        });
+    }
+
+    // Limpieza al desmontar
+    return () => {
+        if (socket) {
+            socket.off("newEvent");
+        }
+    };
+}, [socket]);
 
   const handleShowClientModal = (clientId) => {
     setSelectedClientId(clientId);
