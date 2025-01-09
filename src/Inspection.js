@@ -411,7 +411,6 @@ const dataURLtoBlob = (dataURL) => {
   return new Blob([ab], { type: mimeString });
 };
 
-
   const handleStationChange = (stationId, field, value) => {
     setClientStations((prevStations) => ({
       ...prevStations,
@@ -439,7 +438,6 @@ const dataURLtoBlob = (dataURL) => {
     }));
   };  
   
-
   const handleFindingChange = (type, index, field, value) => {
     setFindingsByType((prevFindings) => {
       const updatedFindings = [...prevFindings[type]];
@@ -555,7 +553,6 @@ const dataURLtoBlob = (dataURL) => {
     });
   };  
   
-
   const handleOpenStationModal = (stationId) => {
     setCurrentStationId(stationId);
 
