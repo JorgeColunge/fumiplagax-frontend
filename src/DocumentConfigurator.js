@@ -30,7 +30,8 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
   const [tableShowIaConfiguration, setTableShowIaConfiguration] = useState({});
   const [tableIaConfigurations, setTableIaConfigurations] = useState({});
   const [tableIaDynamicInputs, setTableIaDynamicInputs] = useState({});
-
+  const [customizedValues, setCustomizedValues] = useState({});
+  const [tableCustomizedValues, setTableCustomizedValues] = useState({});
 
   // Mapear las columnas de "clients" a nombres en español
   const clientFields = [
@@ -243,7 +244,13 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
   
 
   const handleFuenteClick = (variable) => {
-    setShowIaConfiguration((prev) => ({ ...prev, [variable]: false })); // Desactivar IA
+    setShowIaConfiguration((prev) => ({ ...prev, [variable]: false }));
+    setCustomizedValues((prev) => {
+      const updated = { ...prev };
+      delete updated[variable]; // Eliminar campo personalizado
+      return updated;
+    });
+
     let options = [
       "Cliente",
       "Estaciones Aéreas",
@@ -269,6 +276,11 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     setShowSourceDropdown((prev) => ({ ...prev, [variable]: false }));
     setSelectedSource((prev) => ({ ...prev, [variable]: "" }));
     setFieldOptions((prev) => ({ ...prev, [variable]: [] }));
+    setCustomizedValues((prev) => {
+      const updated = { ...prev };
+      delete updated[variable]; // Eliminar campo personalizado
+      return updated;
+    });
   
     // Activar configuraciones de IA
     setShowIaConfiguration((prev) => ({ ...prev, [variable]: true }));
@@ -345,6 +357,11 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     setTableSelectedSource((prev) => ({ ...prev, [key]: "" }));
     setTableFieldOptions((prev) => ({ ...prev, [key]: [] }));
     setTableSelectedField((prev) => ({ ...prev, [key]: "" }));
+    setTableCustomizedValues((prev) => {
+      const updated = { ...prev };
+      delete updated[key];
+      return updated;
+    });
   
     // Activar configuraciones de IA
     setTableShowIaConfiguration((prev) => ({ ...prev, [key]: true }));
@@ -504,6 +521,65 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     }
   };  
 
+  const handleCustomClick = (variable) => {
+    // Desactivar configuraciones de Fuente e IA
+    setShowSourceDropdown((prev) => ({ ...prev, [variable]: false }));
+    setShowIaConfiguration((prev) => ({ ...prev, [variable]: false }));
+    setSelectedSource((prev) => ({ ...prev, [variable]: "" }));
+    setFieldOptions((prev) => ({ ...prev, [variable]: [] }));
+  
+    // Activar campo personalizado
+    setCustomizedValues((prev) => ({ ...prev, [variable]: "" }));
+  };  
+  
+  const handleCustomValueChange = (variable, value) => {
+    setCustomizedValues((prev) => ({ ...prev, [variable]: value }));
+    setVariableMappings((prevMappings) => ({
+      ...prevMappings,
+      [variable]: `${value}`,
+    }));
+  };  
+
+  const handleTableCustomClick = (tableName, rowIndex, colIndex) => {
+    const key = `${tableName}_${rowIndex}_${colIndex}`;
+    
+    // Desactivar Fuente e IA
+    setTableShowSourceDropdown((prev) => ({ ...prev, [key]: false }));
+    setTableShowIaConfiguration((prev) => ({ ...prev, [key]: false }));
+    setTableSelectedSource((prev) => ({ ...prev, [key]: "" }));
+    setTableFieldOptions((prev) => ({ ...prev, [key]: [] }));
+  
+    // Activar Personalizado
+    setTableCustomizedValues((prev) => ({ ...prev, [key]: "" }));
+  
+    // Resetear valores de IA en la tabla
+    setTableIaConfigurations((prev) => {
+      const updated = { ...prev };
+      delete updated[key];
+      return updated;
+    });
+  
+    // Eliminar inputs dinámicos
+    setTableIaDynamicInputs((prev) => {
+      const updated = { ...prev };
+      delete updated[key];
+      return updated;
+    });
+  };
+  
+  const handleTableCustomValueChange = (tableName, rowIndex, colIndex, value) => {
+    const key = `${tableName}_${rowIndex}_${colIndex}`;
+    
+    setTableCustomizedValues((prev) => ({ ...prev, [key]: value }));
+  
+    // Actualizar el valor en la tabla con el formato "Personalized-Valor"
+    setTableData((prevTables) => {
+      const updatedTable = { ...prevTables[tableName] };
+      updatedTable.cuerpo[rowIndex][colIndex] = `${value}`;
+      return { ...prevTables, [tableName]: updatedTable };
+    });
+  };
+  
   const handleTableIaFieldSelect = (tableName, rowIndex, colIndex, inputId, field) => {
     const key = `${tableName}_${rowIndex}_${colIndex}`;
     const input = tableIaDynamicInputs[key]?.find((input) => input.id === inputId);
@@ -851,6 +927,11 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     setTableShowIaConfiguration((prev) => ({ ...prev, [key]: false }));
     setTableIaConfigurations((prev) => ({ ...prev, [key]: undefined }));
     setTableIaDynamicInputs((prev) => ({ ...prev, [key]: [] }));
+    setTableCustomizedValues((prev) => {
+      const updated = { ...prev };
+      delete updated[key];
+      return updated;
+    });
   };
   
   const handleSourceSelect = (variable, source) => {
@@ -1195,9 +1276,17 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
                 <Button
                   variant="warning"
                   size="sm"
+                  className="me-2"
                   onClick={() => handleIaClick(variable.nombre)}
                 >
                   IA
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => handleCustomClick(variable.nombre)}
+                >
+                  Personalizado
                 </Button>
               </Col>
 
@@ -1490,10 +1579,26 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
                         Eliminar
                       </Button>
                     </Col>
+
+                    
                   </Row>
+                  
                 ))}
                 </>
               )}
+              
+              {customizedValues[variable.nombre] !== undefined && (
+                  <Col sm={12} className="mt-2">
+                    <Form.Control
+                      type="text"
+                      placeholder="Ingresa un valor personalizado"
+                      value={customizedValues[variable.nombre] || ""}
+                      onChange={(e) =>
+                        handleCustomValueChange(variable.nombre, e.target.value)
+                      }
+                    />
+                  </Col>
+                )}
             </Row>
           ))}
         </Card.Body>
@@ -1595,6 +1700,14 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
                                 onClick={() => handleTableIaClick(table.nombre, rowIndex, colIndex)}
                               >
                                 IA
+                              </Button>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                className="ms-2"
+                                onClick={() => handleTableCustomClick(table.nombre, rowIndex, colIndex)}
+                              >
+                                Personalizado
                               </Button>
                             </div>
                         
@@ -1910,6 +2023,19 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
                                 </Col>
                               </Row>
                             ))}
+
+                            {/* Campo personalizado */}
+                            {tableCustomizedValues[`${table.nombre}_${rowIndex}_${colIndex}`] !== undefined && (
+                              <Form.Control
+                                className="mt-2"
+                                type="text"
+                                placeholder="Ingresa un valor personalizado"
+                                value={tableCustomizedValues[`${table.nombre}_${rowIndex}_${colIndex}`] || ""}
+                                onChange={(e) =>
+                                  handleTableCustomValueChange(table.nombre, rowIndex, colIndex, e.target.value)
+                                }
+                              />
+                            )}
 
                           </div>
                         </td>                                                                       
