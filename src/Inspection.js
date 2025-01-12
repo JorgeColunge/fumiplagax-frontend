@@ -896,7 +896,7 @@ const handleDeleteFinding = () => {
       </div>
     );
 
-  const { inspection_type, inspection_sub_type, date, time, service_id } = inspectionData;
+  const { inspection_type, inspection_sub_type, date, time, service_id, exit_time } = inspectionData;
 
   const parsedInspectionTypes = inspection_type
     ? inspection_type.split(",").map((type) => type.trim())
@@ -911,7 +911,8 @@ const handleDeleteFinding = () => {
         <div className="card-body">
           <p><strong>Inspección:</strong> {inspectionId}</p>
           <p><strong>Fecha:</strong> {moment(date).format('DD/MM/YYYY')}</p>
-          <p><strong>Hora:</strong> {time}</p>
+          <p><strong>Hora de Inicio:</strong> {moment(time, "HH:mm:ss").format("HH:mm")}</p>
+          <p><strong>Hora de Finalización:</strong> {moment(exit_time, "HH:mm:ss").format("HH:mm")}</p>
           <p><strong>Servicio:</strong> {service_id}</p>
           <div className="mt-3">
           <textarea
