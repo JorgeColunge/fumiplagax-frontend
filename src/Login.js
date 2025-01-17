@@ -13,13 +13,18 @@ function Login({ onLogin }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://localhost:10000/api/login', { email, password });
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/login`, { email, password });
   
       if (response.data.success) {
         const userData = response.data.user;
         localStorage.setItem("user_info", JSON.stringify(userData));
+        console.log('user info: ', userData);
         onLogin(userData);
-        navigate('/profile');
+        if(userData.rol=='Cliente'){
+          navigate('/client-profile');
+        }else{
+          navigate('/profile');
+        }
       } else {
         setError(response.data.message || "Credenciales incorrectas");
       }
@@ -62,21 +67,21 @@ function Login({ onLogin }) {
                 <input type="checkbox" className="form-check-input" id="rememberMe" />
                 <label className="form-check-label" htmlFor="rememberMe">Recuérdame</label>
               </div>
-              <a href="#" className="text-decoration-none">¿Olvidaste tu contraseña?</a>
+              <a href="#" className="text-decoration-none text-success">¿Olvidaste tu contraseña?</a>
             </div>
-            <button type="submit" className="btn btn-primary w-100 mb-3">Iniciar Sesión</button>
+            <button type="submit" className="btn btn-success w-100 mb-3">Iniciar Sesión</button>
             {error && <p className="text-danger text-center">{error}</p>}
           </form>
         </div>
         <div
-  className="col-md-6 rounded-end"
-  style={{
-    backgroundImage: `url("/Fondo 1.jpg")`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    height: '100%',
-  }}
-></div>
+          className="col-md-6 rounded-end"
+          style={{
+            backgroundImage: `url("/Fondo 1.jpg")`,
+            backgroundSize: '230%',
+            backgroundPosition: 'center',
+            height: '100%',
+          }}
+        ></div>
       </div>
     </div>
   );

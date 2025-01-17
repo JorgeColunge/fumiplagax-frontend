@@ -81,11 +81,11 @@ function ClientList() {
   useEffect(() => {
     const fetchClientsAndCategories = async () => {
       try {
-        const response = await axios.get('http://localhost:10000/api/clients');
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/clients`);
         setClients(response.data);
         setFilteredClients(response.data); // Inicialmente muestra todos los clientes
         setLoading(false);
-        const categoriesResponse = await axios.get('http://localhost:10000/api/rules/categories'); // Ruta para categorías
+        const categoriesResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/rules/categories`); // Ruta para categorías
       setCategories(categoriesResponse.data); // Guardar las categorías en el estado        
       } catch (error) {
         console.error("Error fetching clients:", error);
@@ -174,7 +174,7 @@ const handleNewRodentStationInputChange = (e) => {
 // Función para guardar una nueva estación de roedores
 const handleSaveNewRodentStation = async () => {
   try {
-    const response = await axios.post('http://localhost:10000/api/stations', newRodentStation);
+    const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/stations`, newRodentStation);
     const addedStation = response.data.station;
 
     // Actualizar la tabla de estaciones de roedores
@@ -213,7 +213,7 @@ const handleNewAirStationInputChange = (e) => {
 
 const getSignedUrl = async (url) => {
   try {
-    const response = await axios.post('http://localhost:10000/api/PrefirmarArchivos', { url });
+    const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/PrefirmarArchivos`, { url });
     return response.data.signedUrl; // Devuelve la URL prefirmada
   } catch (error) {
     console.error("Error al obtener la URL prefirmada:", error);
@@ -224,7 +224,7 @@ const getSignedUrl = async (url) => {
 // Función para guardar una nueva estación aérea
 const handleSaveNewAirStation = async () => {
   try {
-    const response = await axios.post('http://localhost:10000/api/stations', newAirStation);
+    const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/stations`, newAirStation);
     const addedStation = response.data.station;
 
     // Actualizar la tabla de estaciones aéreas
@@ -270,7 +270,7 @@ const handleSaveNewAirStation = async () => {
 
   const fetchStationsByClient = async (clientId) => {
     try {
-      const response = await axios.get(`http://localhost:10000/api/stations/client/${clientId}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/stations/client/${clientId}`);
       const stations = response.data;
   
       // Filtrar las estaciones por categoría
@@ -289,7 +289,7 @@ const handleSaveNewAirStation = async () => {
   
   const fetchMapsByClient = async (clientId) => {
     try {
-      const response = await axios.get(`http://localhost:10000/api/maps/${clientId}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/maps/${clientId}`);
       const { maps } = response.data; // Ajusta la estructura según el backend
       console.log("mapas encontrados: ", maps);
       setMaps(maps);
@@ -306,7 +306,7 @@ const handleSaveNewAirStation = async () => {
     formData.append('rut', rutFile);
   
     try {
-      const response = await axios.post('http://localhost:10000/api/clients/upload-rut', formData, {
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/clients/upload-rut`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       return response.data.fileUrl; // Devuelve la URL del archivo
@@ -325,7 +325,7 @@ const handleSaveNewAirStation = async () => {
         const formData = new FormData();
         formData.append('rut', rutFile);
   
-        const uploadResponse = await axios.post('http://localhost:10000/api/clients/upload-rut', formData, {
+        const uploadResponse = await axios.post(`${process.env.REACT_APP_API_URL}/api/clients/upload-rut`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
@@ -338,7 +338,7 @@ const handleSaveNewAirStation = async () => {
       if (editingClient) {
         // Actualizar cliente existente
         const response = await axios.put(
-          `http://localhost:10000/api/clients/${editingClient.id}`,
+          `${process.env.REACT_APP_API_URL}/api/clients/${editingClient.id}`,
           { ...newClient, rut: rutFileUrl || newClient.rut } // Usar la URL nueva si está disponible
         );
   
@@ -350,7 +350,7 @@ const handleSaveNewAirStation = async () => {
         handleShowNotification("Cliente actualizado exitosamente");
       } else {
         // Crear nuevo cliente
-        const response = await axios.post('http://localhost:10000/api/clients', {
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/clients`, {
           ...newClient,
           rut: rutFileUrl, // Agregar la URL del archivo RUT
           category: newClient.category, // Asegúrate de incluir la categoría seleccionada
@@ -374,7 +374,7 @@ const handleSaveNewAirStation = async () => {
 
   const deleteClient = async (id) => {
     try {
-      await axios.delete(`http://localhost:10000/api/clients/${id}`);
+      await axios.delete(`${process.env.REACT_APP_API_URL}/api/clients/${id}`);
       setClients(clients.filter(client => client.id !== id));
       setFilteredClients(filteredClients.filter(client => client.id !== id)); // Asegura actualizar el listado filtrado
       handleShowNotification("Cliente eliminado exitosamente.");
@@ -430,7 +430,7 @@ const handleSaveNewAirStation = async () => {
       formData.append('image', newMap.imageFile); // Archivo de imagen
       formData.append('client_id', selectedClient.id); // ID del cliente
   
-      const response = await axios.post("http://localhost:10000/api/maps", formData, {
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/maps`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
   
@@ -766,25 +766,25 @@ const handleSaveNewAirStation = async () => {
                 <p><strong>Tipo de Documento:</strong> {selectedClient.document_type || "No disponible"}</p>
                 <p><strong>Número de Documento:</strong> {selectedClient.document_number || "No disponible"}</p>
                 <p>
-  <strong>RUT:</strong>{" "}
-  {selectedClient?.rut ? (
-    <button
-      className="btn btn-link p-0"
-      onClick={async () => {
-        try {
-          const signedUrl = await getSignedUrl(selectedClient.rut);
-          window.open(signedUrl, "_blank");
-        } catch (error) {
-          alert("No se pudo generar la URL prefirmada para el archivo.");
-        }
-      }}
-    >
-      Ver RUT
-    </button>
-  ) : (
-    "No disponible"
-  )}
-</p>
+                  <strong>RUT:</strong>{" "}
+                  {selectedClient?.rut ? (
+                    <button
+                      className="btn btn-link p-0"
+                      onClick={async () => {
+                        try {
+                          const signedUrl = await getSignedUrl(selectedClient.rut);
+                          window.open(signedUrl, "_blank");
+                        } catch (error) {
+                          alert("No se pudo generar la URL prefirmada para el archivo.");
+                        }
+                      }}
+                    >
+                      Ver RUT
+                    </button>
+                  ) : (
+                    "No disponible"
+                  )}
+                </p>
               </div>
             </div>
 

@@ -63,7 +63,7 @@ const DocumentUploader = () => {
     formData.append("file", file); // Archivo original
   
     try {
-      const response = await fetch("http://localhost:10000/api/upload-template", {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/upload-template`, {
         method: "POST",
         body: formData,
       });

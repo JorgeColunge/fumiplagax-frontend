@@ -90,7 +90,7 @@ function MyServices() {
 
             try {
                 // Consultar los detalles del evento si no están completos en `newEvent`
-                const response = await axios.get(`http://localhost:10000/api/service-schedule/${newEvent.id}`);
+                const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/service-schedule/${newEvent.id}`);
                 const detailedEvent = response.data;
 
                 // Formatea el evento y actualiza el estado
@@ -133,7 +133,7 @@ function MyServices() {
   useEffect(() => {
     const fetchMyServices = async () => {
       try {
-        const response = await axios.get(`http://localhost:10000/api/services`);
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/services`);
         // Filtrar servicios donde el usuario es responsable o está en companions
         const userServices = response.data.filter(service => {
           const isResponsible = service.responsible === userId;
@@ -151,7 +151,7 @@ function MyServices() {
         for (const service of userServices) {
           if (service.client_id && !clientData[service.client_id]) {
             try {
-              const clientResponse = await axios.get(`http://localhost:10000/api/clients/${service.client_id}`);
+              const clientResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/clients/${service.client_id}`);
               clientData[service.client_id] = clientResponse.data.name;
             } catch (error) {
               console.error(`Error fetching client ${service.client_id}:`, error);
@@ -172,7 +172,7 @@ function MyServices() {
   useEffect(() => {
     const fetchScheduledEvents = async () => {
       try {
-        const response = await axios.get('http://localhost:10000/api/service-schedule');
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/service-schedule`);
         setScheduledEvents(response.data);
       } catch (error) {
         console.error("Error fetching scheduled events:", error);
@@ -184,7 +184,7 @@ function MyServices() {
   useEffect(() => {
     const fetchTechnicians = async () => {
       try {
-        const response = await axios.get('http://localhost:10000/api/users?role=Technician');
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/users?role=Technician`);
         setTechnicians(response.data);
         console.log("Técnicos:", response.data);
       } catch (error) {
@@ -229,7 +229,7 @@ function MyServices() {
 
   const fetchInspections = async (serviceId) => {
     try {
-      const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/inspections?service_id=${serviceId}`);
       const formattedInspections = response.data
         .filter((inspection) => inspection.service_id === serviceId) // Filtra por `service_id`
         .map((inspection) => ({
@@ -313,7 +313,7 @@ function MyServices() {
     };
 
     try {
-        const response = await axios.post("http://localhost:10000/api/inspections", inspectionData);
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/inspections`, inspectionData);
 
         if (response.data.success) {
         showNotification("Exito","Inspección guardada exitosamente");
