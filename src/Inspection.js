@@ -917,8 +917,8 @@ const handleDeleteFinding = () => {
   const { inspection_type, inspection_sub_type, date, time, service_id, exit_time } = inspectionData;
 
   const parsedInspectionTypes = inspection_type
-  ? [...inspection_type.split(",").map((type) => type.trim()), "Observaciones Cliente"]
-  : ["Observaciones Cliente"];
+  ? inspection_type.split(",").map((type) => type.trim())
+  : [];
 
   return (
     <div className="container mt-4">
