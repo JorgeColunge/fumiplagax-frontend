@@ -28,7 +28,7 @@ function UserList() {
 
   const userInfo = JSON.parse(localStorage.getItem("user_info"));
   const canAddUser = userInfo?.rol === "Superadministrador" || userInfo?.rol === "Administrador";
-  const [profilePicPreview, setProfilePicPreview] = useState('/images/default-profile.png');
+  const [profilePicPreview, setProfilePicPreview] = useState("/images/Logo Fumiplagax.png");
   const [searchTerm, setSearchTerm] = useState('');
   const [dropdownPosition, setDropdownPosition] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
