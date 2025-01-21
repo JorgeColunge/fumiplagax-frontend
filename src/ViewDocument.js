@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { renderAsync } from "docx-preview"; // Para renderizar la vista previa
 //import "./WordViewer.css"; // Asegúrate de crear un archivo CSS para el diseño si es necesario
 
-const WordEditor = () => {
+const ViewDocument = () => {
   const [docxPreview, setDocxPreview] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -58,4 +58,4 @@ const WordEditor = () => {
   );
 };
 
-export default WordEditor;
+export default ViewDocument;

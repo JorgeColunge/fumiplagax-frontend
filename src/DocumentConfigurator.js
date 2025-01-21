@@ -32,6 +32,8 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
   const [tableIaDynamicInputs, setTableIaDynamicInputs] = useState({});
   const [customizedValues, setCustomizedValues] = useState({});
   const [tableCustomizedValues, setTableCustomizedValues] = useState({});
+  const [documentName, setDocumentName] = useState("");
+  const [documentType, setDocumentType] = useState("");
 
   // Mapear las columnas de "clients" a nombres en español
   const clientFields = [
@@ -1155,9 +1157,11 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     const configuration = {
       templateId: selectedTemplateId,
       entity: selectedEntity,
-      variables: updatedMappings, // Usar el mapeo actualizado
+      variables: updatedMappings,
       tablas: preparedTables,
-      aiModels: preparedAiModels, // Incluir los modelos preparados
+      aiModels: preparedAiModels,
+      document_name: documentName,
+      document_type: documentType,
     };
   
     try {
@@ -1190,6 +1194,35 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
   return (
     
     <div className="document-configurator mt-4">
+      <Card className="mt-4">
+        <Card.Header>
+          <h4 className="text-center">Información del Documento</h4>
+        </Card.Header>
+        <Card.Body>
+          <Row className="align-items-center mb-3"  style={{height: 'auto'}}>
+            <Col sm={6}>
+              <Form.Label>Nombre del Documento</Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Escribe el nombre del documento"
+                value={documentName}
+                onChange={(e) => setDocumentName(e.target.value)}
+              />
+            </Col>
+            <Col sm={6}>
+              <Form.Label>Formato del Documento</Form.Label>
+              <Form.Select
+                value={documentType}
+                onChange={(e) => setDocumentType(e.target.value)}
+              >
+                <option value="">-- Selecciona el formato --</option>
+                <option value="doc">DOC</option>
+                <option value="pdf">PDF</option>
+              </Form.Select>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
       <Card className="mt-4 mb-4">
         <Card.Header>
           <h4 className="text-center">Modelos de IA</h4>
