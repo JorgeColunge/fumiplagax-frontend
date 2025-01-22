@@ -60,8 +60,9 @@ function ServiceList() {
   const [newService, setNewService] = useState({
     service_type: [],
     description: '',
-    pest_to_control: '',
-    intervention_areas: '',
+    pest_to_control: [],
+    intervention_areas: [],
+    customInterventionArea: '', // Nuevo campo para el área personalizada
     responsible: '',
     category: '',
     quantity_per_month: '',
@@ -71,8 +72,9 @@ function ServiceList() {
     value: '',
     companion: [],
     created_by: userId,
-    created_at: moment().format('DD-MM-YYYY'), // Establece la fecha actual al abrir el modal
+    created_at: moment().format('DD-MM-YYYY'),
   });
+  
   const [expandedCardId, setExpandedCardId] = useState(null);
   const [notification, setNotification] = useState({
     show: false,
@@ -243,19 +245,37 @@ const interventionAreaOptions = [
   "Oficinas",
   "Producción",
   "Servicio al cliente",
-  "Shot de basuras"
+  "Shot de basuras",
+  "Otro"
 ];
 
 
 const handleInterventionAreasChange = (e) => {
   const { value, checked } = e.target;
+
+  setNewService((prevService) => {
+    // Si la opción seleccionada es "Otro"
+    if (value === "Otro") {
+      setShowInterventionAreas(checked); // Muestra u oculta la casilla de texto personalizada
+    }
+
+    // Actualiza las áreas seleccionadas
+    return {
+      ...prevService,
+      intervention_areas: checked
+        ? [...prevService.intervention_areas, value] // Agrega la opción seleccionada
+        : prevService.intervention_areas.filter((area) => area !== value), // Remueve la opción deseleccionada
+    };
+  });
+};
+
+const handleCustomInterventionAreaChange = (e) => {
   setNewService((prevService) => ({
     ...prevService,
-    intervention_areas: checked
-      ? [...prevService.intervention_areas, value]
-      : prevService.intervention_areas.filter((area) => area !== value),
+    customInterventionArea: e.target.value,
   }));
 };
+
   const navigate = useNavigate();
 
   const handleInspectionClick = (inspection) => {
@@ -274,36 +294,40 @@ const handleDropdownToggle = (isOpen, event) => {
 };
 
 const handleEditClick = (service) => {
-  // Función para transformar datos al formato del formulario
   const parseField = (field) => {
-    if (!field) return []; // Si el campo es nulo o no existe
+    if (!field) return [];
     if (typeof field === "string" && field.startsWith("{")) {
       return field
         .replace(/[\{\}"]/g, "") // Elimina llaves y comillas
-        .split(",") // Divide por comas
-        .map((item) => item.trim()); // Limpia espacios en blanco
+        .split(",")
+        .map((item) => item.trim());
     }
-    return Array.isArray(field) ? field : []; // Si ya es un arreglo, úsalo
+    return Array.isArray(field) ? field : [];
   };
 
-  // Establece el estado para edición
+  const interventionAreas = parseField(service.intervention_areas);
+
+  // Si "Otro" está presente, muestra el campo y carga el valor personalizado
+  const customArea = interventionAreas.includes("Otro")
+    ? interventionAreas.filter((area) => area !== "Otro").join(", ") // Valor del área personalizada
+    : "";
+
   setEditService({
     ...service,
     service_type: parseField(service.service_type),
     pest_to_control: parseField(service.pest_to_control),
-    intervention_areas: parseField(service.intervention_areas),
+    intervention_areas: interventionAreas,
     companion: parseField(service.companion),
+    customInterventionArea: customArea, // Sincroniza el valor personalizado
   });
 
-  // Calcula las opciones visibles de plagas basadas en el tipo de servicio
-  const parsedServiceType = parseField(service.service_type);
   setVisiblePestOptions(
-    Array.from(new Set(parsedServiceType.flatMap((type) => pestOptions[type.trim()] || [])))
+    Array.from(new Set(parseField(service.service_type).flatMap((type) => pestOptions[type.trim()] || [])))
   );
 
-  setShowEditModal(true); // Abre el modal de edición
+  setShowInterventionAreas(interventionAreas.includes("Otro")); // Activa el campo personalizado si "Otro" está presente
+  setShowEditModal(true);
 };
-
 
   const handleServiceTypeChange = (e) => {
     const { value, checked } = e.target;
@@ -331,36 +355,38 @@ const handleEditClick = (service) => {
 
   const handleSaveChanges = async () => {
     try {
-      // Convierte los campos al formato requerido por la base de datos
+      const interventionAreas = editService.intervention_areas.filter(
+        (area) => area !== "Otro" // Excluir "Otro"
+      );
+  
+      if (editService.customInterventionArea.trim()) {
+        interventionAreas.push(editService.customInterventionArea.trim());
+      }
+  
       const formattedEditService = {
         ...editService,
-        service_type: `{${editService.service_type.map((type) => `"${type}"`).join(",")}}`, // Formato {"Tipo1","Tipo2"}
-        pest_to_control: `{${editService.pest_to_control.map((pest) => `"${pest}"`).join(",")}}`,
-        intervention_areas: `{${editService.intervention_areas.map((area) => `"${area}"`).join(",")}}`,
-        companion: `{${editService.companion.map((id) => `"${id}"`).join(",")}}`,
+        intervention_areas: `{${interventionAreas.map((a) => `"${a}"`).join(",")}}`,
+        customInterventionArea: "", // Limpia el campo personalizado después de guardar
       };
   
-      // Enviar la solicitud al servidor
       const response = await axios.put(
         `${process.env.REACT_APP_API_URL}/api/services/${editService.id}`,
         formattedEditService
       );
   
       if (response.data.success) {
-        // Actualiza la lista de servicios con los cambios realizados
         setServices((prevServices) =>
           prevServices.map((service) =>
             service.id === editService.id ? { ...formattedEditService } : service
           )
         );
-        setShowEditModal(false); // Cierra el modal de edición
-        setEditService(null); // Limpia el estado de edición
+        setShowEditModal(false);
+        setEditService(null);
       }
     } catch (error) {
       console.error("Error updating service:", error);
     }
-  };
-  
+  };  
   
   const handleDeleteClick = async (serviceId) => {
     try {
@@ -653,13 +679,22 @@ const filteredTechniciansForCompanion = technicians.filter(
   };
 
   const handleSaveNewService = async () => {
+    const interventionAreas = newService.intervention_areas.filter(
+      (area) => area !== "Otro" // Excluye la opción "Otro"
+    );
+  
+    if (newService.customInterventionArea.trim()) {
+      interventionAreas.push(newService.customInterventionArea.trim());
+    }
+  
     const serviceData = {
       ...newService,
-      quantity_per_month: newService.quantity_per_month || null,
-      client_id: newService.client_id || null,
-      value: newService.value || null,
-      responsible: newService.responsible || null, // Asegúrate de incluir responsible
-      companion: newService.companion || [],       // Asegúrate de incluir companion
+      intervention_areas: interventionAreas,
+      customInterventionArea: '', // Limpia el área personalizada tras guardar
+      responsible: newService.responsible || null, // Validación para responsables
+      client_id: newService.client_id || null, // Validación para cliente
+      value: newService.value || null, // Validación para valor
+      quantity_per_month: newService.quantity_per_month || null, // Validación para cantidad
     };
   
     try {
@@ -667,17 +702,16 @@ const filteredTechniciansForCompanion = technicians.filter(
       if (response.data.success) {
         setServices([...services, response.data.service]);
         handleCloseAddServiceModal();
-        showNotification("Exito","Servicio guardado exitosamente");
+        showNotification("Éxito", "Servicio guardado exitosamente");
       } else {
         console.error("Error: No se pudo guardar el servicio.", response.data.message);
-        showNotification("Error","Error: No se pudo guardar el servicio");
+        showNotification("Error", "Error: No se pudo guardar el servicio");
       }
     } catch (error) {
       console.error("Error saving new service:", error);
-      showNotification("Error","Error: Hubo un problema al guardar el servicio");
+      showNotification("Error", "Error: Hubo un problema al guardar el servicio");
     }
-  };
-  
+  };   
 
   const handlePestToControlChange = (e) => {
     const { value, checked } = e.target;
@@ -1005,23 +1039,36 @@ const filteredTechniciansForCompanion = technicians.filter(
               </Form.Group>
             )}
 
-            {/* Áreas de Intervención */}
-            <Form.Group className="mt-3">
-              <Form.Label style={{ fontWeight: "bold" }}>Áreas de Intervención</Form.Label>
-              <div className="d-flex flex-wrap">
-                {interventionAreaOptions.map((area, index) => (
-                  <div key={index} className="col-4 mb-2">
-                    <Form.Check
-                      type="checkbox"
-                      label={<span style={{ fontSize: "0.8rem" }}>{area}</span>}
-                      value={area}
-                      checked={newService.intervention_areas.includes(area)}
-                      onChange={handleInterventionAreasChange}
-                    />
-                  </div>
-                ))}
-              </div>
-            </Form.Group>
+{/* Áreas de Intervención */}
+<Form.Group className="mt-3">
+  <Form.Label style={{ fontWeight: "bold" }}>Áreas de Intervención</Form.Label>
+  <div className="d-flex flex-wrap">
+    {interventionAreaOptions.map((area, index) => (
+      <div key={index} className="col-4 mb-2">
+        <Form.Check
+          type="checkbox"
+          label={<span style={{ fontSize: "0.8rem" }}>{area}</span>}
+          value={area}
+          checked={newService.intervention_areas.includes(area)}
+          onChange={handleInterventionAreasChange}
+        />
+      </div>
+    ))}
+  </div>
+</Form.Group>
+
+{/* Casilla para "Otro" */}
+{showInterventionAreas && (
+  <Form.Group className="mt-3">
+    <Form.Label style={{ fontWeight: "bold" }}>Añadir área de intervención</Form.Label>
+    <Form.Control
+      type="text"
+      placeholder="Escribe aquí"
+      value={newService.customInterventionArea}
+      onChange={handleCustomInterventionAreaChange}
+    />
+  </Form.Group>
+)}
 
             {/* Responsable */}
             <Form.Group className="mt-3">
@@ -1207,31 +1254,59 @@ const filteredTechniciansForCompanion = technicians.filter(
                 </Form.Group>
               )}
 
-              {/* Áreas de Intervención */}
-              <Form.Group className="mt-3">
-                <Form.Label style={{ fontWeight: "bold" }}>Áreas de Intervención</Form.Label>
-                <div className="d-flex flex-wrap">
-                  {interventionAreaOptions.map((area, index) => (
-                    <div key={index} className="col-4 mb-2">
-                      <Form.Check
-                        type="checkbox"
-                        label={<span style={{ fontSize: "0.8rem" }}>{area}</span>} // Tamaño reducido
-                        value={area}
-                        checked={editService.intervention_areas.includes(area)}
-                        onChange={(e) => {
-                          const { value, checked } = e.target;
-                          setEditService((prevService) => ({
-                            ...prevService,
-                            intervention_areas: checked
-                              ? [...prevService.intervention_areas, value]
-                              : prevService.intervention_areas.filter((a) => a !== value),
-                          }));
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </Form.Group>
+{/* Áreas de Intervención */}
+<Form.Group className="mt-3">
+  <Form.Label style={{ fontWeight: "bold" }}>Áreas de Intervención</Form.Label>
+  <div className="d-flex flex-wrap">
+    {interventionAreaOptions.map((area, index) => (
+      <div key={index} className="col-4 mb-2">
+        <Form.Check
+          type="checkbox"
+          label={<span style={{ fontSize: "0.8rem" }}>{area}</span>}
+          value={area}
+          checked={editService.intervention_areas.includes(area)} // Asegura que "Otro" esté marcado
+          onChange={(e) => {
+            const { value, checked } = e.target;
+            setEditService((prevService) => {
+              const updatedInterventionAreas = checked
+                ? [...prevService.intervention_areas, value]
+                : prevService.intervention_areas.filter((a) => a !== value);
+
+              return {
+                ...prevService,
+                intervention_areas: updatedInterventionAreas,
+              };
+            });
+
+            // Maneja la visibilidad del campo personalizado si "Otro" se selecciona o desmarca
+            if (value === "Otro") {
+              setShowInterventionAreas(checked);
+            }
+          }}
+        />
+      </div>
+    ))}
+  </div>
+</Form.Group>
+
+{/* Campo para "Otro" */}
+{showInterventionAreas && (
+  <Form.Group className="mt-3">
+    <Form.Label style={{ fontWeight: "bold" }}>Añadir área de intervención</Form.Label>
+    <Form.Control
+      type="text"
+      placeholder="Escribe aquí"
+      value={editService.customInterventionArea || ""}
+      onChange={(e) => {
+        const customArea = e.target.value;
+        setEditService((prevService) => ({
+          ...prevService,
+          customInterventionArea: customArea,
+        }));
+      }}
+    />
+  </Form.Group>
+)}
 
               {/* Responsable */}
               <Form.Group className="mt-3">
