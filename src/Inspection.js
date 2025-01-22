@@ -1266,11 +1266,13 @@ const handleDeleteFinding = () => {
                           <button
                             className="btn p-0"
                             style={{ background: "none", border: "none", cursor: "pointer" }}
-                            onClick={() =>
-                              action.action_type === "generate_pdf"
-                                ? handleOpenConvertToPdfModal()
-                                : handleActionClick(action.configuration_id)
-                            }
+                            onClick={() => {
+                              if (action.action_type === "generate_pdf" && action.configuration_id === 0) {
+                                handleOpenConvertToPdfModal();
+                              } else {
+                                handleActionClick(action.configuration_id);
+                              }
+                            }}
                           >
                             <IconComponent size={40} color={color} title={action.action_name} />
                             <div className="mt-2">
