@@ -12,7 +12,7 @@ function ShowProfile() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const response = await axios.get(`http://localhost:10000/api/users/${id}`);
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/users/${id}`);
         setUser(response.data);
       } catch (error) {
         console.error("Error al obtener el perfil del usuario:", error);
@@ -33,7 +33,7 @@ function ShowProfile() {
           <div className="position-relative">
             <div className="img-mask mx-auto">
               <img
-                src={`${user?.image || '/images/default-profile.png'}`}
+                src={`${user?.image || "/images/Logo Fumiplagax.png"}`}
                 alt="Profile"
                 className="rounded-img shadow-sm"
                 width="150"

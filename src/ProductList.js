@@ -72,7 +72,7 @@ function ProductList() {
     const decodedUrl = decodeURIComponent(fileUrl);
     console.log('URL decodificada para prefirmar:', decodedUrl);
   
-      const response = await axios.post('http://localhost:10000/api/PrefirmarArchivos', { url: fileUrl });
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/PrefirmarArchivos`, { url: fileUrl });
       
       if (response.data && response.data.signedUrl) {
         console.log('URL prefirmada generada con éxito:', response.data.signedUrl);
@@ -137,7 +137,7 @@ function ProductList() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await axios.get('http://localhost:10000/api/products');
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/products`);
         const productsWithCategories = response.data.map(product => ({
           ...product,
           category: Array.isArray(product.category)
@@ -253,11 +253,11 @@ function ProductList() {
   
       response = editingProduct
         ? await axios.put(
-            `http://localhost:10000/api/products/${editingProduct.id}`,
+            `${process.env.REACT_APP_API_URL}/api/products/${editingProduct.id}`,
             formData,
             { headers: { 'Content-Type': 'multipart/form-data' } }
           )
-        : await axios.post('http://localhost:10000/api/products', formData, {
+        : await axios.post(`${process.env.REACT_APP_API_URL}/api/products`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
           });
   
@@ -309,7 +309,7 @@ function ProductList() {
   const deleteProduct = async (id) => {
     if (window.confirm("¿Estás seguro de que deseas eliminar este producto?")) {
       try {
-        await axios.delete(`http://localhost:10000/api/products/${id}`);
+        await axios.delete(`${process.env.REACT_APP_API_URL}/api/products/${id}`);
         setProducts(products.filter(product => product.id !== id));
         alert("Producto eliminado exitosamente.");
       } catch (error) {

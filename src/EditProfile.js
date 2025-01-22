@@ -11,7 +11,7 @@ function EditProfile() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
-  const [profilePic, setProfilePic] = useState('/images/default-profile.png');
+  const [profilePic, setProfilePic] = useState("/images/Logo Fumiplagax.png");
   const [profileColor, setProfileColor] = useState('#ffffff');
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState('');
@@ -23,7 +23,7 @@ function EditProfile() {
   useEffect(() => {
     const fetchUserInfo = async () => {
       try {
-        const response = await axios.get(`http://localhost:10000/api/users/${id}`);
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/users/${id}`);
         const userData = response.data;
         setName(userData.name);
         setLastname(userData.lastname);
@@ -72,7 +72,7 @@ function EditProfile() {
     }
 
     try {
-      const response = await axios.post('http://localhost:10000/api/updateProfile', formData);
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/updateProfile`, formData);
       if (response.status === 200) {
         const updatedUserInfo = { ...JSON.parse(localStorage.getItem('user_info')), ...response.data };
         localStorage.setItem('user_info', JSON.stringify(updatedUserInfo));

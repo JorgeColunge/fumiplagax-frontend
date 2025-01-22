@@ -5,7 +5,7 @@ import { Modal, Button } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
-function EditMyProfile({ userInfo, onProfileUpdate }) {
+function EditMyProfileClient({ userInfo, onProfileUpdate }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -21,14 +21,14 @@ function EditMyProfile({ userInfo, onProfileUpdate }) {
   useEffect(() => {
     const fetchUserInfo = async () => {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/users/${id}`);
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/clients/${id}`);
         const userData = response.data;
         setName(userData.name);
         setLastname(userData.lastname);
         setEmail(userData.email);
         setPhone(userData.phone);
-        if (userData.image) {
-          setProfilePic(`${userData.image}`);
+        if (userData.photo) {
+          setProfilePic(`${userData.photo}`);
         }
       } catch (error) {
         console.error('Error al obtener información del usuario:', error);
@@ -65,12 +65,11 @@ function EditMyProfile({ userInfo, onProfileUpdate }) {
     }
 
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/updateProfile`, formData);
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/updateProfileClient`, formData);
       if (response.status === 200) {
         const updatedUserInfo = {
           ...userInfo,
           name,
-          lastname,
           email,
           phone,
           image: response.data.imageUrl || userInfo.image,
@@ -89,7 +88,7 @@ function EditMyProfile({ userInfo, onProfileUpdate }) {
         // Navega después de un pequeño retraso para que el usuario pueda leer el mensaje
         setTimeout(() => {
           setShowModal(false);
-          navigate(`/profile`);
+          navigate(`/client-profile`);
         }, 2500);
       } else {
         setModalTitle('Error');
@@ -104,7 +103,7 @@ function EditMyProfile({ userInfo, onProfileUpdate }) {
     }
   };
 
-  const isEditable = userInfo?.rol === 'Administrador' || userInfo?.rol === 'Superadministrador';
+  const isEditable = userInfo?.rol === 'Cliente';
 
   return (
     <div className="container mt-3 mb-5">
@@ -140,16 +139,6 @@ function EditMyProfile({ userInfo, onProfileUpdate }) {
                   className="form-control"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  disabled={!isEditable}
-                />
-              </div>
-              <div className="mb-3">
-                <label className="form-label">Apellido</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={lastname}
-                  onChange={(e) => setLastname(e.target.value)}
                   disabled={!isEditable}
                 />
               </div>
@@ -192,4 +181,4 @@ function EditMyProfile({ userInfo, onProfileUpdate }) {
   );
 }
 
-export default EditMyProfile;
+export default EditMyProfileClient;

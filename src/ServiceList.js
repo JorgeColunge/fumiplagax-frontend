@@ -96,7 +96,7 @@ function ServiceList() {
 
   const fetchInspections = async (serviceId) => {
     try {
-      const response = await axios.get(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/inspections?service_id=${serviceId}`);
       const formattedInspections = response.data
         .filter((inspection) => inspection.service_id === serviceId) // Filtra por `service_id`
         .map((inspection) => ({
@@ -149,6 +149,45 @@ function ServiceList() {
       setNotification({ show: false, title, message: '' });
     }, 2500); // 2.5 segundos
   };
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search); // Extrae los parámetros de la URL
+    const dataParam = queryParams.get("data"); // Obtén el parámetro "data"
+    
+    if (dataParam) {
+      try {
+        const serviceData = JSON.parse(decodeURIComponent(dataParam)); // Decodifica y convierte el JSON
+        
+        console.log("Datos extraídos de la URL:", serviceData); // Log para verificar los datos
+        
+        // Actualiza el estado del nuevo servicio con los datos extraídos
+        setNewService((prevService) => ({
+          ...prevService,
+          ...serviceData,
+          created_by: serviceData.created_by || prevService.created_by,
+        }));
+  
+        setShowAddServiceModal(true); // Abre el modal automáticamente
+      } catch (error) {
+        console.error("Error al procesar los datos de la URL:", error);
+      }
+    } else {
+      console.log("No se encontró el parámetro 'data' en la URL.");
+    }
+  }, [location.search]);  
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const serviceId = queryParams.get('serviceId');
+    if (serviceId) {
+      const service = services.find((s) => s.id === serviceId);
+      if (service) {
+        setSelectedService(service);
+        fetchInspections(service.id);
+        setShowAddServiceModal(true);
+      }
+    }
+  }, [location.search, services]);
 
   const serviceOptions = [
     "Desinsectación",
@@ -331,7 +370,7 @@ const handleEditClick = (service) => {
       };
   
       const response = await axios.put(
-        `http://localhost:10000/api/services/${editService.id}`,
+        `${process.env.REACT_APP_API_URL}/api/services/${editService.id}`,
         formattedEditService
       );
   
@@ -351,7 +390,7 @@ const handleEditClick = (service) => {
   
   const handleDeleteClick = async (serviceId) => {
     try {
-      const response = await axios.delete(`http://localhost:10000/api/services/${serviceId}`);
+      const response = await axios.delete(`${process.env.REACT_APP_API_URL}/api/services/${serviceId}`);
       if (response.data.success) {
         setServices(services.filter(service => service.id !== serviceId));
       }
@@ -362,7 +401,7 @@ const handleEditClick = (service) => {
 
   const fetchTechnicians = async () => {
     try {
-      const response = await axios.get('http://localhost:10000/api/users?role=Technician');
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/users?role=Technician`);
       setTechnicians(response.data);
     } catch (error) {
       console.error("Error fetching technicians:", error);
@@ -372,9 +411,9 @@ const handleEditClick = (service) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const servicesResponse = await axios.get('http://localhost:10000/api/services');
-        const clientsResponse = await axios.get('http://localhost:10000/api/clients');
-        const techniciansResponse = await axios.get('http://localhost:10000/api/users?role=Technician');
+        const servicesResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/services`);
+        const clientsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/clients`);
+        const techniciansResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/users?role=Technician`);
 
         setServices(servicesResponse.data);
         setClients(clientsResponse.data);
@@ -392,8 +431,8 @@ const handleEditClick = (service) => {
   useEffect(() => {
     const fetchServicesAndClients = async () => {
       try {
-        const servicesResponse = await axios.get('http://localhost:10000/api/services');
-        const clientsResponse = await axios.get('http://localhost:10000/api/clients');
+        const servicesResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/services`);
+        const clientsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/clients`);
         
         const clientData = {};
         clientsResponse.data.forEach(client => {
@@ -411,7 +450,7 @@ const handleEditClick = (service) => {
   
     const fetchTechnicians = async () => {
       try {
-        const response = await axios.get('http://localhost:10000/api/users?role=Technician');
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/users?role=Technician`);
         setTechnicians(response.data);
       } catch (error) {
         console.error("Error fetching technicians:", error);
@@ -597,7 +636,7 @@ const handleEditClick = (service) => {
     };
 
     try {
-        const response = await axios.post("http://localhost:10000/api/inspections", inspectionData);
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/inspections`, inspectionData);
 
         if (response.data.success) {
         showNotification("Error","Inspección guardada con éxito");
@@ -659,7 +698,7 @@ const filteredTechniciansForCompanion = technicians.filter(
     };
   
     try {
-      const response = await axios.post('http://localhost:10000/api/services', serviceData);
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/services`, serviceData);
       if (response.data.success) {
         setServices([...services, response.data.service]);
         handleCloseAddServiceModal();
@@ -787,7 +826,9 @@ const filteredTechniciansForCompanion = technicians.filter(
                   <Bug className="text-success me-2" />     
                   <span className="text-secondary">
                     {(() => {
-                      const pestMatches = service.pest_to_control.match(/"([^"]+)"/g);
+                      const pestMatches = typeof service.pest_to_control === "string" 
+                      ? service.pest_to_control.match(/"([^"]+)"/g)
+                      : null;
                       const pests = pestMatches ? pestMatches.map(item => item.replace(/"/g, '')).join(', ') : "No especificado";
                       return pests.length > 20 ? `${pests.slice(0, 20)}...` : pests;
                     })()}
@@ -797,7 +838,9 @@ const filteredTechniciansForCompanion = technicians.filter(
                   <Diagram3 className="text-warning me-2" /> 
                   <span className="text-secondary">
                     {(() => {
-                      const areaMatches = service.intervention_areas.match(/"([^"]+)"/g);
+                      const areaMatches = typeof service.intervention_areas === "string" 
+                      ? service.intervention_areas.match(/"([^"]+)"/g)
+                      : null;                  
                       const areas = areaMatches ? areaMatches.map(item => item.replace(/"/g, '')).join(', ') : "No especificadas";
                       return areas.length > 20 ? `${areas.slice(0, 20)}...` : areas;
                     })()}
@@ -1440,7 +1483,9 @@ const filteredTechniciansForCompanion = technicians.filter(
                   </h5>
                   <p>
                     {(() => {
-                      const pestMatches = selectedService.pest_to_control.match(/"([^"]+)"/g);
+                      const pestMatches = typeof selectedService.pest_to_control === "string" 
+                      ? selectedService.pest_to_control.match(/"([^"]+)"/g)
+                      : null;                  
                       return pestMatches
                         ? pestMatches.map((item) => item.replace(/"/g, "")).join(", ")
                         : "No especificado";
@@ -1455,7 +1500,9 @@ const filteredTechniciansForCompanion = technicians.filter(
                   </h5>
                   <p>
                     {(() => {
-                      const areaMatches = selectedService.intervention_areas.match(/"([^"]+)"/g);
+                      const areaMatches = typeof selectedService.intervention_areas === "string" 
+                      ? selectedService.intervention_areas.match(/"([^"]+)"/g)
+                      : null;                  
                       return areaMatches
                         ? areaMatches.map((item) => item.replace(/"/g, "")).join(", ")
                         : "No especificadas";

@@ -19,7 +19,7 @@ function ClientInfoModal({ clientId, show, onClose }) {
 
   const fetchClientData = async (id) => {
     try {
-      const response = await axios.get(`http://localhost:10000/api/clients/${id}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/clients/${id}`);
       setClient(response.data);
       setLoading(false);
     } catch (error) {
@@ -31,7 +31,7 @@ function ClientInfoModal({ clientId, show, onClose }) {
 
   const fetchStationsByClient = async (id) => {
     try {
-      const response = await axios.get(`http://localhost:10000/api/stations/client/${id}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/stations/client/${id}`);
       const stations = response.data;
 
       const air = stations.filter((station) => station.category === "Aéreas");
@@ -99,7 +99,7 @@ function ClientInfoModal({ clientId, show, onClose }) {
                             <td className="text-center">
                               {station.qr_code ? (
                                 <img
-                                  src={`http://localhost:10000${station.qr_code}`}
+                                  src={`${process.env.REACT_APP_API_URL}${station.qr_code}`}
                                   alt={`QR de estación aérea ${station.description}`}
                                   className="img-fluid rounded"
                                   style={{ maxWidth: "150px" }}
@@ -143,7 +143,7 @@ function ClientInfoModal({ clientId, show, onClose }) {
                             <td className="text-center">
                               {station.qr_code ? (
                                 <img
-                                  src={`http://localhost:10000${station.qr_code}`}
+                                  src={`${process.env.REACT_APP_API_URL}${station.qr_code}`}
                                   alt={`QR de estación de roedores ${station.description}`}
                                   className="img-fluid rounded"
                                   style={{ maxWidth: "150px" }}

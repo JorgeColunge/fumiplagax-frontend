@@ -17,7 +17,7 @@ function TopBar({ userName, onSync, notifications, setNotifications, isSidebarOp
 const handleNotificationClick = async (notificationId, route) => {
   try {
     // Actualiza el estado de la notificación a "read" en el backend
-    await axios.put(`http://localhost:10000/api/notifications/${notificationId}/read`, {
+    await axios.put(`${process.env.REACT_APP_API_URL}/api/notifications/${notificationId}/read`, {
     });
     
     // Actualiza el estado local para marcar la notificación como "read"

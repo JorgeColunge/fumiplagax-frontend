@@ -83,7 +83,7 @@ const MyServicesCalendar = () => {
             console.log('Fetching schedule and services...');
             
             // Paso 1: Obtén los eventos de la agenda de servicios
-            const scheduleResponse = await fetch('http://localhost:10000/api/service-schedule');
+            const scheduleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule`);
             if (!scheduleResponse.ok) throw new Error('Failed to fetch schedule');
             const scheduleData = await scheduleResponse.json();
     
@@ -94,7 +94,7 @@ const MyServicesCalendar = () => {
                 scheduleData.map(async (schedule) => {
                     try {
                         // Paso 3: Consulta la información del servicio
-                        const serviceResponse = await fetch(`http://localhost:10000/api/services/${schedule.service_id}`);
+                        const serviceResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/services/${schedule.service_id}`);
                         if (!serviceResponse.ok) throw new Error(`Failed to fetch service for ID: ${schedule.service_id}`);
                         const serviceData = await serviceResponse.json();
 
@@ -132,7 +132,7 @@ const MyServicesCalendar = () => {
                         let clientData;
                         if (serviceData.client_id) {
                             try {
-                                const clientResponse = await fetch(`http://localhost:10000/api/clients/${serviceData.client_id}`);
+                                const clientResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/clients/${serviceData.client_id}`);
                                 if (clientResponse.ok) {
                                     clientData = await clientResponse.json();
                                     clientName = clientData.name || 'Sin nombre';
@@ -150,7 +150,7 @@ const MyServicesCalendar = () => {
                         let responsibleData;
                         if (serviceData.responsible) {
                             try {
-                                const responsibleResponse = await fetch(`http://localhost:10000/api/users/${serviceData.responsible}`);
+                                const responsibleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${serviceData.responsible}`);
                                 if (responsibleResponse.ok) {
                                     responsibleData = await responsibleResponse.json();
                                     responsibleName = `${responsibleData.name || 'Sin nombre'} ${responsibleData.lastname || ''}`.trim();
@@ -242,7 +242,7 @@ const MyServicesCalendar = () => {
     const fetchInspections = async (serviceId) => {
         try {
             console.log(`Obteniendo inspecciones para el servicio: ${serviceId}`);
-            const response = await fetch(`http://localhost:10000/api/inspections?service_id=${serviceId}`);
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/inspections?service_id=${serviceId}`);
             const data = await response.json();
     
             console.log('Inspecciones recibidas del backend:', data);
@@ -271,7 +271,7 @@ const MyServicesCalendar = () => {
 
     const fetchUsers = async () => {
         try {
-            const response = await fetch('http://localhost:10000/api/users');
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users`);
             if (!response.ok) throw new Error('Error al cargar usuarios');
             const data = await response.json();
             setUsers(data); // Actualiza el estado con la lista de usuarios
@@ -293,7 +293,7 @@ const MyServicesCalendar = () => {
                 time: moment().format('HH:mm:ss'),
             };
             try {
-                const response = await axios.post("http://localhost:10000/api/inspections", inspectionData);
+                const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/inspections`, inspectionData);
         
                 if (response.data.success) {
                 alert("Inspección guardada con éxito");
