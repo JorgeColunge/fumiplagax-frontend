@@ -23,6 +23,8 @@ function ProductList() {
     technical_sheet: '',
     health_registration: '',
     emergency_card: '',
+    health_record: '', // Nuevo campo para Registro Sanitario
+    active_ingredient: '', // Nuevo campo para Ingrediente Activo
     category: [] // Inicializa la categoría como un arreglo vacío
   });  
 
@@ -175,12 +177,13 @@ function ProductList() {
     if (product) {
       setNewProduct({
         ...product,
+        health_record: product.health_record || '', // Prellenamos el campo con el valor existente
         category: Array.isArray(product.category)
           ? product.category
           : typeof product.category === 'string'
-          ? product.category.split(',').map(cat => cat.trim()) // Convierte un string separado por comas a un arreglo
+          ? product.category.split(',').map(cat => cat.trim())
           : []
-      });             
+      });                 
     } else {
       setNewProduct({
         name: '',
@@ -237,10 +240,13 @@ function ProductList() {
       formData.append('description_type', newProduct.description_type);
       formData.append('dose', newProduct.dose);
       formData.append('residual_duration', newProduct.residual_duration);
+      formData.append('active_ingredient', newProduct.active_ingredient); // Nuevo campo
+      formData.append('health_record', newProduct.health_record); // Agregamos el campo health_record
       formData.append(
         'category',
         JSON.stringify(Array.isArray(newProduct.category) ? newProduct.category : [])
       );
+      
   
       // Archivos opcionales
       if (safetyDataSheetFile) formData.append('safety_data_sheet', safetyDataSheetFile);
@@ -374,13 +380,13 @@ function ProductList() {
         <div className="mt-2">
           <BsDropletHalf className="text-info me-2" />
           <span>
-            <strong>Dosis:</strong> {product.dose || "No especificada"}
+            <strong>Concentración:</strong> {product.dose || "No especificada"}
           </span>
         </div>
         <div className="mt-2">
           <BsClockHistory className="text-success me-2" />
           <span>
-            <strong>Duración Residual:</strong> {product.residual_duration || "No especificada"}
+            <strong>Tiempo de reingreso en horas:</strong> {product.residual_duration || "No especificada"}
           </span>
         </div>
       </Card.Body>
@@ -457,12 +463,33 @@ function ProductList() {
   </div>
 </Form.Group>
 
+<Form.Group controlId="formActiveIngredient" className="mb-3">
+  <Form.Label>Ingrediente Activo</Form.Label>
+  <Form.Control
+    type="text"
+    name="active_ingredient"
+    value={newProduct.active_ingredient}
+    onChange={handleInputChange}
+  />
+</Form.Group>
+
+<Form.Group controlId="formHealthRecord" className="mb-3">
+  <Form.Label>Registro Sanitario</Form.Label>
+  <Form.Control
+    type="text"
+    name="health_record" // Este debe coincidir con la propiedad del estado
+    value={newProduct.health_record}
+    onChange={handleInputChange} // Reutilizamos el mismo manejador de cambios
+  />
+</Form.Group>
+
+
             <Form.Group controlId="formDose" className="mb-3">
               <Form.Label>Dosis</Form.Label>
               <Form.Control type="text" name="dose" value={newProduct.dose} onChange={handleInputChange} />
             </Form.Group>
             <Form.Group controlId="formResidualDuration" className="mb-3">
-              <Form.Label>Duración Residual</Form.Label>
+              <Form.Label>Tiempo de reingreso en horas:</Form.Label>
               <Form.Control type="text" name="residual_duration" value={newProduct.residual_duration} onChange={handleInputChange} />
             </Form.Group>
             <Form.Group controlId="formSafetyDataSheet" className="mb-3 d-flex align-items-center flex-column">
@@ -662,9 +689,13 @@ function ProductList() {
         <p>
           <strong>
             <BsClockHistory className="text-success me-2" />
-            Duración Residual:
+            Tiempo de reingreso en horas:
           </strong>{" "}
           {selectedProduct.residual_duration}
+        </p>
+
+        <p>
+          <strong>Ingrediente Activo:</strong> {selectedProduct.active_ingredient || 'No especificado'}
         </p>
 
         <div className="d-flex justify-content-between align-items-center">

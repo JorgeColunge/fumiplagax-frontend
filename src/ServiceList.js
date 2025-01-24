@@ -312,22 +312,22 @@ const handleEditClick = (service) => {
     ? interventionAreas.filter((area) => area !== "Otro").join(", ") // Valor del área personalizada
     : "";
 
-  setEditService({
-    ...service,
-    service_type: parseField(service.service_type),
-    pest_to_control: parseField(service.pest_to_control),
-    intervention_areas: interventionAreas,
-    companion: parseField(service.companion),
-    customInterventionArea: customArea, // Sincroniza el valor personalizado
-  });
+    setEditService({
+      ...service,
+      service_type: parseField(service.service_type),
+      pest_to_control: parseField(service.pest_to_control),
+      intervention_areas: interventionAreas,
+      companion: parseField(service.companion),
+      customInterventionArea: customArea, // Asigna el valor personalizado
+    });
 
-  setVisiblePestOptions(
-    Array.from(new Set(parseField(service.service_type).flatMap((type) => pestOptions[type.trim()] || [])))
-  );
-
-  setShowInterventionAreas(interventionAreas.includes("Otro")); // Activa el campo personalizado si "Otro" está presente
-  setShowEditModal(true);
-};
+    setVisiblePestOptions(
+      Array.from(new Set(parseField(service.service_type).flatMap((type) => pestOptions[type.trim()] || [])))
+    );
+  
+    setShowInterventionAreas(interventionAreas.includes("Otro")); // Activa el campo personalizado si "Otro" está presente
+    setShowEditModal(true);
+  };
 
   const handleServiceTypeChange = (e) => {
     const { value, checked } = e.target;
@@ -1272,16 +1272,21 @@ const filteredTechniciansForCompanion = technicians.filter(
                 ? [...prevService.intervention_areas, value]
                 : prevService.intervention_areas.filter((a) => a !== value);
 
+              // Maneja el valor personalizado si "Otro" se selecciona o desmarca
+              if (value === "Otro") {
+                setShowInterventionAreas(checked);
+                return {
+                  ...prevService,
+                  intervention_areas: updatedInterventionAreas,
+                  customInterventionArea: checked ? prevService.customInterventionArea : "", // Limpia si "Otro" se desmarca
+                };
+              }
+
               return {
                 ...prevService,
                 intervention_areas: updatedInterventionAreas,
               };
             });
-
-            // Maneja la visibilidad del campo personalizado si "Otro" se selecciona o desmarca
-            if (value === "Otro") {
-              setShowInterventionAreas(checked);
-            }
           }}
         />
       </div>
@@ -1289,7 +1294,6 @@ const filteredTechniciansForCompanion = technicians.filter(
   </div>
 </Form.Group>
 
-{/* Campo para "Otro" */}
 {showInterventionAreas && (
   <Form.Group className="mt-3">
     <Form.Label style={{ fontWeight: "bold" }}>Añadir área de intervención</Form.Label>
@@ -1297,13 +1301,12 @@ const filteredTechniciansForCompanion = technicians.filter(
       type="text"
       placeholder="Escribe aquí"
       value={editService.customInterventionArea || ""}
-      onChange={(e) => {
-        const customArea = e.target.value;
+      onChange={(e) =>
         setEditService((prevService) => ({
           ...prevService,
-          customInterventionArea: customArea,
-        }));
-      }}
+          customInterventionArea: e.target.value,
+        }))
+      }
     />
   </Form.Group>
 )}
