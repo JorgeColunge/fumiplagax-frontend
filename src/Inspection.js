@@ -534,6 +534,9 @@ const handleSaveChanges = async () => {
     formData.append("inspectionId", inspectionId);
     formData.append("generalObservations", generalObservations);
 
+    // Incluir el ID del usuario explícitamente
+    formData.append("userId", storedUserInfo?.id_usuario || null);
+
     // Procesar findingsByType
     const findingsByTypeProcessed = {};
     Object.keys(findingsByType).forEach((type) => {
@@ -584,7 +587,9 @@ const handleSaveChanges = async () => {
         signature: clientSignature instanceof Blob ? null : removePrefix(clientSignaturePreview), // Usar la URL si no hay nueva firma
       },
       technician: {
-        name: "Técnico",
+        id: storedUserInfo?.id_usuario || null,
+        name: `${storedUserInfo?.name || ""} ${storedUserInfo?.lastname || ""}`.trim(),
+        role: userRol || "No disponible",
         signature: techSignature instanceof Blob ? null : removePrefix(techSignaturePreview), // Usar la URL si no hay nueva firma
       },
     };
@@ -2444,6 +2449,12 @@ const handleDeleteFinding = () => {
                 disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
               />
             </div>
+            <div className="mt-4 text-center">
+              <h6>Datos del Técnico</h6>
+              <p><strong>Nombre:</strong> {storedUserInfo?.name || 'No disponible'} {storedUserInfo?.lastname}</p>
+              <p><strong>Cédula:</strong> {storedUserInfo?.id_usuario || 'No disponible'}</p>
+              <p><strong>Cargo:</strong> {userRol || 'No disponible'}</p>
+            </div>
           </div>
 
           {/* Firma del Cliente */}
@@ -2471,29 +2482,25 @@ const handleDeleteFinding = () => {
           </div>
 
           {/* Datos adicionales */}
-          <div className="row" style={{ minHeight: 0, height: 'auto' }}>
+          <div className="row justify-content-center" style={{ minHeight: 0, height: 'auto' }}>
             <div className="col-md-4 mt-1 text-center">
-            <h5 className="mb-3">Datos del Cliente</h5>
+              <h5 className="mb-3">Datos del Cliente</h5>
               <input
                 type="text"
-                className="form-control"
+                className="form-control mb-3"
                 value={signData.name}
                 onChange={(e) => handleSignDataChange("name", e.target.value)}
                 placeholder="Nombre del cliente"
                 required
               />
-            </div>
-            <div className="col-md-4 mt-1">
               <input
                 type="number"
-                className="form-control"
+                className="form-control mb-3"
                 value={signData.id}
                 onChange={(e) => handleSignDataChange("id", e.target.value)}
                 placeholder="Cédula"
                 required
               />
-            </div>
-            <div className="col-md-4 mt-1">
               <input
                 type="text"
                 className="form-control"
