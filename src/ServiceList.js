@@ -418,7 +418,6 @@ const handleEditClick = (service) => {
         setServices(servicesResponse.data);
         setClients(clientsResponse.data);
         setTechnicians(techniciansResponse.data);
-        setFilteredServices(servicesResponse.data);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching data:", error);
