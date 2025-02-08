@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import './ProductList.css';
 import axios from 'axios';
 import { Button, Card, Modal, Form, Collapse } from 'react-bootstrap';
-import { BsPencilSquare, BsTrash, BsEye, BsGrid, BsClockHistory, BsDropletHalf, BsBookHalf, BsBodyText } from 'react-icons/bs';
+import { BsPencilSquare, BsTrash, BsEye, BsGrid, BsClockHistory, BsDropletHalf, BsBookHalf, BsBodyText, BsCalendar } from 'react-icons/bs';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 function ProductList() {
@@ -18,15 +18,18 @@ function ProductList() {
     name: '',
     description_type: '',
     dose: '',
+    unity: '',
     residual_duration: '',
+    batch: '', // Nuevo campo Lote
+    expiration_date: '', // Nuevo campo Fecha de Vencimiento
     safety_data_sheet: '',
     technical_sheet: '',
     health_registration: '',
     emergency_card: '',
-    health_record: '', // Nuevo campo para Registro Sanitario
-    active_ingredient: '', // Nuevo campo para Ingrediente Activo
-    category: [] // Inicializa la categoría como un arreglo vacío
-  });  
+    health_record: '',
+    active_ingredient: '',
+    category: []
+  });    
 
   const categoryOptions = [
     "Desinsectación",
@@ -173,31 +176,55 @@ function ProductList() {
   };  
 
   const handleShowModal = (product = null) => {
-    setEditingProduct(product);
+    console.log("Producto seleccionado para editar:", product); // Debug
+  
     if (product) {
+      setEditingProduct(product);
+  
       setNewProduct({
-        ...product,
-        health_record: product.health_record || '', // Prellenamos el campo con el valor existente
+        name: product.name || '',
+        description_type: product.description_type || '',
+        dose: product.dose || '',
+        unity: product.unity || '',
+        residual_duration: product.residual_duration || '',
+        batch: product.batch || '', // Cargar el Lote si existe
+        expiration_date: product.expiration_date ? product.expiration_date.split('T')[0] : '', // ✅ Formatea la fecha correctamente
+        safety_data_sheet: product.safety_data_sheet || '',
+        technical_sheet: product.technical_sheet || '',
+        health_registration: product.health_registration || '',
+        emergency_card: product.emergency_card || '',
+        health_record: product.health_record || '', // ✅ Ahora se asigna correctamente
+        active_ingredient: product.active_ingredient || '',
         category: Array.isArray(product.category)
           ? product.category
           : typeof product.category === 'string'
-          ? product.category.split(',').map(cat => cat.trim())
+          ? JSON.parse(product.category.replace(/\\/g, '')) // ✅ Convierte la categoría correctamente
           : []
-      });                 
+      });
     } else {
+      setEditingProduct(null);
       setNewProduct({
         name: '',
         description_type: '',
         dose: '',
+        unity: '',
         residual_duration: '',
+        batch: '',
+        expiration_date: '',
         safety_data_sheet: '',
         technical_sheet: '',
         health_registration: '',
         emergency_card: '',
-        category: [] // Inicializa la categoría como un arreglo vacío
+        health_record: '',
+        active_ingredient: '',
+        category: []
       });
     }
-    setShowModal(true);
+  
+    setTimeout(() => {
+      console.log("Abriendo modal de edición..."); // Debug
+      setShowModal(true);
+    }, 100);
   };  
 
   const handleShowDetailModal = (product) => {
@@ -233,21 +260,18 @@ function ProductList() {
       return;
     }
   
-    let response; // Declara response aquí
     try {
       const formData = new FormData();
       formData.append('name', newProduct.name);
       formData.append('description_type', newProduct.description_type);
       formData.append('dose', newProduct.dose);
       formData.append('residual_duration', newProduct.residual_duration);
-      formData.append('active_ingredient', newProduct.active_ingredient); // Nuevo campo
-      formData.append('health_record', newProduct.health_record); // Agregamos el campo health_record
-      formData.append(
-        'category',
-        JSON.stringify(Array.isArray(newProduct.category) ? newProduct.category : [])
-      );
+      formData.append('batch', newProduct.batch); // Nuevo campo Lote
+      formData.append('expiration_date', newProduct.expiration_date); // Nuevo campo Fecha de Vencimiento
+      formData.append('unity', newProduct.unity);
+      formData.append('active_ingredient', newProduct.active_ingredient);
+      formData.append('category', JSON.stringify(newProduct.category));
       
-  
       // Archivos opcionales
       if (safetyDataSheetFile) formData.append('safety_data_sheet', safetyDataSheetFile);
       if (technicalSheetFile) formData.append('technical_sheet', technicalSheetFile);
@@ -257,15 +281,13 @@ function ProductList() {
       console.log("FormData enviado al servidor:");
       formData.forEach((value, key) => console.log(`${key}: ${value}`)); // Log de FormData
   
-      response = editingProduct
-        ? await axios.put(
-            `${process.env.REACT_APP_API_URL}/api/products/${editingProduct.id}`,
-            formData,
-            { headers: { 'Content-Type': 'multipart/form-data' } }
-          )
-        : await axios.post(`${process.env.REACT_APP_API_URL}/api/products`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          });
+      const response = editingProduct
+      ? await axios.put(`${process.env.REACT_APP_API_URL}/api/products/${editingProduct.id}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+      : await axios.post(`${process.env.REACT_APP_API_URL}/api/products`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
   
       console.log("Respuesta del servidor al guardar producto:", response.data);
   
@@ -303,27 +325,38 @@ function ProductList() {
       console.log("Estado de productos después de actualizar:", products);
       
       alert('Producto registrado correctamente.');
-      setShowConfirmationModal(false);
       handleCloseModal();
     } catch (error) {
       console.error('Error al guardar el producto:', error);
       alert('Error al registrar el producto.');
     }
   };
-  
+
+  console.log("Datos enviados en la actualización:", newProduct);
 
   const deleteProduct = async (id) => {
-    if (window.confirm("¿Estás seguro de que deseas eliminar este producto?")) {
-      try {
-        await axios.delete(`${process.env.REACT_APP_API_URL}/api/products/${id}`);
-        setProducts(products.filter(product => product.id !== id));
-        alert("Producto eliminado exitosamente.");
-      } catch (error) {
-        console.error("Error al eliminar producto:", error);
-        alert("Hubo un error al eliminar el producto.");
-      }
+    if (!window.confirm("¿Estás seguro de que deseas eliminar este producto?")) {
+      return;
     }
-  };
+  
+    try {
+      console.log(`⏳ Enviando solicitud para eliminar el producto con ID: ${id}`);
+  
+      const response = await axios.delete(`${process.env.REACT_APP_API_URL}/api/products/${id}`);
+  
+      if (response.data.success) {
+        console.log(` Producto con ID ${id} eliminado correctamente.`);
+        setProducts((prevProducts) => prevProducts.filter((product) => product.id !== id));
+        alert("Producto eliminado exitosamente.");
+      } else {
+        console.error(" Error en la respuesta del servidor:", response.data);
+        alert("No se pudo eliminar el producto.");
+      }
+    } catch (error) {
+      console.error(" Error al eliminar producto:", error);
+      alert("Hubo un error al eliminar el producto.");
+    }
+  };  
 
   if (loading) return <div>Cargando productos...</div>;
 
@@ -380,13 +413,13 @@ function ProductList() {
         <div className="mt-2">
           <BsDropletHalf className="text-info me-2" />
           <span>
-            <strong>Concentración:</strong> {product.dose || "No especificada"}
+            <strong>Conc:</strong> {product.dose || "No especificada"}
           </span>
         </div>
         <div className="mt-2">
           <BsClockHistory className="text-success me-2" />
           <span>
-            <strong>Tiempo de reingreso en horas:</strong> {product.residual_duration || "No especificada"}
+            <strong>Reingreso en horas:</strong> {product.residual_duration || "No especificada"}
           </span>
         </div>
       </Card.Body>
@@ -403,26 +436,26 @@ function ProductList() {
         </small>
         {expandedCardId === product.id && (
           <div className={`menu-actions ${expandedCardId === product.id ? "expand" : "collapse"}`}>
-            <button
-              className="btn d-block"
-              onClick={(e) => {
-                e.stopPropagation();
-                alert(`Editar Producto: ${product.name}`);
-              }}
-            >
-              <BsPencilSquare size={18} className="me-2" />
-              Editar
-            </button>
-            <button
-              className="btn d-block"
-              onClick={(e) => {
-                e.stopPropagation();
-                alert(`Eliminar Producto: ${product.name}`);
-              }}
-            >
-              <BsTrash size={18} className="me-2" />
-              Eliminar
-            </button>
+<button
+  className="btn d-block"
+  onClick={(e) => {
+    e.stopPropagation();
+    handleShowModal(product);
+  }}
+>
+  <BsPencilSquare size={18} className="me-2" />
+  Editar
+</button>
+<button
+  className="btn d-block"
+  onClick={(e) => {
+    e.stopPropagation();
+    deleteProduct(product.id); // ✅ Ahora realmente llama a la función eliminar
+  }}
+>
+  <BsTrash size={18} className="me-2" />
+  Eliminar
+</button>
           </div>
         )}
       </Card.Footer>
@@ -455,8 +488,8 @@ function ProductList() {
           type="checkbox"
           label={<span style={{ fontSize: "0.8rem" }}>{option}</span>}
           value={option}
-          checked={newProduct.category.includes(option)}
-          onChange={(e) => handleCategoryChange(e)}
+          checked={newProduct.category.includes(option)} // ✅ Se marca correctamente
+          onChange={handleCategoryChange}
         />
       </div>
     ))}
@@ -477,21 +510,63 @@ function ProductList() {
   <Form.Label>Registro Sanitario</Form.Label>
   <Form.Control
     type="text"
-    name="health_record" // Este debe coincidir con la propiedad del estado
+    name="health_record"
     value={newProduct.health_record}
-    onChange={handleInputChange} // Reutilizamos el mismo manejador de cambios
+    onChange={handleInputChange}
   />
 </Form.Group>
 
+<Form.Group controlId="formDose" className="mb-3">
+  <Form.Label>Concentración</Form.Label>
+  <div className="d-flex">
+    <Form.Control
+      type="text"
+      name="dose"
+      value={newProduct.dose}
+      onChange={handleInputChange}
+      className="me-3"
+    />
+  </div>
+  
+  {/* Nueva estructura para la unidad */}
+  <Form.Group controlId="formUnity" className="mt-2">
+    <Form.Label>Unidad del producto</Form.Label>
+    <Form.Select
+      name="unity"
+      value={newProduct.unity}
+      onChange={handleInputChange}
+    >
+      <option value="">Seleccionar unidad</option>
+      <option value="ml">ml</option>
+      <option value="L">L</option>
+      <option value="mg">mg</option>
+      <option value="g">g</option>
+      <option value="kg">kg</option>
+    </Form.Select>
+  </Form.Group>
+</Form.Group>
 
-            <Form.Group controlId="formDose" className="mb-3">
-              <Form.Label>Dosis</Form.Label>
-              <Form.Control type="text" name="dose" value={newProduct.dose} onChange={handleInputChange} />
-            </Form.Group>
-            <Form.Group controlId="formResidualDuration" className="mb-3">
-              <Form.Label>Tiempo de reingreso en horas:</Form.Label>
-              <Form.Control type="text" name="residual_duration" value={newProduct.residual_duration} onChange={handleInputChange} />
-            </Form.Group>
+<Form.Group className="mb-3">
+  <Form.Label>Tiempo de reingreso en horas</Form.Label>
+  <Form.Control type="text" name="residual_duration" value={newProduct.residual_duration} onChange={handleInputChange} />
+</Form.Group>
+
+{/* Nuevo campo Lote */}
+<Form.Group className="mb-3">
+  <Form.Label>Lote</Form.Label>
+  <Form.Control type="text" name="batch" value={newProduct.batch} onChange={handleInputChange} />
+</Form.Group>
+
+{/* Nuevo campo Fecha de Vencimiento */}
+<Form.Group className="mb-3">
+  <Form.Label>Fecha de Vencimiento</Form.Label>
+  <Form.Control
+    type="date"
+    name="expiration_date"
+    value={newProduct.expiration_date}
+    onChange={handleInputChange}
+  />
+</Form.Group>
             <Form.Group controlId="formSafetyDataSheet" className="mb-3 d-flex align-items-center flex-column">
   <div className="d-flex w-100 align-items-center">
     <Form.Label className="me-2">Hoja de Datos de Seguridad</Form.Label>
@@ -681,18 +756,16 @@ function ProductList() {
         <p>
           <strong>
             <BsDropletHalf className="text-info me-2" />
-            Dosis:
+            Concentración:
           </strong>{" "}
           {selectedProduct.dose}
         </p>
 
-        <p>
-          <strong>
-            <BsClockHistory className="text-success me-2" />
-            Tiempo de reingreso en horas:
-          </strong>{" "}
-          {selectedProduct.residual_duration}
-        </p>
+        <p><BsClockHistory className="me-2" /> <strong>Tiempo de reingreso:</strong> {selectedProduct.residual_duration}</p>
+
+        <p><BsGrid className="me-2" /> <strong>Lote:</strong> {selectedProduct.batch || 'No especificado'}</p>
+
+        <p><BsCalendar className="me-2" /> <strong>Fecha de Vencimiento:</strong> {selectedProduct.expiration_date || 'No especificada'}</p>
 
         <p>
           <strong>Ingrediente Activo:</strong> {selectedProduct.active_ingredient || 'No especificado'}

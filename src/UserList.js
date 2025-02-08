@@ -22,6 +22,7 @@ function UserList() {
     password: '',
     email: '', // Campo agregado para email
     image: null,
+    color: '',
   });
 
   const navigate = useNavigate();
@@ -170,6 +171,7 @@ function UserList() {
     formData.append('rol', newUser.rol);
     formData.append('password', newUser.password);
     formData.append('email', newUser.email);
+    formData.append('color', newUser.hexColor);
   
     if (newUser.image) {
       formData.append('image', newUser.image);
@@ -482,20 +484,18 @@ const deleteUser = async (id) => {
             <div className="d-flex align-items-center">
               <Form.Control
                 type="color"
-                name="color"
+                name="hexColor"
                 value={newUser.hexColor || "#ffffff"}
                 onChange={(e) => {
-                  const hexColor = e.target.value;
-                  const rgbColor = hexToRgb(hexColor);
+                  const hexColor = e.target.value; // Mantiene en formato Hexadecimal
                   setNewUser((prevUser) => ({
                     ...prevUser,
-                    hexColor,
-                    color: rgbColor,
+                    hexColor, // Solo guarda el color en Hexadecimal
                   }));
                 }}
                 style={{ width: "60px", height: "40px", marginRight: "10px" }}
               />
-              <span className="text-muted">Color seleccionado: {newUser.color || "rgb(255, 255, 255)"}</span>
+              <span className="text-muted">Color seleccionado: {newUser.hexColor || "#ffffff"}</span>
             </div>
           </Form.Group>
         </Form>

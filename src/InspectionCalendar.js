@@ -19,8 +19,9 @@ import { useSocket } from './SocketContext';
 
 const InspectionCalendar = () => {
     const [events, setEvents] = useState([]);
-    const [allEvents, setAllEvents] = useState([]); // Todos los eventos cargados
+    const [allEvents, setAllEvents] = useState([]);
     const [services, setServices] = useState([]);
+    const [dateRange, setDateRange] = useState({ start: null, end: null }); // ✅ Nuevo estado
     const calendarRef = useRef(null);
     const [currentView, setCurrentView] = useState('timeGridWeek');
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -74,6 +75,24 @@ const InspectionCalendar = () => {
     }, [location.search, services]); // Ejecuta el efecto cuando cambie la URL o los servicios
 
     useEffect(() => {
+        if (dateRange.start && dateRange.end) {
+            fetchScheduleAndServices(dateRange.start, dateRange.end); // ✅ Llamada inicial con el rango de fechas
+        }
+    }, [dateRange]); // ✅ Se ejecuta cuando cambia el rango de fechas
+
+        // ✅ Nueva función para detectar cambios de semana en el calendario
+        const handleDateRangeChange = (dateInfo) => {
+            const { start, end } = dateInfo;
+            setDateRange({ start, end });
+        
+            console.log(`📅 Nueva vista en calendario: del ${moment(start).format('YYYY-MM-DD')} al ${moment(end).format('YYYY-MM-DD')}`);
+            
+            // ✅ Ahora se llama a la API con el nuevo rango de fechas
+            fetchScheduleAndServices(start, end);
+        };
+        
+
+    useEffect(() => {
         if (showEventModal && selectedEvent) {
             console.log("Evento actualmente seleccionado en el modal:", selectedEvent);
         }
@@ -121,10 +140,14 @@ const InspectionCalendar = () => {
     useEffect(() => {
         const calendarApi = calendarRef.current?.getApi();
         if (calendarApi) {
-            calendarApi.removeAllEvents();
-            calendarApi.addEventSource(events); // Agrega los eventos actuales
+            requestAnimationFrame(() => {  // ✅ Evita conflicto de renderizado
+                calendarApi.removeAllEvents();
+                calendarApi.addEventSource(events);
+                console.log("✅ Calendario actualizado con eventos:", events);
+            });
         }
-    }, [events]); // Dependencia en `events`
+    }, [events]);
+      
 
     const openScheduleModal = async () => {
         try {
@@ -596,117 +619,80 @@ const InspectionCalendar = () => {
         setNewInspection({ inspection_type: [], inspection_sub_type: '' });
     };
 
-    const fetchScheduleAndServices = async () => {
+    const fetchScheduleAndServices = async (start, end) => {
         try {
-            console.log('Fetching schedule and services...');
-            
-            // Paso 1: Obtén los eventos de la agenda de servicios
-            const scheduleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule`);
-            if (!scheduleResponse.ok) throw new Error('Failed to fetch schedule');
+            console.log(`📅 Solicitando eventos entre ${start} y ${end}...`);
+            const startDate = moment(start).format('YYYY-MM-DD');
+            const endDate = moment(end).format('YYYY-MM-DD');
+    
+            // 1️⃣ Obtener los eventos de la semana visible
+            const scheduleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule?start=${startDate}&end=${endDate}`);
+            if (!scheduleResponse.ok) throw new Error('⚠️ Error al obtener los eventos');
             const scheduleData = await scheduleResponse.json();
+            console.log(`✅ Eventos recibidos (${scheduleData.length}):`, scheduleData);
     
-            console.log('Schedule data received:', scheduleData);
+            // 🔹 2️⃣ Obtener todos los servicios relacionados en una sola consulta
+            const serviceIds = [...new Set(scheduleData.map(schedule => schedule.service_id))];
+            const serviceRequests = serviceIds.map(id => fetch(`${process.env.REACT_APP_API_URL}/api/services/${id}`).then(res => res.json()));
+            const services = await Promise.all(serviceRequests);
+            const serviceMap = Object.fromEntries(services.map(service => [service.id, service]));    
     
-            // Paso 2: Crea un array para almacenar los eventos formateados
-            const formattedEvents = await Promise.all(
-                scheduleData.map(async (schedule) => {
-                    try {
-                        // Paso 3: Consulta la información del servicio
-                        const serviceResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/services/${schedule.service_id}`);
-                        if (!serviceResponse.ok) throw new Error(`Failed to fetch service for ID: ${schedule.service_id}`);
-                        const serviceData = await serviceResponse.json();
+            // 🔹 3️⃣ Obtener todos los clientes y responsables en una sola consulta
+            const clientIds = [...new Set(services.map(service => service.client_id).filter(id => id))];
+            const responsibleIds = [...new Set(services.map(service => service.responsible).filter(id => id))];
     
-                        console.log(`Service data for ID ${schedule.service_id}:`, serviceData);
+            const clientRequests = clientIds.map(id => fetch(`${process.env.REACT_APP_API_URL}/api/clients/${id}`).then(res => res.json()));
+            const responsibleRequests = responsibleIds.map(id => fetch(`${process.env.REACT_APP_API_URL}/api/users/${id}`).then(res => res.json()));
     
-                        // Paso 4: Consulta el nombre de la empresa usando el client_id
-                        let clientName = 'Sin empresa';
-                        let clientData;
-                        if (serviceData.client_id) {
-                            try {
-                                const clientResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/clients/${serviceData.client_id}`);
-                                if (clientResponse.ok) {
-                                    clientData = await clientResponse.json();
-                                    clientName = clientData.name || 'Sin nombre';
-                                    console.log(`Client data for ID ${serviceData.client_id}:`, clientData);
-                                } else {
-                                    console.warn(`Failed to fetch client for ID: ${serviceData.client_id}`);
-                                }
-                            } catch (error) {
-                                console.error(`Error fetching client for ID: ${serviceData.client_id}`, error);
-                            }
-                        }
+            const clients = await Promise.all(clientRequests);
+            const responsibles = await Promise.all(responsibleRequests);
     
-                        // Paso 5: Consulta la información del responsable usando el responsible_id
-                        let responsibleName = 'Sin responsable';
-                        let responsibleData;
-                        if (serviceData.responsible) {
-                            try {
-                                const responsibleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${serviceData.responsible}`);
-                                if (responsibleResponse.ok) {
-                                    responsibleData = await responsibleResponse.json();
-                                    responsibleName = `${responsibleData.name || 'Sin nombre'} ${responsibleData.lastname || ''}`.trim();
-                                    console.log(`Responsible data for ID ${serviceData.responsible}:`, responsibleData);
-                                } else {
-                                    console.warn(`Failed to fetch responsible for ID: ${serviceData.responsible}`);
-                                }
-                            } catch (error) {
-                                console.error(`Error fetching responsible for ID: ${serviceData.responsible}`, error);
-                            }
-                        }
+            const clientMap = Object.fromEntries(clients.map(client => [client.id, client]));
+            const responsibleMap = Object.fromEntries(responsibles.map(responsible => [responsible.id, responsible]));
+       
+            // 🔹 4️⃣ Formatear eventos
+            const formattedEvents = scheduleData.map(schedule => {
+                const serviceData = serviceMap[schedule.service_id] || {};
+                const clientData = clientMap[serviceData.client_id] || {};
+                const responsibleData = responsibleMap[serviceData.responsible] || {};
     
-                        // Paso 6: Crea el evento formateado
-                        const start = moment(`${schedule.date.split('T')[0]}T${schedule.start_time}`).toISOString();
-                        const end = schedule.end_time
-                            ? moment(`${schedule.date.split('T')[0]}T${schedule.end_time}`).toISOString()
-                            : null;
+                return {
+                    id: schedule.id,
+                    title: `${serviceData.id || 'Desconocido'}`,
+                    serviceType: serviceData.service_type || 'Sin tipo',
+                    description: serviceData.description || 'Sin descripción',
+                    category: serviceData.category || 'Sin categoría',
+                    quantyPerMonth: serviceData.quantity_per_month || null,
+                    clientName: clientData.name || 'Sin empresa',
+                    clientId: serviceData.client_id || null,
+                    responsibleId: serviceData.responsible || null,
+                    responsibleName: `${responsibleData.name || 'Sin nombre'} ${responsibleData.lastname || ''}`.trim(),
+                    address: clientData.address || 'Sin dirección',
+                    phone: clientData.phone || 'Sin teléfono',
+                    color: responsibleData.color || '#fdd835',
+                    backgroundColor: responsibleData.color,
+                    pestToControl: serviceData.pest_to_control,
+                    interventionAreas: serviceData.intervention_areas,
+                    value: serviceData.value,
+                    companion: serviceData.companion,
+                    start: moment(`${schedule.date.split('T')[0]}T${schedule.start_time}`).toISOString(),
+                    end: schedule.end_time
+                        ? moment(`${schedule.date.split('T')[0]}T${schedule.end_time}`).toISOString()
+                        : null,
+                    allDay: false,
+                };
+            });
     
-                            const formattedEvent = {
-                                id: schedule.id,
-                                title: `${serviceData.id}`,
-                                serviceType: serviceData.service_type || 'Sin tipo',
-                                description: serviceData.description || 'Sin descripción',
-                                category: serviceData.category || 'Sin categoría', // Nueva propiedad
-                                quantyPerMonth: serviceData.quantity_per_month || null, // Nueva propiedad
-                                clientName,
-                                clientId: serviceData.client_id,
-                                responsibleId: serviceData.responsible,
-                                responsibleName,
-                                address: clientData?.address || 'Sin dirección',
-                                phone: clientData?.phone || 'Sin teléfono',
-                                color: responsibleData?.color || '#fdd835',
-                                backgroundColor: responsibleData?.color,
-                                pestToControl: serviceData.pest_to_control,
-                                interventionAreas: serviceData.intervention_areas,
-                                value: serviceData.value,
-                                companion: serviceData.companion,
-                                start,
-                                end,
-                                allDay: false,
-                            };
-                            
-
-                        console.log(`Color del responsable: `, responsibleData.color)
+            console.log(`📊 Eventos formateados (${formattedEvents.length}):`, formattedEvents);
     
-                        console.log('Formatted event:', formattedEvent);
-                        return formattedEvent;
-    
-                    } catch (error) {
-                        console.error(`Error processing schedule with service_id: ${schedule.service_id}`, error);
-                        return null; // Retorna nulo si falla algo
-                    }
-                })
-            );
-    
-            // Filtra los eventos nulos en caso de errores
-            const validEvents = formattedEvents.filter(event => event !== null);
-    
-            // Paso 7: Actualiza el estado con los eventos válidos
-            setAllEvents(validEvents);
-            setEvents(validEvents);
-            console.log('Events set in state:', validEvents);
+            // ✅ Usamos `setTimeout` para evitar problemas de sincronización en React
+            setTimeout(() => {
+                setAllEvents(formattedEvents);
+                setEvents(formattedEvents);
+            }, 0);
     
         } catch (error) {
-            console.error('Error loading schedule and services:', error);
+            console.error('❌ Error al cargar eventos:', error);
         }
     };
 
@@ -1028,6 +1014,7 @@ const InspectionCalendar = () => {
                             headerToolbar={false}
                             locale={esLocale}
                             events={events}
+                            datesSet={handleDateRangeChange}  // ✅ Se ejecuta cada vez que cambia la vista de fechas
                             editable={true}
                             selectable={true}
                             select={handleDateSelect}

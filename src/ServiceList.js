@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
+import { useMemo } from "react";
 import { useNavigate, useLocation } from 'react-router-dom'; // Asegúrate de tener configurado react-router
 import { Calendar, Person, Bag, Building, PencilSquare, Trash, Bug, Diagram3, GearFill, Clipboard, PlusCircle, InfoCircle, FileText, GeoAlt } from 'react-bootstrap-icons';
 import { Card, Col, Row, Collapse, Button, Table, Modal, Form, CardFooter, ModalTitle } from 'react-bootstrap';
@@ -293,6 +294,7 @@ const handleDropdownToggle = (isOpen, event) => {
   setShowDropdown(isOpen);
 };
 
+
 const handleEditClick = (service) => {
   const parseField = (field) => {
     if (!field) return [];
@@ -418,6 +420,7 @@ const handleEditClick = (service) => {
         setServices(servicesResponse.data);
         setClients(clientsResponse.data);
         setTechnicians(techniciansResponse.data);
+        setFilteredServices(servicesResponse.data);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -463,64 +466,35 @@ const handleEditClick = (service) => {
   
   
   useEffect(() => {
-    const applyFilters = () => {
-      let filtered = services;
+    // Preprocesar los tipos de servicio una sola vez
+    const preprocessedServices = services.map((service) => ({
+      ...service,
+      service_type_cleaned: service.service_type
+        ? service.service_type.replace(/[\{\}"]/g, "").toLowerCase()
+        : "",
+    }));
   
-      if (searchServiceText) {
-        filtered = filtered.filter((service) =>
-          service.id.toString().includes(searchServiceText) ||
-          (clients.find((client) => client.id === service.client_id)?.name || "")
-            .toLowerCase()
-            .includes(searchServiceText.toLowerCase()) ||
-          (technicians.find((tech) => tech.id === service.responsible)?.name || "")
-            .toLowerCase()
-            .includes(searchServiceText.toLowerCase())
-        );
-      }
+    let filtered = preprocessedServices;
   
-      if (selectedClient) {
-        filtered = filtered.filter((service) => service.client_id === parseInt(selectedClient));
-      }
-  
-      if (selectedUser) {
-        filtered = filtered.filter((service) => service.responsible === selectedUser);
-      }
-  
-      setFilteredServices(filtered);
-    };
-  
-    applyFilters();
-  }, [searchServiceText, selectedClient, selectedUser, services, clients, technicians]); // Las dependencias necesarias.
-
-  useEffect(() => {
-    let filtered = services;
-
-    // Aplicar filtro por texto de búsqueda
     if (searchServiceText) {
-      filtered = filtered.filter(
-        (service) =>
-          service.id.toLowerCase().includes(searchServiceText.toLowerCase()) || // Buscar por ID completo
-          (clients.find((client) => client.id === service.client_id)?.name || "")
-            .toLowerCase()
-            .includes(searchServiceText.toLowerCase()) || // Buscar por cliente
-          (technicians.find((tech) => tech.id === service.responsible)?.name || "")
-            .toLowerCase()
-            .includes(searchServiceText.toLowerCase()) // Buscar por responsable
-      );      
+      filtered = filtered.filter((service) =>
+        service.id.toString().includes(searchServiceText) ||
+        (clients.find((client) => client.id === service.client_id)?.name || "").toLowerCase().includes(searchServiceText.toLowerCase()) ||
+        (technicians.find((tech) => tech.id === service.responsible)?.name || "").toLowerCase().includes(searchServiceText.toLowerCase()) ||
+        service.service_type_cleaned.includes(searchServiceText) // ✅ Ahora usa el campo preprocesado
+      );
     }
-
-    // Aplicar filtro por cliente seleccionado
+  
     if (selectedClient) {
       filtered = filtered.filter((service) => service.client_id === parseInt(selectedClient));
     }
-
-    // Aplicar filtro por responsable seleccionado
+  
     if (selectedUser) {
       filtered = filtered.filter((service) => service.responsible === selectedUser);
     }
-
+  
     setFilteredServices(filtered);
-  }, [searchServiceText, selectedClient, selectedUser, services, clients, technicians]);
+  }, [searchServiceText, selectedClient, selectedUser, services, clients, technicians]); // 🔥 Solo recalcula cuando cambian los datos base  
 
   if (loading) return <div>Cargando servicios...</div>;
 
@@ -534,18 +508,25 @@ const handleEditClick = (service) => {
     setSelectedClientId(null);
   };
 
-
   const handleServiceSearchChange = (e) => {
-    const input = e.target.value;
+    const input = e.target.value.toLowerCase();
     setSearchServiceText(input);
-    let filtered = services;
   
-    if (input) {
-      filtered = filtered.filter(
-        (service) =>
-          service.description.toLowerCase().includes(input.toLowerCase()) ||
-          service.service_type.toLowerCase().includes(input.toLowerCase())
+    let filtered = services.filter((service) => {
+      const serviceTypeCleaned = service.service_type
+        ? service.service_type.replace(/[\{\}"]/g, "").toLowerCase() // 🔥 Limpia llaves y comillas
+        : "";
+  
+      return (
+        service.id.toString().includes(input) || // Buscar por ID
+        (clients.find((client) => client.id === service.client_id)?.name || "").toLowerCase().includes(input) || // Buscar por cliente
+        (technicians.find((tech) => tech.id === service.responsible)?.name || "").toLowerCase().includes(input) || // Buscar por responsable
+        serviceTypeCleaned.includes(input) // ✅ Buscar por tipo de servicio correctamente
       );
+    });
+  
+    if (selectedClient) {
+      filtered = filtered.filter((service) => service.client_id === parseInt(selectedClient));
     }
   
     if (selectedUser) {
@@ -553,7 +534,7 @@ const handleEditClick = (service) => {
     }
   
     setFilteredServices(filtered);
-  };    
+  };  
 
   const handleSearchChange = (e) => {
     const input = e.target.value;

@@ -557,6 +557,7 @@ const handleSaveChanges = async () => {
           id: productData.id || null, // Incluir el ID
           product: productData.product || '',
           dosage: productData.dosage || '',
+          active_ingredient: productData.active_ingredient || '',
         };
       }
     });
@@ -723,7 +724,8 @@ const dataURLtoBlob = (dataURL) => {
       if (field === 'product') {
         const selectedProduct = availableProducts.find((product) => product.name === value);
         updatedProduct.product = value;
-        updatedProduct.id = selectedProduct ? selectedProduct.id : null; // Agregar el ID del producto
+        updatedProduct.id = selectedProduct ? selectedProduct.id : null;
+        updatedProduct.active_ingredient = selectedProduct ? selectedProduct.active_ingredient : null;
       } else {
         updatedProduct[field] = value;
       }
@@ -760,8 +762,15 @@ const dataURLtoBlob = (dataURL) => {
       }
   
       try {
+        // Convertir la categoría a string si es un array u objeto
+        let categoryStr = Array.isArray(product.category) 
+          ? product.category.join(", ") // Convierte array en string separado por comas
+          : typeof product.category === "string"
+            ? product.category
+            : JSON.stringify(product.category); // Convierte objeto a string si es necesario
+  
         // Limpiar las categorías, eliminar corchetes y dividir en un array
-        const cleanedCategory = product.category
+        const cleanedCategory = categoryStr
           .replace(/[\{\}\[\]"]/g, "") // Elimina `{`, `}`, `[`, `]`, y comillas
           .split(",")
           .map((cat) => cat.trim().toLowerCase()); // Convierte a minúsculas para comparación
@@ -1167,8 +1176,8 @@ const handleDeleteFinding = () => {
             <div className="col-md-6">
               <p><strong>Inspección:</strong> {inspectionId}</p>
               <p><strong>Fecha:</strong> {moment(date).format('DD/MM/YYYY')}</p>
-              <p><strong>Hora de Inicio:</strong> {moment(time, "HH:mm:ss").format("HH:mm")}</p>
-              <p><strong>Hora de Finalización:</strong> {moment(exit_time, "HH:mm:ss").format("HH:mm")}</p>
+              <p><strong>Hora de Inicio:</strong> {moment(time, "HH:mm:ss").format("hh:mm A")}</p>
+              <p><strong>Hora de Finalización:</strong> {moment(exit_time, "HH:mm:ss").format("hh:mm A")}</p>
               <p><strong>Servicio:</strong> {service_id}</p>
               <br></br>
               <textarea
@@ -1375,60 +1384,47 @@ const handleDeleteFinding = () => {
                                 collapseStates[currentKey] ? 'd-block' : 'd-none'
                               } mt-2`}
                             >
-                             {clientStations[station.id] ? (
-                      <>
-                        <p><strong>Finalidad:</strong> {clientStations[station.id].purpose || '-'}</p>
+<>
+  <p><strong>Finalidad:</strong> {clientStations[station.id]?.purpose || '-'}</p>
 
-                        {clientStations[station.id].purpose === 'Consumo' && (
-                          <p><strong>Cantidad Consumida:</strong> {clientStations[station.id].consumptionAmount || '-'}</p>
-                        )}
+  {clientStations[station.id]?.purpose === 'Consumo' && (
+    <p><strong>Cantidad Consumida:</strong> {clientStations[station.id]?.consumptionAmount || '-'}</p>
+  )}
 
-                        {clientStations[station.id].purpose === 'Captura' && (
-                          <p><strong>Cantidad Capturada:</strong> {clientStations[station.id].captureQuantity || '-'}</p>
-                        )}
+  {clientStations[station.id]?.purpose === 'Captura' && (
+    <p><strong>Cantidad Capturada:</strong> {clientStations[station.id]?.captureQuantity || '-'}</p>
+  )}
 
-                        <p><strong>Estado Físico:</strong> {clientStations[station.id].physicalState || '-'}</p>
-                        {clientStations[station.id].physicalState === 'Dañada' && (
-                          <>
-                            <p><strong>Lugar del Daño:</strong> {clientStations[station.id].damageLocation || '-'}</p>
-                            <p><strong>Requiere Cambio:</strong> {clientStations[station.id].requiresChange || '-'}</p>
-                            {clientStations[station.id].requiresChange === 'Si' && (
-                              <p><strong>Prioridad de Cambio:</strong> {clientStations[station.id].changePriority || '-'}</p>
-                            )}
-                          </>
-                        )}
-                        <p><strong>Descripción:</strong> {clientStations[station.id].description || '-'}</p>
-                        <div className="mb-3">
-                          {clientStations[station.id].photo ? (
-                            <img
-                              src={clientStations[station.id].photo}
-                              alt="Foto"
-                              style={{ width: '150px', objectFit: 'cover' }}
-                            />
-                          ) : (
-                            <span>Sin Foto</span>
-                          )}
-                        </div>
-                        <button
-                          className="btn btn-outline-success"
-                          onClick={() => handleOpenStationModal(station.id)}
-                          disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
-                        >
-                          Editar
-                        </button>
-                      </>
-                  ) : (
-                    <>
-                      <p>Sin hallazgo reportado</p>
-                      <button
-                        className="btn btn-outline-success"
-                        onClick={() => handleOpenStationModalDesinsectacion(station.id)}
-                        disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
-                      >
-                        +
-                      </button>
-                    </>
-                  )}
+  <p><strong>Estado Físico:</strong> {clientStations[station.id]?.physicalState || '-'}</p>
+  {clientStations[station.id]?.physicalState === 'Dañada' && (
+    <>
+      <p><strong>Lugar del Daño:</strong> {clientStations[station.id]?.damageLocation || '-'}</p>
+      <p><strong>Requiere Cambio:</strong> {clientStations[station.id]?.requiresChange || '-'}</p>
+      {clientStations[station.id]?.requiresChange === 'Si' && (
+        <p><strong>Prioridad de Cambio:</strong> {clientStations[station.id]?.changePriority || '-'}</p>
+      )}
+    </>
+  )}
+  <p><strong>Descripción:</strong> {clientStations[station.id]?.description || '-'}</p>
+  <div className="mb-3">
+    {clientStations[station.id]?.photo ? (
+      <img
+        src={clientStations[station.id]?.photo}
+        alt="Foto"
+        style={{ width: '150px', objectFit: 'cover' }}
+      />
+    ) : (
+      <span>Sin Foto</span>
+    )}
+  </div>
+  <button
+    className="btn btn-outline-success"
+    onClick={() => handleOpenStationModal(station.id)}
+    disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+  >
+    Editar
+  </button>
+</>
                             </div>
                           </div>
                         );
@@ -2007,34 +2003,61 @@ const handleDeleteFinding = () => {
             <hr></hr>
             <h6 className='mt-2'>Producto</h6>
             <div className="row" style={{ minHeight: 0, height: 'auto' }}>
-              <div className="col-md-6 mb-3">
-                <select
-                  id={`product-${type}`}
-                  className="form-select"
-                  value={productsByType[type]?.product || ''}
-                  onChange={(e) => handleProductChange(type, 'product', e.target.value)}
-                  disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
-                >
-                  <option value="">Seleccione un producto</option>
-                  {getFilteredProducts(type).map((product) => (
-                    <option key={product.id} value={product.name}>
-                      {product.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-md-6 mb-3">
-                <input
-                  id={`dosage-${type}`}
-                  type="number"
-                  className="form-control"
-                  value={productsByType[type]?.dosage || ''}
-                  onChange={(e) => handleProductChange(type, 'dosage', e.target.value)}
-                  placeholder="Ingrese la dosificación en gr/ml"
-                  disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
-                />
-              </div>
-            </div>
+  {/* Selección de Producto */}
+  <div className="col-md-6 mb-3">
+  <label className="form-label">Producto</label>
+  <select
+  id={`product-${type}`}
+  className="form-select"
+  value={productsByType[type]?.product || ''}
+  onChange={(e) => {
+    const selectedProductName = e.target.value;
+    const selectedProduct = getFilteredProducts(type).find(
+      (product) => product.name === selectedProductName
+    );
+
+    handleProductChange(type, 'product', selectedProductName);
+    handleProductChange(type, 'unit', selectedProduct?.unity || ''); // Asegura que la unidad se actualiza
+  }}
+  disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+>
+  <option value="">Seleccione un producto</option>
+  {getFilteredProducts(type).map((product) => (
+    <option key={product.id} value={product.name}>
+      {product.name}
+    </option>
+  ))}
+</select>
+</div>
+
+{/* Entrada de Dosificación */}
+<div className="col-md-4 mb-3">
+  <label className="form-label">Dosificación</label>
+  <input
+    id={`dosage-${type}`}
+    type="number"
+    className="form-control"
+    value={productsByType[type]?.dosage || ''}
+    onChange={(e) => handleProductChange(type, 'dosage', e.target.value)}
+    placeholder="Ingrese la dosificación"
+    disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+  />
+</div>
+
+{/* Unidad del Producto */}
+<div className="col-md-2 mb-3">
+  <label className="form-label">Unidad</label>
+  <input
+    id={`unit-${type}`}
+    type="text"
+    className="form-control"
+    value={productsByType[type]?.unit || ''}
+    readOnly
+    placeholder="Unidad"
+  />
+</div>
+</div>
+
             </>
            )}
           </div>
