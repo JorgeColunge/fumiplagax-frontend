@@ -21,7 +21,6 @@ const InspectionCalendar = () => {
     const [events, setEvents] = useState([]);
     const [allEvents, setAllEvents] = useState([]);
     const [services, setServices] = useState([]);
-    const [dateRange, setDateRange] = useState({ start: null, end: null }); // ✅ Nuevo estado
     const calendarRef = useRef(null);
     const [currentView, setCurrentView] = useState('timeGridWeek');
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -75,24 +74,6 @@ const InspectionCalendar = () => {
     }, [location.search, services]); // Ejecuta el efecto cuando cambie la URL o los servicios
 
     useEffect(() => {
-        if (dateRange.start && dateRange.end) {
-            fetchScheduleAndServices(dateRange.start, dateRange.end); // ✅ Llamada inicial con el rango de fechas
-        }
-    }, [dateRange]); // ✅ Se ejecuta cuando cambia el rango de fechas
-
-        // ✅ Nueva función para detectar cambios de semana en el calendario
-        const handleDateRangeChange = (dateInfo) => {
-            const { start, end } = dateInfo;
-            setDateRange({ start, end });
-        
-            console.log(`📅 Nueva vista en calendario: del ${moment(start).format('YYYY-MM-DD')} al ${moment(end).format('YYYY-MM-DD')}`);
-            
-            // ✅ Ahora se llama a la API con el nuevo rango de fechas
-            fetchScheduleAndServices(start, end);
-        };
-        
-
-    useEffect(() => {
         if (showEventModal && selectedEvent) {
             console.log("Evento actualmente seleccionado en el modal:", selectedEvent);
         }
@@ -140,7 +121,6 @@ const InspectionCalendar = () => {
     useEffect(() => {
         const calendarApi = calendarRef.current?.getApi();
         if (calendarApi) {
-            requestAnimationFrame(() => {  // ✅ Evita conflicto de renderizado
                 calendarApi.removeAllEvents();
                 calendarApi.addEventSource(events);
                 console.log("✅ Calendario actualizado con eventos:", events);
@@ -629,7 +609,6 @@ const InspectionCalendar = () => {
             const scheduleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule?start=${startDate}&end=${endDate}`);
             if (!scheduleResponse.ok) throw new Error('⚠️ Error al obtener los eventos');
             const scheduleData = await scheduleResponse.json();
-            console.log(`✅ Eventos recibidos (${scheduleData.length}):`, scheduleData);
     
             // 🔹 2️⃣ Obtener todos los servicios relacionados en una sola consulta
             const serviceIds = [...new Set(scheduleData.map(schedule => schedule.service_id))];
@@ -1014,7 +993,6 @@ const InspectionCalendar = () => {
                             headerToolbar={false}
                             locale={esLocale}
                             events={events}
-                            datesSet={handleDateRangeChange}  // ✅ Se ejecuta cada vez que cambia la vista de fechas
                             editable={true}
                             selectable={true}
                             select={handleDateSelect}
