@@ -30,11 +30,11 @@ const InspectionCalendar = () => {
     const [showEventModal, setShowEventModal] = useState(false); // Estado del modal
     const [schedules, setSchedules] = useState([
         {
-            date: moment().format('YYYY-MM-DD'), // Fecha inicial: Hoy
-            startTime: moment().format('HH:mm'), // Hora inicial: Ahora
-            endTime: moment().add(1, 'hour').format('HH:mm'), // Hora final: Una hora después
+            date: moment().format('YYYY-MM-DD'),
+            startTime: moment().format('HH:mm'),
+            endTime: moment().add(1, 'hour').format('HH:mm'),
         },
-    ]);
+    ]);    
     const [users, setUsers] = useState([]); // Lista de usuarios
     const [isCollapsed, setIsCollapsed] = useState(true); // Estado de la columna colapsable
     const [selectedUsers, setSelectedUsers] = useState([]); // Lista de usuarios seleccionados
@@ -90,15 +90,17 @@ const InspectionCalendar = () => {
     }, [location.search, services]); // Ejecuta el efecto cuando cambie la URL o los servicios
 
     const handleDatesSet = (dateInfo) => {
-        const newMesComp = moment(dateInfo.view.currentStart).format('MM/YYYY'); // Formato mm/aaaa
-        const viewType = dateInfo.view.type; // Tipo de vista actual
+        const newMesComp = moment(dateInfo.view.currentStart).format('MMMM YYYY'); // Formato 'Mes Año'
+        
+        // Capitalizar la primera letra del mes (en español, Moment.js lo da en minúsculas)
+        const formattedMesComp = newMesComp.charAt(0).toUpperCase() + newMesComp.slice(1);
         
         // Verifica si ha cambiado el mes y actualiza el estado
-        if (mesComp !== newMesComp) {
-            console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${newMesComp}`);
-            setMesComp(newMesComp); // Actualiza el estado y dispara `useEffect`
+        if (mesComp !== formattedMesComp) {
+            console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${formattedMesComp}`);
+            setMesComp(formattedMesComp);
         } else {
-            console.log(`📅 Estás viendo el mes de: ${newMesComp}`);
+            console.log(`📅 Estás viendo el mes de: ${formattedMesComp}`);
         }
     };    
 
@@ -933,82 +935,92 @@ const InspectionCalendar = () => {
     
             // Procesar cada conjunto de fecha y hora
             schedules.forEach((schedule) => {
-                if (showRepetitiveOptions) {
-                    // Generar eventos repetitivos dentro del rango dado
-                    let start = moment(repetitiveStartDate);
-                    let end = moment(repetitiveEndDate);
-    
-                    while (start.isSameOrBefore(end)) {
-                        switch (repetitionOption) {
-                            case 'allWeekdays':
-                                if (![0].includes(start.day())) {
-                                    eventsToSchedule.push({
-                                        date: start.clone().format('YYYY-MM-DD'),
-                                        start_time: schedule.startTime,
-                                        end_time: schedule.endTime,
-                                    });
-                                }
-                                break;
-                            case 'specificDay':
-                                if (start.format('dddd') === moment(schedules[0]?.date).format('dddd')) {
-                                    eventsToSchedule.push({
-                                        date: start.clone().format('YYYY-MM-DD'),
-                                        start_time: schedule.startTime,
-                                        end_time: schedule.endTime,
-                                    });
-                                }
-                                break;
-                            case 'firstWeekday':
-                                if (
-                                    start.format('dddd') === moment(schedules[0]?.date).format('dddd') &&
-                                    start.date() <= 7
-                                ) {
-                                    eventsToSchedule.push({
-                                        date: start.clone().format('YYYY-MM-DD'),
-                                        start_time: schedule.startTime,
-                                        end_time: schedule.endTime,
-                                    });
-                                }
-                                break;
-                            case 'biweekly':
-                                if (
-                                    start.format('dddd') === moment(schedules[0]?.date).format('dddd') &&
-                                    start.diff(moment(repetitiveStartDate), 'weeks') % 2 === 0
-                                ) {
-                                    eventsToSchedule.push({
-                                        date: start.clone().format('YYYY-MM-DD'),
-                                        start_time: schedule.startTime,
-                                        end_time: schedule.endTime,
-                                    });
-                                }
-                                break;
-                            case 'lastWeekday':
-                                if (
-                                    start.format('dddd') === moment(schedules[0]?.date).format('dddd') &&
-                                    start.isSame(start.clone().endOf('month').day(moment(schedules[0]?.date).day()))
-                                ) {
-                                    eventsToSchedule.push({
-                                        date: start.clone().format('YYYY-MM-DD'),
-                                        start_time: schedule.startTime,
-                                        end_time: schedule.endTime,
-                                    });
-                                }
-                                break;
-                            default:
-                                break;
-                        }
-                        start.add(1, 'day');
-                    }
-                } else {
-                    // Agregar evento único
+                // ✅ Asegurar que los días seleccionados manualmente SIEMPRE estén en la lista
+                if (!eventsToSchedule.some((event) => event.date === schedule.date)) {
                     eventsToSchedule.push({
                         date: schedule.date,
                         start_time: schedule.startTime,
                         end_time: schedule.endTime,
                     });
                 }
+            
+                if (showRepetitiveOptions) {
+                    let start = moment(repetitiveStartDate);
+                    let end = moment(repetitiveEndDate);
+            
+                    while (start.isSameOrBefore(end)) {
+                        // 🚀 Evitar que las fechas manuales se repitan en la programación automática
+                        if (!schedules.some((s) => s.date === start.format('YYYY-MM-DD'))) {
+                            switch (repetitionOption) {
+                                case 'allWeekdays': // Todos los días hábiles (lunes a viernes)
+                                    if (![0, 6].includes(start.day())) {
+                                        eventsToSchedule.push({
+                                            date: start.clone().format('YYYY-MM-DD'),
+                                            start_time: schedule.startTime,
+                                            end_time: schedule.endTime,
+                                        });
+                                    }
+                                    break;
+                                case 'specificDay': // Solo los días específicos seleccionados
+                                    if (
+                                        start.format('dddd') === moment(schedule.date).format('dddd') &&
+                                        !eventsToSchedule.some((event) => event.date === start.format('YYYY-MM-DD'))
+                                    ) {
+                                        eventsToSchedule.push({
+                                            date: start.clone().format('YYYY-MM-DD'),
+                                            start_time: schedule.startTime,
+                                            end_time: schedule.endTime,
+                                        });
+                                    }
+                                    break;
+                                case 'firstWeekday': // Primer día específico del mes
+                                    if (
+                                        start.format('dddd') === moment(schedule.date).format('dddd') &&
+                                        start.date() <= 7 &&
+                                        !eventsToSchedule.some((event) => event.date === start.format('YYYY-MM-DD'))
+                                    ) {
+                                        eventsToSchedule.push({
+                                            date: start.clone().format('YYYY-MM-DD'),
+                                            start_time: schedule.startTime,
+                                            end_time: schedule.endTime,
+                                        });
+                                    }
+                                    break;
+                                case 'biweekly': // Día específico cada 2 semanas
+                                    if (
+                                        start.format('dddd') === moment(schedule.date).format('dddd') &&
+                                        start.diff(moment(repetitiveStartDate), 'weeks') % 2 === 0 &&
+                                        !eventsToSchedule.some((event) => event.date === start.format('YYYY-MM-DD'))
+                                    ) {
+                                        eventsToSchedule.push({
+                                            date: start.clone().format('YYYY-MM-DD'),
+                                            start_time: schedule.startTime,
+                                            end_time: schedule.endTime,
+                                        });
+                                    }
+                                    break;
+                                case 'lastWeekday': // Último día específico del mes
+                                    if (
+                                        start.format('dddd') === moment(schedule.date).format('dddd') &&
+                                        start.isSame(start.clone().endOf('month').day(moment(schedule.date).day())) &&
+                                        !eventsToSchedule.some((event) => event.date === start.format('YYYY-MM-DD'))
+                                    ) {
+                                        eventsToSchedule.push({
+                                            date: start.clone().format('YYYY-MM-DD'),
+                                            start_time: schedule.startTime,
+                                            end_time: schedule.endTime,
+                                        });
+                                    }
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                        start.add(1, 'day'); // 🔥 Avanza al siguiente día
+                    }
+                }
             });
-    
+                
             // Preparar datos para el backend
             const newEvents = eventsToSchedule.map((event) => ({
                 service_id: selectedService,
@@ -1040,33 +1052,36 @@ const InspectionCalendar = () => {
             {/* Contenedor principal */}
             <div className="calendar-container flex-grow-1">
                 <div className="card p-4 shadow-sm">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                        <div>
-                            <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().prev()}>
-                                <ChevronLeft />
-                            </Button>
-                            <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().next()}>
-                                <ChevronRight />
-                            </Button>
-                            <Button variant="light" className="me-2" onClick={handleTodayClick}>
-                                Hoy
-                            </Button>
-                        </div>
-                        <div>
-                            <Button variant={currentView === 'dayGridMonth' ? 'dark' : 'success'} className="me-2" onClick={() => changeView('dayGridMonth')}>
-                                Mes
-                            </Button>
-                            <Button variant={currentView === 'timeGridWeek' ? 'dark' : 'success'} className="me-2" onClick={() => changeView('timeGridWeek')}>
-                                Semana
-                            </Button>
-                            <Button variant={currentView === 'timeGridDay' ? 'dark' : 'success'} onClick={() => changeView('timeGridDay')}>
-                                Día
-                            </Button>
-                            <Button variant="success" className="ms-2" onClick={openScheduleModal}>
-                                <Plus className="me-1" /> Agendar Servicio
-                            </Button>
-                        </div>
+                <div className="card-header d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center">
+                        <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().prev()}>
+                            <ChevronLeft />
+                        </Button>
+                        <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().next()}>
+                            <ChevronRight />
+                        </Button>
+                        <Button variant="outline-dark" className="me-2" onClick={handleTodayClick}>
+                            Hoy
+                        </Button>
+                        {/* Nuevo letrero que muestra el mes y el año actual */}
+                        <span className="fw-bold fs-5 text-secondary ms-2">{mesComp}</span>
                     </div>
+                    <div>
+                        <Button variant={currentView === 'dayGridMonth' ? 'dark' : 'success'} className="me-2" onClick={() => changeView('dayGridMonth')}>
+                            Mes
+                        </Button>
+                        <Button variant={currentView === 'timeGridWeek' ? 'dark' : 'success'} className="me-2" onClick={() => changeView('timeGridWeek')}>
+                            Semana
+                        </Button>
+                        <Button variant={currentView === 'timeGridDay' ? 'dark' : 'success'} onClick={() => changeView('timeGridDay')}>
+                            Día
+                        </Button>
+                        <Button variant="success" className="ms-2" onClick={openScheduleModal}>
+                            <Plus className="me-1" /> Agendar Servicio
+                        </Button>
+                    </div>
+                </div>
+
                     <div className="custom-calendar">
                     <FullCalendar
                         ref={calendarRef}
@@ -1294,7 +1309,7 @@ const InspectionCalendar = () => {
     <option value="">Selecciona una opción</option>
     <option value="allWeekdays">Todos los días hábiles</option>
     <option value="specificDay">
-        Todos los {moment(schedules[0]?.date).format('dddd')}
+    Todos los {schedules.map(s => moment(s.date).format('dddd')).join(', ')}
     </option>
     <option value="firstWeekday">
         Primer {moment(schedules[0]?.date).format('dddd')} del mes
@@ -1314,17 +1329,17 @@ const InspectionCalendar = () => {
                 </Modal.Body>
                 <Modal.Footer>
                 <Button
-                    variant="outline-primary"
-                    onClick={() => {
-                        setSchedules([...schedules, {
-                            date: moment().format('YYYY-MM-DD'),
-                            startTime: moment().format('HH:mm'),
-                            endTime: moment().add(1, 'hour').format('HH:mm'),
-                        }]);
-                    }}
-                >
-                    Seguir Agendando
-                </Button>
+    variant="outline-primary"
+    onClick={() => {
+        setSchedules([...schedules, {
+            date: moment().format('YYYY-MM-DD'),
+            startTime: moment().format('HH:mm'),
+            endTime: moment().add(1, 'hour').format('HH:mm'),
+        }]);
+    }}
+>
+    Seguir Agendando
+</Button>
                 <Button variant="secondary" onClick={handleScheduleModalClose}>Cancelar</Button>
                 <Button variant="success" onClick={handleScheduleService} disabled={!!scheduleConflictMessage}>Guardar</Button>
             </Modal.Footer>
