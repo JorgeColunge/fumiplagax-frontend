@@ -544,10 +544,8 @@ const InspectionCalendar = () => {
     
             // Ordenar servicios por fecha (descendente) usando el ID
             const sortedServices = formattedServices.sort((a, b) => {
-                const dateA = parseInt(a.id.split('-')[1]); // Extraer 'ddmmaa' del ID
-                const dateB = parseInt(b.id.split('-')[1]);
-                return dateB - dateA; // Orden descendente
-            });
+                return new Date(b.created_at) - new Date(a.created_at);
+            });            
     
             setServices(sortedServices);
             console.log('Sorted services:', sortedServices);
