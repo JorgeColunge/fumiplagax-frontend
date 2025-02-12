@@ -19,18 +19,22 @@ import { useSocket } from './SocketContext';
 
 const InspectionCalendar = () => {
     const [events, setEvents] = useState([]);
-    const [allEvents, setAllEvents] = useState([]);
+    const [allEvents, setAllEvents] = useState([]); // Todos los eventos cargados
+    const [mesComp, setMesComp] = useState(moment().format('MM/YYYY')); // Estado para mesComp
     const [services, setServices] = useState([]);
-    const [dateRange, setDateRange] = useState({ start: null, end: null }); // ✅ Nuevo estado
     const calendarRef = useRef(null);
     const [currentView, setCurrentView] = useState('timeGridWeek');
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const [selectedService, setSelectedService] = useState('');
     const [selectedEvent, setSelectedEvent] = useState(null); // Evento seleccionado
     const [showEventModal, setShowEventModal] = useState(false); // Estado del modal
-    const [scheduleDate, setScheduleDate] = useState(moment().format('YYYY-MM-DD')); // Fecha inicial: Hoy
-    const [scheduleStartTime, setScheduleStartTime] = useState(moment().format('HH:mm')); // Hora inicial: Ahora
-    const [scheduleEndTime, setScheduleEndTime] = useState(moment().add(1, 'hour').format('HH:mm')); // Hora final: Una hora después
+    const [schedules, setSchedules] = useState([
+        {
+            date: moment().format('YYYY-MM-DD'),
+            startTime: moment().format('HH:mm'),
+            endTime: moment().add(1, 'hour').format('HH:mm'),
+        },
+    ]);    
     const [users, setUsers] = useState([]); // Lista de usuarios
     const [isCollapsed, setIsCollapsed] = useState(true); // Estado de la columna colapsable
     const [selectedUsers, setSelectedUsers] = useState([]); // Lista de usuarios seleccionados
@@ -58,6 +62,17 @@ const InspectionCalendar = () => {
     const location = useLocation(); // Para acceder a los parámetros de la URL
 
     useEffect(() => {
+        const today = moment(); // Obtiene la fecha actual
+        const formattedDate = today.format('YYYY-MM-DD'); // Formato completo
+        const day = today.format('DD'); // Solo el día
+        const month = today.format('MM'); // Solo el mes
+    
+        console.log(`Fecha actual: ${formattedDate}`);
+        console.log(`Día: ${day}`);
+        console.log(`Mes: ${month}`);
+    }, []);    
+
+    useEffect(() => {
         const queryParams = new URLSearchParams(location.search); // Obtén los parámetros de la URL
         const serviceId = queryParams.get('serviceId'); // Extrae serviceId
 
@@ -74,23 +89,20 @@ const InspectionCalendar = () => {
         }
     }, [location.search, services]); // Ejecuta el efecto cuando cambie la URL o los servicios
 
-    useEffect(() => {
-        if (dateRange.start && dateRange.end) {
-            fetchScheduleAndServices(dateRange.start, dateRange.end); // ✅ Llamada inicial con el rango de fechas
+    const handleDatesSet = (dateInfo) => {
+        const newMesComp = moment(dateInfo.view.currentStart).format('MMMM YYYY'); // Formato 'Mes Año'
+        
+        // Capitalizar la primera letra del mes (en español, Moment.js lo da en minúsculas)
+        const formattedMesComp = newMesComp.charAt(0).toUpperCase() + newMesComp.slice(1);
+        
+        // Verifica si ha cambiado el mes y actualiza el estado
+        if (mesComp !== formattedMesComp) {
+            console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${formattedMesComp}`);
+            setMesComp(formattedMesComp);
+        } else {
+            console.log(`📅 Estás viendo el mes de: ${formattedMesComp}`);
         }
-    }, [dateRange]); // ✅ Se ejecuta cuando cambia el rango de fechas
-
-        // ✅ Nueva función para detectar cambios de semana en el calendario
-        const handleDateRangeChange = (dateInfo) => {
-            const { start, end } = dateInfo;
-            setDateRange({ start, end });
-        
-            console.log(`📅 Nueva vista en calendario: del ${moment(start).format('YYYY-MM-DD')} al ${moment(end).format('YYYY-MM-DD')}`);
-            
-            // ✅ Ahora se llama a la API con el nuevo rango de fechas
-            fetchScheduleAndServices(start, end);
-        };
-        
+    };    
 
     useEffect(() => {
         if (showEventModal && selectedEvent) {
@@ -130,7 +142,7 @@ const InspectionCalendar = () => {
             await fetchUsers();
         };
         fetchData();
-    }, []);
+    }, [mesComp]);  // 🔥 Se ejecuta cada vez que `mesComp` cambie    
 
     // Efecto para filtrar eventos al cambiar los usuarios seleccionados
     useEffect(() => {
@@ -140,14 +152,10 @@ const InspectionCalendar = () => {
     useEffect(() => {
         const calendarApi = calendarRef.current?.getApi();
         if (calendarApi) {
-            requestAnimationFrame(() => {  // ✅ Evita conflicto de renderizado
-                calendarApi.removeAllEvents();
-                calendarApi.addEventSource(events);
-                console.log("✅ Calendario actualizado con eventos:", events);
-            });
+            calendarApi.removeAllEvents();
+            calendarApi.addEventSource(events); // Agrega los eventos actuales
         }
-    }, [events]);
-      
+    }, [events]); // Dependencia en `events`
 
     const openScheduleModal = async () => {
         try {
@@ -178,11 +186,11 @@ const InspectionCalendar = () => {
 
     useEffect(() => {
         const validateServiceAndSchedule = () => {
-            if (!selectedService || !scheduleDate || !scheduleStartTime || !scheduleEndTime) {
+            if (!selectedService || !schedules[0]?.date || !schedules[0]?.startTime || !schedules[0]?.endTime) {
                 setScheduleConflictMessage('');
                 setAlertMessage('');
                 return;
-            }
+            }        
     
             const selectedServiceData = services.find(service => service.id === selectedService);
             if (!selectedServiceData) {
@@ -191,8 +199,8 @@ const InspectionCalendar = () => {
                 return;
             }
     
-            const newStart = moment(`${scheduleDate}T${scheduleStartTime}`);
-            const newEnd = moment(`${scheduleDate}T${scheduleEndTime}`);
+            const newStart = moment(`${schedules[0]?.date}T${schedules[0]?.startTime}`);
+            const newEnd = moment(`${schedules[0]?.date}T${schedules[0]?.endTime}`);                     
     
             // Validar conflictos de horario
             const conflictingEvents = allEvents.filter(event => {
@@ -249,7 +257,7 @@ const InspectionCalendar = () => {
         };
     
         validateServiceAndSchedule();
-    }, [selectedService, scheduleDate, scheduleStartTime, scheduleEndTime, allEvents, services]);
+    }, [selectedService, schedules, allEvents, services]);
     
     const fetchUsers = async () => {
         try {
@@ -315,31 +323,40 @@ const InspectionCalendar = () => {
         console.log("Evento recibido para edición:", event);
     
         setEditingEvent(event);
-
-        // Extrae los identificadores
-        const serviceId = event.service_id; // ID del servicio
-        const eventId = event.id; // ID del evento
     
-        // Usa la fecha directamente desde el evento seleccionado
-        const eventDate = event.date || moment(event.start).format('YYYY-MM-DD');
-        const startTime = event.startTime || moment(event.start).format('HH:mm');
-        const endTime = event.endTime || moment(event.end).format('HH:mm');
+        // Extrae los identificadores
+        const serviceId = event.service_id || ""; // ID del servicio
+        const eventId = event.id || ""; // ID del evento
+    
+        // Usa la fecha y horas directamente desde el evento seleccionado
+        const eventDate = event.date || (event.start ? moment(event.start).format('YYYY-MM-DD') : "");
+        const startTime = event.startTime || (event.start ? moment(event.start).format('HH:mm') : "");
+        const endTime = event.endTime || (event.end ? moment(event.end).format('HH:mm') : "");
     
         console.log("Fecha procesada para edición:", eventDate);
         console.log("Hora de inicio procesada para edición:", startTime);
         console.log("Hora de fin procesada para edición:", endTime);
     
-        setScheduleDate(eventDate);
-        setScheduleStartTime(startTime);
-        setScheduleEndTime(endTime);
-        setSelectedService(serviceId);
+        // Asegurar que hay valores válidos antes de actualizar el estado
+        if (eventDate && startTime && endTime) {
+            setSchedules([
+                {
+                    date: eventDate,
+                    startTime: startTime,
+                    endTime: endTime,
+                },
+            ]);
+        } else {
+            console.warn("Faltan datos para programar la edición del evento.");
+        }
     
+        setSelectedService(serviceId);
         setEditEventModalOpen(true);
-    };
+    };    
     
     const handleSaveEditedEvent = async () => {
         try {
-            if (!selectedService || !scheduleDate || !scheduleStartTime || !scheduleEndTime) {
+            if (!selectedService || !schedules[0]?.date || !schedules[0]?.startTime || !schedules[0]?.endTime) {
                 alert('Todos los campos son obligatorios');
                 return;
             }
@@ -347,10 +364,10 @@ const InspectionCalendar = () => {
             const updatedEvent = {
                 id: editingEvent.id,
                 service_id: selectedService,
-                date: scheduleDate,
-                start_time: scheduleStartTime,
-                end_time: scheduleEndTime,
-            };
+                date: schedules[0]?.date,
+                start_time: schedules[0]?.startTime,
+                end_time: schedules[0]?.endTime,
+            };            
     
             // Actualiza el evento en el backend
             const response = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule/${editingEvent.id}`, {
@@ -369,8 +386,8 @@ const InspectionCalendar = () => {
             const calendarEvent = calendarApi.getEventById(editingEvent.id);
     
             if (calendarEvent) {
-                calendarEvent.setStart(moment(`${scheduleDate}T${scheduleStartTime}`).toISOString());
-                calendarEvent.setEnd(moment(`${scheduleDate}T${scheduleEndTime}`).toISOString());
+                calendarEvent.setStart(moment(`${schedules[0]?.date}T${schedules[0]?.startTime}`).toISOString());
+                calendarEvent.setEnd(moment(`${schedules[0]?.date}T${schedules[0]?.endTime}`).toISOString());                
                 calendarEvent.setExtendedProp('service_id', selectedService);
             }
     
@@ -380,8 +397,8 @@ const InspectionCalendar = () => {
                     event.id === editingEvent.id
                         ? {
                               ...event,
-                              start: moment(`${scheduleDate}T${scheduleStartTime}`).toISOString(),
-                              end: moment(`${scheduleDate}T${scheduleEndTime}`).toISOString(),
+                              start: moment(`${schedules[0]?.date}T${schedules[0]?.startTime}`).toISOString(),
+                              end: moment(`${schedules[0]?.date}T${schedules[0]?.endTime}`).toISOString(),                              
                               service_id: selectedService,
                           }
                         : event
@@ -619,80 +636,93 @@ const InspectionCalendar = () => {
         setNewInspection({ inspection_type: [], inspection_sub_type: '' });
     };
 
-    const fetchScheduleAndServices = async (start, end) => {
+    const fetchScheduleAndServices = async () => {
         try {
-            console.log(`📅 Solicitando eventos entre ${start} y ${end}...`);
-            const startDate = moment(start).format('YYYY-MM-DD');
-            const endDate = moment(end).format('YYYY-MM-DD');
-    
-            // 1️⃣ Obtener los eventos de la semana visible
-            const scheduleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule?start=${startDate}&end=${endDate}`);
-            if (!scheduleResponse.ok) throw new Error('⚠️ Error al obtener los eventos');
+            console.log(`Fetching schedule and services for: ${mesComp}`);
+
+            const scheduleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule?month=${mesComp}`);
+            if (!scheduleResponse.ok) throw new Error('Failed to fetch schedule');
             const scheduleData = await scheduleResponse.json();
-            console.log(`✅ Eventos recibidos (${scheduleData.length}):`, scheduleData);
-    
-            // 🔹 2️⃣ Obtener todos los servicios relacionados en una sola consulta
-            const serviceIds = [...new Set(scheduleData.map(schedule => schedule.service_id))];
-            const serviceRequests = serviceIds.map(id => fetch(`${process.env.REACT_APP_API_URL}/api/services/${id}`).then(res => res.json()));
-            const services = await Promise.all(serviceRequests);
-            const serviceMap = Object.fromEntries(services.map(service => [service.id, service]));    
-    
-            // 🔹 3️⃣ Obtener todos los clientes y responsables en una sola consulta
-            const clientIds = [...new Set(services.map(service => service.client_id).filter(id => id))];
-            const responsibleIds = [...new Set(services.map(service => service.responsible).filter(id => id))];
-    
-            const clientRequests = clientIds.map(id => fetch(`${process.env.REACT_APP_API_URL}/api/clients/${id}`).then(res => res.json()));
-            const responsibleRequests = responsibleIds.map(id => fetch(`${process.env.REACT_APP_API_URL}/api/users/${id}`).then(res => res.json()));
-    
-            const clients = await Promise.all(clientRequests);
-            const responsibles = await Promise.all(responsibleRequests);
-    
-            const clientMap = Object.fromEntries(clients.map(client => [client.id, client]));
-            const responsibleMap = Object.fromEntries(responsibles.map(responsible => [responsible.id, responsible]));
-       
-            // 🔹 4️⃣ Formatear eventos
-            const formattedEvents = scheduleData.map(schedule => {
-                const serviceData = serviceMap[schedule.service_id] || {};
-                const clientData = clientMap[serviceData.client_id] || {};
-                const responsibleData = responsibleMap[serviceData.responsible] || {};
-    
-                return {
-                    id: schedule.id,
-                    title: `${serviceData.id || 'Desconocido'}`,
-                    serviceType: serviceData.service_type || 'Sin tipo',
-                    description: serviceData.description || 'Sin descripción',
-                    category: serviceData.category || 'Sin categoría',
-                    quantyPerMonth: serviceData.quantity_per_month || null,
-                    clientName: clientData.name || 'Sin empresa',
-                    clientId: serviceData.client_id || null,
-                    responsibleId: serviceData.responsible || null,
-                    responsibleName: `${responsibleData.name || 'Sin nombre'} ${responsibleData.lastname || ''}`.trim(),
-                    address: clientData.address || 'Sin dirección',
-                    phone: clientData.phone || 'Sin teléfono',
-                    color: responsibleData.color || '#fdd835',
-                    backgroundColor: responsibleData.color,
-                    pestToControl: serviceData.pest_to_control,
-                    interventionAreas: serviceData.intervention_areas,
-                    value: serviceData.value,
-                    companion: serviceData.companion,
-                    start: moment(`${schedule.date.split('T')[0]}T${schedule.start_time}`).toISOString(),
-                    end: schedule.end_time
-                        ? moment(`${schedule.date.split('T')[0]}T${schedule.end_time}`).toISOString()
-                        : null,
-                    allDay: false,
-                };
-            });
-    
-            console.log(`📊 Eventos formateados (${formattedEvents.length}):`, formattedEvents);
-    
-            // ✅ Usamos `setTimeout` para evitar problemas de sincronización en React
-            setTimeout(() => {
-                setAllEvents(formattedEvents);
-                setEvents(formattedEvents);
-            }, 0);
-    
+
+            console.log('Schedule data received:', scheduleData);
+
+            const formattedEvents = await Promise.all(
+                scheduleData.map(async (schedule) => {
+                    try {
+                        const serviceResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/services/${schedule.service_id}`);
+                        if (!serviceResponse.ok) throw new Error(`Failed to fetch service for ID: ${schedule.service_id}`);
+                        const serviceData = await serviceResponse.json();
+
+                        let clientName = 'Sin empresa';
+                        let clientData;
+                        if (serviceData.client_id) {
+                            try {
+                                const clientResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/clients/${serviceData.client_id}`);
+                                if (clientResponse.ok) {
+                                    clientData = await clientResponse.json();
+                                    clientName = clientData.name || 'Sin nombre';
+                                }
+                            } catch (error) {
+                                console.error(`Error fetching client for ID: ${serviceData.client_id}`, error);
+                            }
+                        }
+
+                        let responsibleName = 'Sin responsable';
+                        let responsibleData;
+                        if (serviceData.responsible) {
+                            try {
+                                const responsibleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${serviceData.responsible}`);
+                                if (responsibleResponse.ok) {
+                                    responsibleData = await responsibleResponse.json();
+                                    responsibleName = `${responsibleData.name || 'Sin nombre'} ${responsibleData.lastname || ''}`.trim();
+                                }
+                            } catch (error) {
+                                console.error(`Error fetching responsible for ID: ${serviceData.responsible}`, error);
+                            }
+                        }
+
+                        const start = moment(`${schedule.date.split('T')[0]}T${schedule.start_time}`).toISOString();
+                        const end = schedule.end_time
+                            ? moment(`${schedule.date.split('T')[0]}T${schedule.end_time}`).toISOString()
+                            : null;
+
+                        const formattedEvent = {
+                            id: schedule.id,
+                            title: `${serviceData.id}`,
+                            serviceType: serviceData.service_type || 'Sin tipo',
+                            description: serviceData.description || 'Sin descripción',
+                            category: serviceData.category || 'Sin categoría',
+                            quantyPerMonth: serviceData.quantity_per_month || null,
+                            clientName,
+                            clientId: serviceData.client_id,
+                            responsibleId: serviceData.responsible,
+                            responsibleName,
+                            address: clientData?.address || 'Sin dirección',
+                            phone: clientData?.phone || 'Sin teléfono',
+                            color: responsibleData?.color || '#fdd835',
+                            backgroundColor: responsibleData?.color,
+                            pestToControl: serviceData.pest_to_control,
+                            interventionAreas: serviceData.intervention_areas,
+                            value: serviceData.value,
+                            companion: serviceData.companion,
+                            start,
+                            end,
+                            allDay: false,
+                        };
+
+                        return formattedEvent;
+                    } catch (error) {
+                        console.error(`Error processing schedule with service_id: ${schedule.service_id}`, error);
+                        return null;
+                    }
+                })
+            );
+
+            const validEvents = formattedEvents.filter(event => event !== null);
+            setAllEvents(validEvents);
+            setEvents(validEvents);
         } catch (error) {
-            console.error('❌ Error al cargar eventos:', error);
+            console.error('Error loading schedule and services:', error);
         }
     };
 
@@ -855,19 +885,25 @@ const InspectionCalendar = () => {
     const handleScheduleModalClose = () => {
         setScheduleModalOpen(false);
         setSelectedService('');
-        setScheduleDate('');
-        setScheduleStartTime('');
-        setScheduleEndTime('');
+        setSchedules([{
+            date: moment().format('YYYY-MM-DD'),
+            startTime: moment().format('HH:mm'),
+            endTime: moment().add(1, 'hour').format('HH:mm'),
+        }]);        
         setAlertMessage('');
     };
 
     const handleDateSelect = (selectInfo) => {
         const { start, end } = selectInfo;
-        setScheduleDate(moment(start).format('YYYY-MM-DD'));
-        setScheduleStartTime(moment(start).format('HH:mm'));
-        setScheduleEndTime(moment(end).format('HH:mm'));
-        openScheduleModal(); // Abre el modal
-    };
+        setSchedules([
+            {
+                date: moment(start).format('YYYY-MM-DD'),
+                startTime: moment(start).format('HH:mm'),
+                endTime: moment(end).format('HH:mm'),
+            },
+        ]);
+        openScheduleModal();
+    };    
     
     const handleShowClientModal = (clientId) => {
         setSelectedClientId(clientId);
@@ -885,8 +921,8 @@ const InspectionCalendar = () => {
 
     const handleScheduleService = async () => {
         try {
-            if (!selectedService || !scheduleDate || !scheduleStartTime || !scheduleEndTime) {
-                alert('Todos los campos son obligatorios');
+            if (!selectedService || schedules.length === 0) {
+                alert('Debes seleccionar un servicio y al menos un horario.');
                 return;
             }
     
@@ -897,68 +933,105 @@ const InspectionCalendar = () => {
     
             let eventsToSchedule = [];
     
-            if (showRepetitiveOptions) {
-                // Generar eventos repetitivos
-                const start = moment(repetitiveStartDate);
-                const end = moment(repetitiveEndDate);
-    
-                while (start.isSameOrBefore(end)) {
-                    switch (repetitionOption) {
-                        case 'allWeekdays':
-                            if (![0].includes(start.day())) {
-                                eventsToSchedule.push(start.clone());
-                            }
-                            break;
-                        case 'specificDay':
-                            if (start.format('dddd') === moment(scheduleDate).format('dddd')) {
-                                eventsToSchedule.push(start.clone());
-                            }
-                            break;
-                        case 'firstWeekday':
-                            if (
-                                start.format('dddd') === moment(scheduleDate).format('dddd') &&
-                                start.date() <= 7
-                            ) {
-                                eventsToSchedule.push(start.clone());
-                            }
-                            break;
-                        case 'biweekly':
-                            if (
-                                start.format('dddd') === moment(scheduleDate).format('dddd') &&
-                                start.diff(moment(repetitiveStartDate), 'weeks') % 2 === 0
-                            ) {
-                                eventsToSchedule.push(start.clone());
-                            }
-                            break;
-                        case 'lastWeekday':
-                            if (
-                                start.format('dddd') === moment(scheduleDate).format('dddd') &&
-                                start.isSame(start.clone().endOf('month').day(moment(scheduleDate).day()))
-                            ) {
-                                eventsToSchedule.push(start.clone());
-                            }
-                            break;
-                        default:
-                            break;
-                    }
-                    start.add(1, 'day');
+            // Procesar cada conjunto de fecha y hora
+            schedules.forEach((schedule) => {
+                // ✅ Asegurar que los días seleccionados manualmente SIEMPRE estén en la lista
+                if (!eventsToSchedule.some((event) => event.date === schedule.date)) {
+                    eventsToSchedule.push({
+                        date: schedule.date,
+                        start_time: schedule.startTime,
+                        end_time: schedule.endTime,
+                    });
                 }
-            } else {
-                // Evento único
-                eventsToSchedule.push(moment(`${scheduleDate}T${scheduleStartTime}`));
-            }
-    
-            // Procesar eventos para el backend
-            const newEvents = eventsToSchedule.map((date) => ({
+            
+                if (showRepetitiveOptions) {
+                    let start = moment(repetitiveStartDate);
+                    let end = moment(repetitiveEndDate);
+            
+                    while (start.isSameOrBefore(end)) {
+                        // 🚀 Evitar que las fechas manuales se repitan en la programación automática
+                        if (!schedules.some((s) => s.date === start.format('YYYY-MM-DD'))) {
+                            switch (repetitionOption) {
+                                case 'allWeekdays': // Todos los días hábiles (lunes a viernes)
+                                    if (![0, 6].includes(start.day())) {
+                                        eventsToSchedule.push({
+                                            date: start.clone().format('YYYY-MM-DD'),
+                                            start_time: schedule.startTime,
+                                            end_time: schedule.endTime,
+                                        });
+                                    }
+                                    break;
+                                case 'specificDay': // Solo los días específicos seleccionados
+                                    if (
+                                        start.format('dddd') === moment(schedule.date).format('dddd') &&
+                                        !eventsToSchedule.some((event) => event.date === start.format('YYYY-MM-DD'))
+                                    ) {
+                                        eventsToSchedule.push({
+                                            date: start.clone().format('YYYY-MM-DD'),
+                                            start_time: schedule.startTime,
+                                            end_time: schedule.endTime,
+                                        });
+                                    }
+                                    break;
+                                case 'firstWeekday': // Primer día específico del mes
+                                    if (
+                                        start.format('dddd') === moment(schedule.date).format('dddd') &&
+                                        start.date() <= 7 &&
+                                        !eventsToSchedule.some((event) => event.date === start.format('YYYY-MM-DD'))
+                                    ) {
+                                        eventsToSchedule.push({
+                                            date: start.clone().format('YYYY-MM-DD'),
+                                            start_time: schedule.startTime,
+                                            end_time: schedule.endTime,
+                                        });
+                                    }
+                                    break;
+                                case 'biweekly': // Día específico cada 2 semanas
+                                    if (
+                                        start.format('dddd') === moment(schedule.date).format('dddd') &&
+                                        start.diff(moment(repetitiveStartDate), 'weeks') % 2 === 0 &&
+                                        !eventsToSchedule.some((event) => event.date === start.format('YYYY-MM-DD'))
+                                    ) {
+                                        eventsToSchedule.push({
+                                            date: start.clone().format('YYYY-MM-DD'),
+                                            start_time: schedule.startTime,
+                                            end_time: schedule.endTime,
+                                        });
+                                    }
+                                    break;
+                                case 'lastWeekday': // Último día específico del mes
+                                    if (
+                                        start.format('dddd') === moment(schedule.date).format('dddd') &&
+                                        start.isSame(start.clone().endOf('month').day(moment(schedule.date).day())) &&
+                                        !eventsToSchedule.some((event) => event.date === start.format('YYYY-MM-DD'))
+                                    ) {
+                                        eventsToSchedule.push({
+                                            date: start.clone().format('YYYY-MM-DD'),
+                                            start_time: schedule.startTime,
+                                            end_time: schedule.endTime,
+                                        });
+                                    }
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                        start.add(1, 'day'); // 🔥 Avanza al siguiente día
+                    }
+                }
+            });
+                
+            // Preparar datos para el backend
+            const newEvents = eventsToSchedule.map((event) => ({
                 service_id: selectedService,
-                date: date.format('YYYY-MM-DD'),
-                start_time: scheduleStartTime,
-                end_time: scheduleEndTime,
+                date: event.date,
+                start_time: event.start_time,
+                end_time: event.end_time,
             }));
     
             console.log('Eventos a agendar:', newEvents);
     
-            // Aquí puedes enviar los datos al backend
+            // Enviar todos los eventos al backend
             for (const event of newEvents) {
                 await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule`, {
                     method: 'POST',
@@ -972,67 +1045,70 @@ const InspectionCalendar = () => {
         } catch (error) {
             console.error('Error scheduling service:', error);
         }
-    };
-
+    };    
+    
     return (
         <div className="d-flex">
             {/* Contenedor principal */}
             <div className="calendar-container flex-grow-1">
                 <div className="card p-4 shadow-sm">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                        <div>
-                            <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().prev()}>
-                                <ChevronLeft />
-                            </Button>
-                            <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().next()}>
-                                <ChevronRight />
-                            </Button>
-                            <Button variant="light" className="me-2" onClick={handleTodayClick}>
-                                Hoy
-                            </Button>
-                        </div>
-                        <div>
-                            <Button variant={currentView === 'dayGridMonth' ? 'dark' : 'success'} className="me-2" onClick={() => changeView('dayGridMonth')}>
-                                Mes
-                            </Button>
-                            <Button variant={currentView === 'timeGridWeek' ? 'dark' : 'success'} className="me-2" onClick={() => changeView('timeGridWeek')}>
-                                Semana
-                            </Button>
-                            <Button variant={currentView === 'timeGridDay' ? 'dark' : 'success'} onClick={() => changeView('timeGridDay')}>
-                                Día
-                            </Button>
-                            <Button variant="success" className="ms-2" onClick={openScheduleModal}>
-                                <Plus className="me-1" /> Agendar Servicio
-                            </Button>
-                        </div>
+                <div className="card-header d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center">
+                        <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().prev()}>
+                            <ChevronLeft />
+                        </Button>
+                        <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().next()}>
+                            <ChevronRight />
+                        </Button>
+                        <Button variant="outline-dark" className="me-2" onClick={handleTodayClick}>
+                            Hoy
+                        </Button>
+                        {/* Nuevo letrero que muestra el mes y el año actual */}
+                        <span className="fw-bold fs-5 text-secondary ms-2">{mesComp}</span>
                     </div>
+                    <div>
+                        <Button variant={currentView === 'dayGridMonth' ? 'dark' : 'success'} className="me-2" onClick={() => changeView('dayGridMonth')}>
+                            Mes
+                        </Button>
+                        <Button variant={currentView === 'timeGridWeek' ? 'dark' : 'success'} className="me-2" onClick={() => changeView('timeGridWeek')}>
+                            Semana
+                        </Button>
+                        <Button variant={currentView === 'timeGridDay' ? 'dark' : 'success'} onClick={() => changeView('timeGridDay')}>
+                            Día
+                        </Button>
+                        <Button variant="success" className="ms-2" onClick={openScheduleModal}>
+                            <Plus className="me-1" /> Agendar Servicio
+                        </Button>
+                    </div>
+                </div>
+
                     <div className="custom-calendar">
-                        <FullCalendar
-                            ref={calendarRef}
-                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                            initialView={currentView}
-                            headerToolbar={false}
-                            locale={esLocale}
-                            events={events}
-                            datesSet={handleDateRangeChange}  // ✅ Se ejecuta cada vez que cambia la vista de fechas
-                            editable={true}
-                            selectable={true}
-                            select={handleDateSelect}
-                            eventDrop={handleEventDrop}
-                            eventResize={handleEventResize}
-                            timeZone="local"
-                            height="70vh"
-                            nowIndicator={true}
-                            slotLabelFormat={{ hour: 'numeric', hour12: true, meridiem: 'short' }}
-                            eventContent={renderEventContent}
-                            eventClick={handleEventClick}
-                            dayHeaderContent={({ date }) => (
-                                <div className="day-header">
-                                    <div className="day-name">{date.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
-                                    <div className="day-number font-bold">{date.getDate()}</div>
-                                </div>
-                            )}
-                        />
+                    <FullCalendar
+                        ref={calendarRef}
+                        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                        initialView={currentView}
+                        headerToolbar={false}
+                        locale={esLocale}
+                        events={events}
+                        editable={true}
+                        selectable={true}
+                        select={handleDateSelect}
+                        eventDrop={handleEventDrop}
+                        eventResize={handleEventResize}
+                        timeZone="local"
+                        height="70vh"
+                        nowIndicator={true}
+                        slotLabelFormat={{ hour: 'numeric', hour12: true, meridiem: 'short' }}
+                        eventContent={renderEventContent}
+                        eventClick={handleEventClick}
+                        dayHeaderContent={({ date }) => (
+                            <div className="day-header">
+                                <div className="day-name">{date.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
+                                <div className="day-number font-bold">{date.getDate()}</div>
+                            </div>
+                        )}
+                        datesSet={handleDatesSet} // 👈 Ejecuta la función cuando cambian las fechas
+                    />
                     </div>
                 </div>
             </div>
@@ -1145,34 +1221,50 @@ const InspectionCalendar = () => {
                             </div>
                         )}
                         {/* Campo de fecha */}
-                        <Form.Group controlId="formScheduleDate" className="mb-3">
-                            <Form.Label>Fecha</Form.Label>
-                            <Form.Control
-                                type="date"
-                                value={scheduleDate}
-                                onChange={(e) => setScheduleDate(e.target.value)}
-                            />
-                        </Form.Group>
+                        {schedules.map((schedule, index) => (
+                            <div key={index} className="mb-3 p-3 border rounded">
+                                <h6 className="text-secondary">Horario {index + 1}</h6>
 
-                        {/* Campo de hora de inicio */}
-                        <Form.Group controlId="formScheduleStartTime" className="mb-3">
-                            <Form.Label>Hora de Inicio</Form.Label>
-                            <Form.Control
-                                type="time"
-                                value={scheduleStartTime}
-                                onChange={(e) => setScheduleStartTime(e.target.value)}
-                            />
-                        </Form.Group>
+                                <Form.Group controlId={`formScheduleDate-${index}`} className="mb-2">
+                                    <Form.Label>Fecha</Form.Label>
+                                    <Form.Control
+                                        type="date"
+                                        value={schedule.date}
+                                        onChange={(e) => {
+                                            const newSchedules = [...schedules];
+                                            newSchedules[index].date = e.target.value;
+                                            setSchedules(newSchedules);
+                                        }}
+                                    />
+                                </Form.Group>
 
-                        {/* Campo de hora de finalización */}
-                        <Form.Group controlId="formScheduleEndTime" className="mb-3">
-                            <Form.Label>Hora de Fin</Form.Label>
-                            <Form.Control
-                                type="time"
-                                value={scheduleEndTime}
-                                onChange={(e) => setScheduleEndTime(e.target.value)}
-                            />
-                        </Form.Group>
+                                <Form.Group controlId={`formScheduleStartTime-${index}`} className="mb-2">
+                                    <Form.Label>Hora de Inicio</Form.Label>
+                                    <Form.Control
+                                        type="time"
+                                        value={schedule.startTime}
+                                        onChange={(e) => {
+                                            const newSchedules = [...schedules];
+                                            newSchedules[index].startTime = e.target.value;
+                                            setSchedules(newSchedules);
+                                        }}
+                                    />
+                                </Form.Group>
+
+                                <Form.Group controlId={`formScheduleEndTime-${index}`} className="mb-2">
+                                    <Form.Label>Hora de Fin</Form.Label>
+                                    <Form.Control
+                                        type="time"
+                                        value={schedule.endTime}
+                                        onChange={(e) => {
+                                            const newSchedules = [...schedules];
+                                            newSchedules[index].endTime = e.target.value;
+                                            setSchedules(newSchedules);
+                                        }}
+                                    />
+                                </Form.Group>
+                            </div>
+                        ))}
                     </Form>
 
                     {services.find(service => service.id === selectedService)?.category === 'Periódico' && (
@@ -1211,24 +1303,24 @@ const InspectionCalendar = () => {
                                 <Form.Group controlId="formRepetitionOption" className="mb-3">
                                     <Form.Label>Repetir</Form.Label>
                                     <Form.Select
-                                        value={repetitionOption}
-                                        onChange={(e) => setRepetitionOption(e.target.value)}
-                                    >
-                                        <option value="">Selecciona una opción</option>
-                                        <option value="allWeekdays">Todos los días hábiles</option>
-                                        <option value="specificDay">
-                                            Todos los {moment(scheduleDate).format('dddd')}
-                                        </option>
-                                        <option value="firstWeekday">
-                                            Primer {moment(scheduleDate).format('dddd')} del mes
-                                        </option>
-                                        <option value="biweekly">
-                                            {moment(scheduleDate).format('dddd')} cada 2 semanas
-                                        </option>
-                                        <option value="lastWeekday">
-                                            Último {moment(scheduleDate).format('dddd')} del mes
-                                        </option>
-                                    </Form.Select>
+    value={repetitionOption}
+    onChange={(e) => setRepetitionOption(e.target.value)}
+>
+    <option value="">Selecciona una opción</option>
+    <option value="allWeekdays">Todos los días hábiles</option>
+    <option value="specificDay">
+    Todos los {schedules.map(s => moment(s.date).format('dddd')).join(', ')}
+    </option>
+    <option value="firstWeekday">
+        Primer {moment(schedules[0]?.date).format('dddd')} del mes
+    </option>
+    <option value="biweekly">
+        {moment(schedules[0]?.date).format('dddd')} cada 2 semanas
+    </option>
+    <option value="lastWeekday">
+        Último {moment(schedules[0]?.date).format('dddd')} del mes
+    </option>
+</Form.Select>
                                 </Form.Group>
                             </div>
                         )}
@@ -1236,9 +1328,21 @@ const InspectionCalendar = () => {
                 )}
                 </Modal.Body>
                 <Modal.Footer>
-                    <Button variant="secondary" onClick={handleScheduleModalClose}>Cancelar</Button>
-                    <Button variant="success" onClick={handleScheduleService} disabled={!!scheduleConflictMessage}>Guardar</Button>
-                </Modal.Footer>
+                <Button
+    variant="outline-primary"
+    onClick={() => {
+        setSchedules([...schedules, {
+            date: moment().format('YYYY-MM-DD'),
+            startTime: moment().format('HH:mm'),
+            endTime: moment().add(1, 'hour').format('HH:mm'),
+        }]);
+    }}
+>
+    Seguir Agendando
+</Button>
+                <Button variant="secondary" onClick={handleScheduleModalClose}>Cancelar</Button>
+                <Button variant="success" onClick={handleScheduleService} disabled={!!scheduleConflictMessage}>Guardar</Button>
+            </Modal.Footer>
             </Modal>
 
             <Modal show={showEventModal} onHide={() => setShowEventModal(false)} centered size="lg">
@@ -1520,30 +1624,42 @@ const InspectionCalendar = () => {
                         <Form.Group controlId="formEditScheduleDate" className="mb-3">
                             <Form.Label>Fecha</Form.Label>
                             <Form.Control
-                                type="date"
-                                value={scheduleDate}
-                                onChange={(e) => setScheduleDate(e.target.value)}
-                            />
+                            type="date"
+                            value={schedules[0].date} // ✅ Accedemos al primer conjunto de horarios
+                            onChange={(e) => {
+                                const newSchedules = [...schedules];
+                                newSchedules[0].date = e.target.value;
+                                setSchedules(newSchedules);
+                            }}
+                        />
                         </Form.Group>
 
                         {/* Hora de inicio */}
                         <Form.Group controlId="formEditScheduleStartTime" className="mb-3">
                             <Form.Label>Hora de Inicio</Form.Label>
                             <Form.Control
-                                type="time"
-                                value={scheduleStartTime}
-                                onChange={(e) => setScheduleStartTime(e.target.value)}
-                            />
+                            type="time"
+                            value={schedules[0].startTime} // ✅ Accedemos al primer conjunto de horarios
+                            onChange={(e) => {
+                                const newSchedules = [...schedules];
+                                newSchedules[0].startTime = e.target.value;
+                                setSchedules(newSchedules);
+                            }}
+                        />
                         </Form.Group>
 
                         {/* Hora de fin */}
                         <Form.Group controlId="formEditScheduleEndTime" className="mb-3">
                             <Form.Label>Hora de Fin</Form.Label>
                             <Form.Control
-                                type="time"
-                                value={scheduleEndTime}
-                                onChange={(e) => setScheduleEndTime(e.target.value)}
-                            />
+                            type="time"
+                            value={schedules[0].endTime} // ✅ Accedemos al primer conjunto de horarios
+                            onChange={(e) => {
+                                const newSchedules = [...schedules];
+                                newSchedules[0].endTime = e.target.value;
+                                setSchedules(newSchedules);
+                            }}
+                        />
                         </Form.Group>
                     </Form>
                 </Modal.Body>
