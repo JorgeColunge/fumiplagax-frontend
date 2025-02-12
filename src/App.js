@@ -51,6 +51,18 @@ function App() {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
+    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+  
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+  
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
+  }, []);
+
+  useEffect(() => {
     const handleSyncUpdate = (event) => {
       setSyncCount(event.detail); // Actualiza el estado con el nuevo valor
     };

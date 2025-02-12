@@ -557,7 +557,6 @@ const handleSaveChanges = async () => {
           id: productData.id || null, // Incluir el ID
           product: productData.product || '',
           dosage: productData.dosage || '',
-          active_ingredient: productData.active_ingredient || '',
         };
       }
     });
@@ -575,7 +574,7 @@ const handleSaveChanges = async () => {
 
     // Ajuste en las firmas: eliminar el prefijo completo si existe
     const removePrefix = (url) => {
-      const prefix = `${process.env.REACT_APP_API_URL}`;
+      const prefix = "";
       return url && url.startsWith(prefix) ? url.replace(prefix, "") : url;
     };
 
@@ -620,8 +619,6 @@ const handleSaveChanges = async () => {
         formData.append("stationImages", finding.photoBlob, `${finding.stationId}.jpg`);
       }
     });
-
-    formData.append("exitTime", moment().format("HH:mm:ss"));
 
     // Enviar datos al backend
     await api.post(`/inspections/${inspectionId}/save`, formData, {
