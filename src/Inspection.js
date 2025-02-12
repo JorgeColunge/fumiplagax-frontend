@@ -621,6 +621,8 @@ const handleSaveChanges = async () => {
       }
     });
 
+    formData.append("exitTime", moment().format("HH:mm:ss"));
+
     // Enviar datos al backend
     await api.post(`/inspections/${inspectionId}/save`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -1175,7 +1177,7 @@ const handleDeleteFinding = () => {
             {/* Columna 1: Información General */}
             <div className="col-md-6">
               <p><strong>Inspección:</strong> {inspectionId}</p>
-              <p><strong>Fecha:</strong> {moment(date).format('DD/MM/YYYY')}</p>
+              <p><strong>Fecha:</strong> {moment.utc(date).format('DD/MM/YYYY')}</p>
               <p><strong>Hora de Inicio:</strong> {moment(time, "HH:mm:ss").format("hh:mm A")}</p>
               <p><strong>Hora de Finalización:</strong> {moment(exit_time, "HH:mm:ss").format("hh:mm A")}</p>
               <p><strong>Servicio:</strong> {service_id}</p>
