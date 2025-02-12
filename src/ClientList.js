@@ -6,7 +6,7 @@ import './ClientList.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { BuildingFill, GeoAltFill, PhoneFill, TelephoneFill } from 'react-bootstrap-icons';
+import { BuildingFill, GeoAltFill, PhoneFill, TelephoneFill, XCircle } from 'react-bootstrap-icons';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -266,6 +266,34 @@ const handleSaveNewAirStation = async () => {
   const handleCloseConfirmation = () => {
     setShowConfirmationModal(false);
     setConfirmationCallback(null);
+  };
+
+  const handleDeleteRodentStation = async (stationId) => {
+    try {
+      await axios.delete(`${process.env.REACT_APP_API_URL}/api/stations/${stationId}`);
+      
+      // Actualiza el estado eliminando la estación
+      setRodentStations((prevStations) => prevStations.filter((station) => station.id !== stationId));
+      
+      handleShowNotification("Estación eliminada exitosamente.");
+    } catch (error) {
+      console.error("Error al eliminar estación:", error);
+      handleShowNotification("Hubo un error al eliminar la estación.");
+    }
+  };
+
+  const handleDeleteAirStation = async (stationId) => {
+    try {
+      await axios.delete(`${process.env.REACT_APP_API_URL}/api/stations/${stationId}`);
+      
+      // Actualiza el estado eliminando la estación
+      setAirStations((prevStations) => prevStations.filter((station) => station.id !== stationId));
+      
+      handleShowNotification("Estación eliminada exitosamente.");
+    } catch (error) {
+      console.error("Error al eliminar estación:", error);
+      handleShowNotification("Hubo un error al eliminar la estación.");
+    }
   };
 
   const fetchStationsByClient = async (clientId) => {
@@ -815,6 +843,7 @@ const handleSaveNewAirStation = async () => {
                         <th>#</th>
                         <th>Método de Control</th>
                         <th>QR</th>
+                        <th>Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -833,6 +862,21 @@ const handleSaveNewAirStation = async () => {
                             ) : (
                               <span className="text-muted">No disponible</span>
                             )}
+                          </td>
+                          <td style={{ textAlign: 'center', position: 'relative' }}>
+                            {/* Ícono de eliminación al final de la fila */}
+                            <XCircle
+                              style={{
+                                cursor: 'pointer',
+                                color: 'red',
+                                fontSize: '1.2rem',
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation(); // Evita eventos innecesarios
+                                handleDeleteAirStation(station.id); // Llama a la función para eliminar
+                              }}
+                              title="Eliminar estación"
+                            />
                           </td>
                         </tr>
                       ))}
@@ -861,8 +905,9 @@ const handleSaveNewAirStation = async () => {
                 <h5 className="text-secondary mb-3">
                   <i className="fas fa-paw me-2"></i> Estaciones de Roedores
                 </h5>
-                <div className="table-responsive">
+                <div className="table-container">
                 {rodentStations.length > 0 ? (
+                  <div className="table-responsive">
                   <table className="table table-bordered table-hover">
                     <thead className="table-light">
                       <tr>
@@ -870,6 +915,7 @@ const handleSaveNewAirStation = async () => {
                         <th>Tipo</th>
                         <th>Método de Control</th>
                         <th>QR</th>
+                        <th>Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -890,10 +936,26 @@ const handleSaveNewAirStation = async () => {
                               <span className="text-muted">No disponible</span>
                             )}
                           </td>
+                          <td style={{ textAlign: 'center', position: 'relative' }}>
+                            {/* Ícono de eliminación al final de la fila */}
+                            <XCircle
+                              style={{
+                                cursor: 'pointer',
+                                color: 'red',
+                                fontSize: '1.2rem',
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation(); // Evita eventos innecesarios
+                                handleDeleteRodentStation(station.id); // Llama a la función para eliminar
+                              }}
+                              title="Eliminar estación"
+                            />
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                  </div>
                   ) : (
                     <p>No hay estaciones de roedores registradas.</p>
                   )}
@@ -909,30 +971,30 @@ const handleSaveNewAirStation = async () => {
                 </div>
               </div>
             </div>
-        {/* Parte inferior central: Mapas */}
-        <div className="col-md-12 mb-4">
-          <div className="bg-white shadow-sm rounded p-3">
-            <h5 className="text-secondary mb-3">
-              <GeoAltFill className="me-2" /> Mapas
-            </h5>
-            <div>
-            <div className="map-card-container">
-            {maps.length > 0 ? (
-              maps.map((map) => (
-                <div
-                  key={map.id} // Usa `id` como clave única
-                  className="map-card"
-                  onClick={() => handleShowImageModal(map.image)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <img src={map.image} alt={map.description} className="map-image" />
-                  <p>{map.description}</p>
-                </div>
-              ))
-            ) : (
-              <p className="text-center text-muted">No hay mapas registrados.</p>
-            )}
-          </div>
+            {/* Parte inferior central: Mapas */}
+            <div className="col-md-12 mb-4">
+              <div className="bg-white shadow-sm rounded p-3">
+                <h5 className="text-secondary mb-3">
+                  <GeoAltFill className="me-2" /> Mapas
+                </h5>
+                <div>
+                <div className="map-card-container">
+                {maps.length > 0 ? (
+                  maps.map((map) => (
+                    <div
+                      key={map.id} // Usa `id` como clave única
+                      className="map-card"
+                      onClick={() => handleShowImageModal(map.image)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <img src={map.image} alt={map.description} className="map-image" />
+                      <p>{map.description}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center text-muted">No hay mapas registrados.</p>
+                )}
+              </div>
               <div className="d-flex justify-content-end mt-3">
                 <Button variant="outline-success" className="px-3 py-1" onClick={handleShowAddMapModal}>
                   <i className="fas fa-plus"></i> Agregar
@@ -949,32 +1011,35 @@ const handleSaveNewAirStation = async () => {
       <Modal.Footer>
         <div className="w-100">
           {/* Botones de acción */}
-          <div className="action-buttons d-flex justify-content-around mb-4">
+          <div className="action-buttons d-flex flex-wrap flex-md-nowrap justify-content-around mb-4">
             <Button
-              className="btn-outline-primary w-100 mx-2"
+              className="btn-outline-primary w-100 w-md-auto mx-2 mb-2 mb-md-0"
               onClick={() => window.open(`tel:${selectedClient?.phone || ""}`)}
             >
               <i className="fas fa-phone"></i>
               <span style={{ marginLeft: "8px" }}>Llamar</span>
             </Button>
             <Button
-              className="btn-outline-success w-100 mx-2"
+              className="btn-outline-success w-100 w-md-auto mx-2 mb-2 mb-md-0"
               onClick={() =>
-                window.open(`https://wa.me/${selectedClient?.phone?.replace(/\D/g, "")}`, "_blank")
+                window.open(
+                  `https://wa.me/${selectedClient?.phone?.replace(/\D/g, "")}`,
+                  "_blank"
+                )
               }
             >
               <i className="fab fa-whatsapp"></i>
               <span style={{ marginLeft: "8px" }}>WhatsApp</span>
             </Button>
             <Button
-              className="btn-outline-dark w-100 mx-2"
+              className="btn-outline-dark w-100 w-md-auto mx-2 mb-2 mb-md-0"
               onClick={() => window.open(`mailto:${selectedClient?.email || ""}`)}
             >
               <i className="fas fa-envelope"></i>
               <span style={{ marginLeft: "8px" }}>Correo</span>
             </Button>
             <Button
-              className="btn-outline-danger w-100 mx-2"
+              className="btn-outline-danger w-100 w-md-auto mx-2 mb-2 mb-md-0"
               onClick={() =>
                 window.open(
                   `https://www.google.com/maps?q=${encodeURIComponent(

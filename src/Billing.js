@@ -529,7 +529,7 @@ const interventionAreaOptions = [
         setShowBilled(true);
         setTimeout(() => {
             setShowBilled(false);
-        }, 5);
+        }, 2);
     }
 }, [loading, services, clients]);
 

@@ -3,7 +3,7 @@ import axios from 'axios';
 import moment from 'moment-timezone';
 import { useMemo } from "react";
 import { useNavigate, useLocation } from 'react-router-dom'; // Asegúrate de tener configurado react-router
-import { Calendar, Person, Bag, Building, PencilSquare, Trash, Bug, Diagram3, GearFill, Clipboard, PlusCircle, InfoCircle, FileText, GeoAlt } from 'react-bootstrap-icons';
+import { Calendar, Person, Bag, Building, PencilSquare, Trash, Bug, Diagram3, GearFill, Clipboard, PlusCircle, InfoCircle, FileText, GeoAlt, Calendar2Check } from 'react-bootstrap-icons';
 import { Card, Col, Row, Collapse, Button, Table, Modal, Form, CardFooter, ModalTitle } from 'react-bootstrap';
 import ClientInfoModal from './ClientInfoModal'; // Ajusta la ruta según la ubicación del componente
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -47,6 +47,8 @@ function ServiceList() {
     value: '',
     companion: [],
     created_by: userId,
+    company: '',
+    customCompany: '',
     created_at: moment().format('DD-MM-YYYY'),
   });
   const [showEditModal, setShowEditModal] = useState(false);
@@ -72,10 +74,12 @@ function ServiceList() {
     client_id: '',
     value: '',
     companion: [],
+    company: 'Fumiplagax',
+    customCompany: '',
     created_by: userId,
     created_at: moment().format('DD-MM-YYYY'),
   });
-  
+  const [selectedCompany, setSelectedCompany] = useState('');
   const [expandedCardId, setExpandedCardId] = useState(null);
   const [notification, setNotification] = useState({
     show: false,
@@ -211,7 +215,6 @@ function ServiceList() {
   "Desinsectación": ["Moscas", "Zancudos", "Cucarachas", "Hormigas", "Pulgas", "Gorgojos", "Escarabajos"],
   "Desratización": ["Rata de alcantarilla", "Rata de techo", "Rata de campo"],
   "Desinfección": ["Virus", "Hongos", "Bacterias"],
-  // Los siguientes tipos no mostrarán opciones de plagas
   "Roceria": [],
   "Limpieza y aseo de archivos": [],
   "Lavado shut basura": [],
@@ -277,7 +280,11 @@ const handleCustomInterventionAreaChange = (e) => {
   }));
 };
 
-  const navigate = useNavigate();
+ const navigate = useNavigate();
+  
+ const handleSchedule = (serviceId) => {
+    navigate(`/services-calendar?serviceId=${serviceId}`); // Navega a la ruta con el id del servicio
+ };
 
   const handleInspectionClick = (inspection) => {
     console.log("Clicked inspection:", inspection);
@@ -285,51 +292,69 @@ const handleCustomInterventionAreaChange = (e) => {
     navigate(`/inspection/${inspection.id}`);
   };
 
-const handleDropdownToggle = (isOpen, event) => {
-  // Verificar si el evento es un clic en un checkbox
-  if (event && event.target && event.target.tagName === 'INPUT') {
-    return; // No cerrar el dropdown si se hace clic en un checkbox
-  }
-  // Cambiar el estado para abrir/cerrar el dropdown solo si no es un checkbox
-  setShowDropdown(isOpen);
-};
+  const handleEditClick = (service) => {
+    const parseField = (field) => {
+      if (!field) return []; // Si es null o undefined, devuelve un array vacío
 
+      if (Array.isArray(field)) {
+        return field; // Si ya es un array, lo retornamos directamente
+      }
 
-const handleEditClick = (service) => {
-  const parseField = (field) => {
-    if (!field) return [];
-    if (typeof field === "string" && field.startsWith("{")) {
-      return field
-        .replace(/[\{\}"]/g, "") // Elimina llaves y comillas
-        .split(",")
-        .map((item) => item.trim());
-    }
-    return Array.isArray(field) ? field : [];
-  };
+      if (typeof field === "string") {
+        return field
+          .replace(/[\{\}"]/g, "") // Elimina llaves y comillas
+          .split(",")
+          .map((item) => item.trim());
+      }
 
-  const interventionAreas = parseField(service.intervention_areas);
+      console.error("ERROR: Tipo de dato inesperado en parseField:", field);
+      return []; // Previene fallos si el tipo de dato es inesperado
+    };
 
-  // Si "Otro" está presente, muestra el campo y carga el valor personalizado
-  const customArea = interventionAreas.includes("Otro")
-    ? interventionAreas.filter((area) => area !== "Otro").join(", ") // Valor del área personalizada
-    : "";
+    const interventionAreas = parseField(service.intervention_areas);
+
+    const customArea = interventionAreas.includes("Otro")
+      ? interventionAreas.filter((area) => area !== "Otro").join(", ") 
+      : "";
 
     setEditService({
       ...service,
-      service_type: parseField(service.service_type),
+      service_type: parseField(service.service_type), // ✅ Manejo seguro
       pest_to_control: parseField(service.pest_to_control),
       intervention_areas: interventionAreas,
       companion: parseField(service.companion),
-      customInterventionArea: customArea, // Asigna el valor personalizado
+      customInterventionArea: customArea,
+      company: service.company,
+      customCompany: service.company === "Otro" ? service.customCompany || "" : "",
     });
 
     setVisiblePestOptions(
       Array.from(new Set(parseField(service.service_type).flatMap((type) => pestOptions[type.trim()] || [])))
     );
-  
-    setShowInterventionAreas(interventionAreas.includes("Otro")); // Activa el campo personalizado si "Otro" está presente
+
+    setShowInterventionAreas(interventionAreas.includes("Otro"));
     setShowEditModal(true);
   };
+
+  const handleCompanyChange = (e) => {
+    const selectedCompany = e.target.value;
+  
+    setNewService((prevService) => ({
+      ...prevService,
+      company: selectedCompany,
+      customCompany: selectedCompany === "Otro" ? prevService.customCompany : "", // Borra el campo personalizado si no es "Otro"
+    }));
+  }; 
+  
+  const handleEditCompanyChange = (e) => {
+    const selectedCompany = e.target.value;
+  
+    setEditService((prevService) => ({
+      ...prevService,
+      company: selectedCompany,
+      customCompany: selectedCompany === "Otro" ? prevService.customCompany || "" : "", // ✅ Asegura que si no es "Otro", el campo se vacía
+    }));
+  };  
 
   const handleServiceTypeChange = (e) => {
     const { value, checked } = e.target;
@@ -357,38 +382,45 @@ const handleEditClick = (service) => {
 
   const handleSaveChanges = async () => {
     try {
-      const interventionAreas = editService.intervention_areas.filter(
-        (area) => area !== "Otro" // Excluir "Otro"
-      );
-  
-      if (editService.customInterventionArea.trim()) {
-        interventionAreas.push(editService.customInterventionArea.trim());
-      }
-  
-      const formattedEditService = {
-        ...editService,
-        intervention_areas: `{${interventionAreas.map((a) => `"${a}"`).join(",")}}`,
-        customInterventionArea: "", // Limpia el campo personalizado después de guardar
-      };
-  
-      const response = await axios.put(
-        `${process.env.REACT_APP_API_URL}/api/services/${editService.id}`,
-        formattedEditService
-      );
-  
-      if (response.data.success) {
-        setServices((prevServices) =>
-          prevServices.map((service) =>
-            service.id === editService.id ? { ...formattedEditService } : service
-          )
+        const interventionAreas = editService.intervention_areas.filter(
+            (area) => area !== "Otro"
         );
-        setShowEditModal(false);
-        setEditService(null);
-      }
-    } catch (error) {
-      console.error("Error updating service:", error);
-    }
-  };  
+
+        if (editService.customInterventionArea.trim()) {
+            interventionAreas.push(editService.customInterventionArea.trim());
+        }
+
+        const formattedEditService = {
+          ...editService,
+          intervention_areas: `{${interventionAreas.map((a) => `"${a}"`).join(",")}}`,
+          pest_to_control: `{${editService.pest_to_control.map((p) => `"${p}"`).join(",")}}`,
+          service_type: `{${editService.service_type.map((s) => `"${s}"`).join(",")}}`,
+          companion: `{${editService.companion.map((c) => `"${c}"`).join(",")}}`, 
+          customInterventionArea: "",
+      };
+
+
+        const response = await axios.put(
+            `${process.env.REACT_APP_API_URL}/api/services/${editService.id}`,
+            formattedEditService
+        );
+
+        if (response.data.success) {
+            setServices((prevServices) =>
+                prevServices.map((service) =>
+                    service.id === editService.id
+                        ? { ...formattedEditService, id: editService.id }
+                        : service
+                )
+            );
+
+            handleCloseEditModal();
+            setEditService(null);
+        }
+        } catch (error) {
+            console.error("Error updating service:", error);
+        }
+    };
   
   const handleDeleteClick = async (serviceId) => {
     try {
@@ -417,10 +449,15 @@ const handleEditClick = (service) => {
         const clientsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/clients`);
         const techniciansResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/users?role=Technician`);
 
-        setServices(servicesResponse.data);
+        // Ordenar los servicios de forma descendente por created_at
+        const sortedServices = servicesResponse.data.sort((a, b) => 
+          new Date(b.created_at) - new Date(a.created_at)
+        );
+
+        setServices(sortedServices);
         setClients(clientsResponse.data);
         setTechnicians(techniciansResponse.data);
-        setFilteredServices(servicesResponse.data);
+        setFilteredServices(sortedServices);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -463,7 +500,10 @@ const handleEditClick = (service) => {
     fetchServicesAndClients();
     fetchTechnicians();
   }, []); // Asegúrate de que las dependencias sean vacías para ejecutarse solo al montar.
-  
+
+  useEffect(() => {
+    console.log("Estado actualizado de filteredServices:", filteredServices);
+  }, [filteredServices]);
   
   useEffect(() => {
     // Preprocesar los tipos de servicio una sola vez
@@ -481,7 +521,8 @@ const handleEditClick = (service) => {
         service.id.toString().includes(searchServiceText) ||
         (clients.find((client) => client.id === service.client_id)?.name || "").toLowerCase().includes(searchServiceText.toLowerCase()) ||
         (technicians.find((tech) => tech.id === service.responsible)?.name || "").toLowerCase().includes(searchServiceText.toLowerCase()) ||
-        service.service_type_cleaned.includes(searchServiceText) // ✅ Ahora usa el campo preprocesado
+        service.service_type_cleaned.includes(searchServiceText) ||
+        service.company.toLowerCase().includes(searchServiceText)
       );
     }
   
@@ -492,9 +533,18 @@ const handleEditClick = (service) => {
     if (selectedUser) {
       filtered = filtered.filter((service) => service.responsible === selectedUser);
     }
+
+    if (selectedCompany) {
+      filtered = filtered.filter((service) => {
+        if (selectedCompany === "Otro") {
+          return service.company !== "Fumiplagax" && service.company !== "Control";
+        }
+        return service.company === selectedCompany;
+      });
+    }
   
     setFilteredServices(filtered);
-  }, [searchServiceText, selectedClient, selectedUser, services, clients, technicians]); // 🔥 Solo recalcula cuando cambian los datos base  
+  }, [searchServiceText, selectedClient, selectedUser, selectedCompany, services, clients, technicians]);
 
   if (loading) return <div>Cargando servicios...</div>;
 
@@ -512,28 +562,8 @@ const handleEditClick = (service) => {
     const input = e.target.value.toLowerCase();
     setSearchServiceText(input);
   
-    let filtered = services.filter((service) => {
-      const serviceTypeCleaned = service.service_type
-        ? service.service_type.replace(/[\{\}"]/g, "").toLowerCase() // 🔥 Limpia llaves y comillas
-        : "";
+    console.log("Texto de búsqueda:", input);
   
-      return (
-        service.id.toString().includes(input) || // Buscar por ID
-        (clients.find((client) => client.id === service.client_id)?.name || "").toLowerCase().includes(input) || // Buscar por cliente
-        (technicians.find((tech) => tech.id === service.responsible)?.name || "").toLowerCase().includes(input) || // Buscar por responsable
-        serviceTypeCleaned.includes(input) // ✅ Buscar por tipo de servicio correctamente
-      );
-    });
-  
-    if (selectedClient) {
-      filtered = filtered.filter((service) => service.client_id === parseInt(selectedClient));
-    }
-  
-    if (selectedUser) {
-      filtered = filtered.filter((service) => service.responsible === selectedUser);
-    }
-  
-    setFilteredServices(filtered);
   };  
 
   const handleSearchChange = (e) => {
@@ -645,13 +675,54 @@ const handleEditClick = (service) => {
     setShowAddServiceModal(true);
   };
 
-// Filtrar técnicos excluyendo el seleccionado como responsable
-const filteredTechniciansForCompanion = technicians.filter(
-  (technician) => technician.id !== newService.responsible
-);
+  // Filtrar técnicos excluyendo el seleccionado como responsable
+  const filteredTechniciansForCompanion = technicians.filter(
+    (technician) => technician.id !== newService.responsible
+  );
 
+  const filteredTechniciansForEdit = technicians.filter(
+    (technician) => technician.id !== editService.responsible
+  );
+  
 
-  const handleCloseAddServiceModal = () => setShowAddServiceModal(false);
+  const handleCloseAddServiceModal = () => {
+    setNewService({
+      service_type: [],
+      description: '',
+      pest_to_control: [],
+      intervention_areas: [],
+      customInterventionArea: '',
+      responsible: '',
+      category: '',
+      quantity_per_month: '',
+      date: '',
+      time: '',
+      client_id: '',
+      value: '',
+      companion: [],
+      created_by: userId,
+      created_at: moment().format('DD-MM-YYYY'),
+    });
+    setShowAddServiceModal(false);
+  };  
+
+  const handleCloseEditModal = () => {
+    setEditService({
+      service_type: [],
+      description: '',
+      pest_to_control: '',
+      intervention_areas: '',
+      responsible: '',
+      category: '',
+      quantity_per_month: '',
+      client_id: '',
+      value: '',
+      companion: [],
+      created_by: userId,
+      created_at: moment().format('DD-MM-YYYY'),
+    });
+    setShowEditModal(false);
+  };  
 
   const handleNewServiceChange = (e) => {
     const { name, value } = e.target;
@@ -675,6 +746,7 @@ const filteredTechniciansForCompanion = technicians.filter(
       client_id: newService.client_id || null, // Validación para cliente
       value: newService.value || null, // Validación para valor
       quantity_per_month: newService.quantity_per_month || null, // Validación para cantidad
+      company: newService.company === "" || newService.company === null ? "Fumiplagax" : newService.company === "Otro" ? newService.customCompany : newService.company, // Guarda el nombre correcto de la empresa
     };
   
     try {
@@ -716,11 +788,29 @@ const filteredTechniciansForCompanion = technicians.filter(
     }));
   };  
 
+  const handleEditCompanionChange = (e) => {
+    const { value, checked } = e.target;
+
+    setEditService((prevService) => {
+        let updatedCompanions = checked
+            ? [...prevService.companion, value] // Agregar el ID si está seleccionado
+            : prevService.companion.filter((companionId) => companionId !== value); // Eliminar el ID si se deselecciona
+
+        // Filtra valores vacíos o nulos
+        updatedCompanions = updatedCompanions.filter((id) => id.trim() !== "");
+
+        return {
+            ...prevService,
+            companion: updatedCompanions.length > 0 ? updatedCompanions : [], // Mantiene [] si no hay acompañantes
+        };
+    });
+  };
+
   return (
       <div className="container mt-4">
       <Row className="align-items-center mb-4" style={{ minHeight: 0, height: 'auto' }}>
         {/* Campo de búsqueda */}
-        <Col xs={12} md={6}>
+        <Col xs={12} md={4}>
           <Form.Group controlId="formServiceSearch">
             <Form.Control
               type="text"
@@ -731,7 +821,23 @@ const filteredTechniciansForCompanion = technicians.filter(
           </Form.Group>
         </Col>
 
-        {/* Filtro por empresa */}
+        {/* Filtro por empresa responsable */}
+        <Col xs={12} md={2}>
+          <Form.Group controlId="formCompanyFilter">
+            <Form.Control
+              as="select"
+              value={selectedCompany}
+              onChange={(e) => setSelectedCompany(e.target.value)}
+            >
+              <option value="">Todas las empresas</option>
+              <option value="Fumiplagax">Fumiplagax</option>
+              <option value="Control">Control</option>
+              <option value="Otro">Otro</option>
+            </Form.Control>
+          </Form.Group>
+        </Col>
+
+        {/* Filtro por clientes */}
         <Col xs={12} md={2}>
           <Form.Group controlId="formClientFilter">
             <Form.Control
@@ -739,7 +845,7 @@ const filteredTechniciansForCompanion = technicians.filter(
               value={selectedClient}
               onChange={(e) => setSelectedClient(e.target.value)}
             >
-              <option value="">Todas las empresas</option>
+              <option value="">Todas los clientes</option>
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.name}
@@ -794,48 +900,57 @@ const filteredTechniciansForCompanion = technicians.filter(
                   >
 
                     <Card.Body>
-                    <div className="d-flex align-items-center justify-content-between">
+                      <div className="d-flex align-items-center justify-content-between">
                         <div className="flex-grow-1 text-truncate">
-                          <span className="fw-bold">{service.id}</span>
+                         <span 
+                            className={`fw-bold px-1 py-1 rounded text-white ${
+                              service.company === "Fumiplagax" ? "bg-success" : 
+                              service.company === "Control" ? "bg-primary" : "bg-warning"
+                            }`}
+                          >
+                            {service.company === "Fumiplagax" ? "F" : 
+                            service.company === "Control" ? "C" : "O"}
+                          </span>
+                          <span className="fw-bold"> {service.id}</span>
                           <span className="text-muted mx-2">|</span>
                           <span className="text-secondary">{service.service_type.replace(/[{}"]/g, '').split(',').join(', ')}</span>
                         </div>
                       </div>
                       <hr />
                       <div>
-                  <Bug className="text-success me-2" />     
-                  <span className="text-secondary">
-                    {(() => {
-                      const pestMatches = typeof service.pest_to_control === "string" 
-                      ? service.pest_to_control.match(/"([^"]+)"/g)
-                      : null;
-                      const pests = pestMatches ? pestMatches.map(item => item.replace(/"/g, '')).join(', ') : "No especificado";
-                      return pests.length > 20 ? `${pests.slice(0, 20)}...` : pests;
-                    })()}
-                  </span>
+                      <Bug className="text-success me-2" />     
+                      <span className="text-secondary">
+                        {(() => {
+                          const pestMatches = typeof service.pest_to_control === "string" 
+                          ? service.pest_to_control.match(/"([^"]+)"/g)
+                          : null;
+                          const pests = pestMatches ? pestMatches.map(item => item.replace(/"/g, '')).join(', ') : "No especificado";
+                          return pests.length > 20 ? `${pests.slice(0, 20)}...` : pests;
+                        })()}
+                      </span>
                       </div>
                       <div className="mt-2">
-                  <Diagram3 className="text-warning me-2" /> 
-                  <span className="text-secondary">
-                    {(() => {
-                      const areaMatches = typeof service.intervention_areas === "string" 
-                      ? service.intervention_areas.match(/"([^"]+)"/g)
-                      : null;                  
-                      const areas = areaMatches ? areaMatches.map(item => item.replace(/"/g, '')).join(', ') : "No especificadas";
-                      return areas.length > 20 ? `${areas.slice(0, 20)}...` : areas;
-                    })()}
-                  </span>
-                      </div>
-                      <div className="mt-3">
-                        <h6 >
-                          <Building /> {clientNames[service.client_id] || "Cliente Desconocido"}
-                        </h6>
-                      </div>
-                      <div className="mt-3">
-                        <h6>
-                          <Person />{" "}
-                          {technicians.find((tech) => tech.id === service.responsible)?.name || "No asignado"}
-                        </h6>
+                      <Diagram3 className="text-warning me-2" /> 
+                      <span className="text-secondary">
+                        {(() => {
+                          const areaMatches = typeof service.intervention_areas === "string" 
+                          ? service.intervention_areas.match(/"([^"]+)"/g)
+                          : null;                  
+                          const areas = areaMatches ? areaMatches.map(item => item.replace(/"/g, '')).join(', ') : "No especificadas";
+                          return areas.length > 20 ? `${areas.slice(0, 20)}...` : areas;
+                        })()}
+                      </span>
+                        </div>
+                        <div className="mt-3">
+                          <h6 >
+                            <Building /> {clientNames[service.client_id] || "Cliente Desconocido"}
+                          </h6>
+                        </div>
+                        <div className="mt-3">
+                          <h6>
+                            <Person />{" "}
+                            {technicians.find((tech) => tech.id === service.responsible)?.name || "No asignado"}
+                          </h6>
                       </div>
                     </Card.Body>
                     <Card.Footer
@@ -969,6 +1084,35 @@ const filteredTechniciansForCompanion = technicians.filter(
         </Modal.Header>
         <Modal.Body>
           <Form>
+            {/* Selector de Empresa */}
+            <Form.Group className="mt-3">
+              <Form.Label style={{ fontWeight: "bold" }}>Empresa</Form.Label>
+              <Form.Control
+                as="select"
+                name="company"
+                value={newService.company}
+                onChange={handleCompanyChange}
+              >
+                <option value="Fumiplagax">Fumiplagax</option>
+                <option value="Control">Control</option>
+                <option value="Otro">Otro</option>
+              </Form.Control>
+            </Form.Group>
+
+            {/* Campo oculto para nombre personalizado si el usuario elige "Otro" */}
+            {newService.company === "Otro" && (
+              <Form.Group className="mt-3">
+                <Form.Label style={{ fontWeight: "bold" }}>Nombre de la Empresa</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Ingrese el nombre de la empresa"
+                  value={newService.customCompany}
+                  onChange={(e) =>
+                    setNewService({ ...newService, customCompany: e.target.value })
+                  }
+                />
+              </Form.Group>
+            )}
             {/* Tipo de Servicio */}
             <Form.Group className="mt-3">
               <Form.Label style={{ fontWeight: "bold" }}>Tipo de Servicio</Form.Label>
@@ -1019,36 +1163,36 @@ const filteredTechniciansForCompanion = technicians.filter(
               </Form.Group>
             )}
 
-{/* Áreas de Intervención */}
-<Form.Group className="mt-3">
-  <Form.Label style={{ fontWeight: "bold" }}>Áreas de Intervención</Form.Label>
-  <div className="d-flex flex-wrap">
-    {interventionAreaOptions.map((area, index) => (
-      <div key={index} className="col-4 mb-2">
-        <Form.Check
-          type="checkbox"
-          label={<span style={{ fontSize: "0.8rem" }}>{area}</span>}
-          value={area}
-          checked={newService.intervention_areas.includes(area)}
-          onChange={handleInterventionAreasChange}
-        />
-      </div>
-    ))}
-  </div>
-</Form.Group>
+            {/* Áreas de Intervención */}
+            <Form.Group className="mt-3">
+              <Form.Label style={{ fontWeight: "bold" }}>Áreas de Intervención</Form.Label>
+              <div className="d-flex flex-wrap">
+                {interventionAreaOptions.map((area, index) => (
+                  <div key={index} className="col-4 mb-2">
+                    <Form.Check
+                      type="checkbox"
+                      label={<span style={{ fontSize: "0.8rem" }}>{area}</span>}
+                      value={area}
+                      checked={newService.intervention_areas.includes(area)}
+                      onChange={handleInterventionAreasChange}
+                    />
+                  </div>
+                ))}
+              </div>
+            </Form.Group>
 
-{/* Casilla para "Otro" */}
-{showInterventionAreas && (
-  <Form.Group className="mt-3">
-    <Form.Label style={{ fontWeight: "bold" }}>Añadir área de intervención</Form.Label>
-    <Form.Control
-      type="text"
-      placeholder="Escribe aquí"
-      value={newService.customInterventionArea}
-      onChange={handleCustomInterventionAreaChange}
-    />
-  </Form.Group>
-)}
+            {/* Casilla para "Otro" */}
+            {showInterventionAreas && (
+              <Form.Group className="mt-3">
+                <Form.Label style={{ fontWeight: "bold" }}>Añadir área de intervención</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Escribe aquí"
+                  value={newService.customInterventionArea}
+                  onChange={handleCustomInterventionAreaChange}
+                />
+              </Form.Group>
+            )}
 
             {/* Responsable */}
             <Form.Group className="mt-3">
@@ -1152,7 +1296,7 @@ const filteredTechniciansForCompanion = technicians.filter(
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="dark" onClick={() => setShowAddServiceModal(false)}>
+          <Button variant="dark" onClick={() => handleCloseAddServiceModal()}>
             Cancelar
           </Button>
           <Button variant="success" onClick={() => handleSaveNewService()}>
@@ -1169,6 +1313,35 @@ const filteredTechniciansForCompanion = technicians.filter(
         <Modal.Body>
           {editService && (
             <Form>
+              {/* Selector de Empresa */}
+              <Form.Group className="mt-3">
+                <Form.Label style={{ fontWeight: "bold" }}>Empresa</Form.Label>
+                <Form.Control
+                  as="select"
+                  name="company"
+                  value={["Fumiplagax", "Control"].includes(editService.company) ? editService.company : "Otro"}
+                  onChange={handleEditCompanyChange}
+                >
+                  <option value="Fumiplagax">Fumiplagax</option>
+                  <option value="Control">Control</option>
+                  <option value="Otro">Otro</option>
+                </Form.Control>
+              </Form.Group>
+
+              {/* Campo oculto para nombre personalizado si el usuario elige "Otro" */}
+              {!["Fumiplagax", "Control"].includes(editService.company) && (
+                <Form.Group className="mt-3">
+                  <Form.Label style={{ fontWeight: "bold" }}>Nombre de la Empresa</Form.Label>
+                  <Form.Control
+                    type="text"
+                    placeholder="Ingrese el nombre de la empresa"
+                    value={editService.company || ""}
+                    onChange={(e) =>
+                      setEditService({ ...editService, customCompany: e.target.value })
+                    }
+                  />
+                </Form.Group>
+              )}
               {/* Tipo de Servicio */}
               <Form.Group className="mt-3">
                 <Form.Label style={{ fontWeight: "bold" }}>Tipo de Servicio</Form.Label>
@@ -1234,62 +1407,62 @@ const filteredTechniciansForCompanion = technicians.filter(
                 </Form.Group>
               )}
 
-{/* Áreas de Intervención */}
-<Form.Group className="mt-3">
-  <Form.Label style={{ fontWeight: "bold" }}>Áreas de Intervención</Form.Label>
-  <div className="d-flex flex-wrap">
-    {interventionAreaOptions.map((area, index) => (
-      <div key={index} className="col-4 mb-2">
-        <Form.Check
-          type="checkbox"
-          label={<span style={{ fontSize: "0.8rem" }}>{area}</span>}
-          value={area}
-          checked={editService.intervention_areas.includes(area)} // Asegura que "Otro" esté marcado
-          onChange={(e) => {
-            const { value, checked } = e.target;
-            setEditService((prevService) => {
-              const updatedInterventionAreas = checked
-                ? [...prevService.intervention_areas, value]
-                : prevService.intervention_areas.filter((a) => a !== value);
+              {/* Áreas de Intervención */}
+              <Form.Group className="mt-3">
+                <Form.Label style={{ fontWeight: "bold" }}>Áreas de Intervención</Form.Label>
+                <div className="d-flex flex-wrap">
+                  {interventionAreaOptions.map((area, index) => (
+                    <div key={index} className="col-4 mb-2">
+                      <Form.Check
+                        type="checkbox"
+                        label={<span style={{ fontSize: "0.8rem" }}>{area}</span>}
+                        value={area}
+                        checked={editService.intervention_areas.includes(area)} // Asegura que "Otro" esté marcado
+                        onChange={(e) => {
+                          const { value, checked } = e.target;
+                          setEditService((prevService) => {
+                            const updatedInterventionAreas = checked
+                              ? [...prevService.intervention_areas, value]
+                              : prevService.intervention_areas.filter((a) => a !== value);
 
-              // Maneja el valor personalizado si "Otro" se selecciona o desmarca
-              if (value === "Otro") {
-                setShowInterventionAreas(checked);
-                return {
-                  ...prevService,
-                  intervention_areas: updatedInterventionAreas,
-                  customInterventionArea: checked ? prevService.customInterventionArea : "", // Limpia si "Otro" se desmarca
-                };
-              }
+                            // Maneja el valor personalizado si "Otro" se selecciona o desmarca
+                            if (value === "Otro") {
+                              setShowInterventionAreas(checked);
+                              return {
+                                ...prevService,
+                                intervention_areas: updatedInterventionAreas,
+                                customInterventionArea: checked ? prevService.customInterventionArea : "", // Limpia si "Otro" se desmarca
+                              };
+                            }
 
-              return {
-                ...prevService,
-                intervention_areas: updatedInterventionAreas,
-              };
-            });
-          }}
-        />
-      </div>
-    ))}
-  </div>
-</Form.Group>
+                            return {
+                              ...prevService,
+                              intervention_areas: updatedInterventionAreas,
+                            };
+                          });
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </Form.Group>
 
-{showInterventionAreas && (
-  <Form.Group className="mt-3">
-    <Form.Label style={{ fontWeight: "bold" }}>Añadir área de intervención</Form.Label>
-    <Form.Control
-      type="text"
-      placeholder="Escribe aquí"
-      value={editService.customInterventionArea || ""}
-      onChange={(e) =>
-        setEditService((prevService) => ({
-          ...prevService,
-          customInterventionArea: e.target.value,
-        }))
-      }
-    />
-  </Form.Group>
-)}
+              {showInterventionAreas && (
+                <Form.Group className="mt-3">
+                  <Form.Label style={{ fontWeight: "bold" }}>Añadir área de intervención</Form.Label>
+                  <Form.Control
+                    type="text"
+                    placeholder="Escribe aquí"
+                    value={editService.customInterventionArea || ""}
+                    onChange={(e) =>
+                      setEditService((prevService) => ({
+                        ...prevService,
+                        customInterventionArea: e.target.value,
+                      }))
+                    }
+                  />
+                </Form.Group>
+              )}
 
               {/* Responsable */}
               <Form.Group className="mt-3">
@@ -1360,14 +1533,14 @@ const filteredTechniciansForCompanion = technicians.filter(
               <Form.Group className="mt-3">
                     <Form.Label style={{ fontWeight: "bold" }}>Acompañante</Form.Label>
                     <div className="d-flex flex-wrap">
-                      {filteredTechniciansForCompanion.map((technician, index) => (
+                      {filteredTechniciansForEdit.map((technician, index) => (
                         <div key={index} className="col-4 mb-2">
                           <Form.Check
                             type="checkbox"
                             label={<span style={{ fontSize: "0.8rem" }}>{technician.name}</span>}
                             value={technician.id}
-                            checked={newService.companion.includes(technician.id)}
-                            onChange={handleCompanionChange}
+                            checked={editService.companion.includes(technician.id)}
+                            onChange={handleEditCompanionChange}
                           />
                         </div>
                       ))}
@@ -1389,7 +1562,7 @@ const filteredTechniciansForCompanion = technicians.filter(
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="dark" onClick={() => setShowEditModal(false)}>
+          <Button variant="dark" onClick={() => handleCloseEditModal()}>
             Cancelar
           </Button>
           <Button variant="success" onClick={handleSaveChanges}>
@@ -1412,12 +1585,23 @@ const filteredTechniciansForCompanion = technicians.filter(
         <Modal.Body className="bg-light p-4">
           {selectedService && (
             <div className="d-flex flex-column gap-4">
+              <button
+                className="btn btn-outline-success d-flex align-items-center w-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSchedule(selectedService.id);
+                }}
+                >
+                <Calendar2Check size={18} className="me-2" />
+                  Agendar Servicio
+              </button>
               {/* Detalles del servicio */}
               <div className="bg-white shadow-sm rounded p-3">
                 <h5 className="text-secondary mb-3">
                   <InfoCircle className="me-2" /> Información General
                 </h5>
                 <div className="d-flex flex-column gap-2">
+                  <p className='my-1'><strong>Empresa responsable:</strong> {selectedService.company}</p>
                   <p className='my-1'><strong>ID del Servicio:</strong> {selectedService.id}</p>
                   <p className='my-1'>
                     <strong>Tipo de Servicio:</strong>{" "}
@@ -1442,6 +1626,25 @@ const filteredTechniciansForCompanion = technicians.filter(
                     )}
                   </div>
                   <p className='my-1'><strong>Responsable:</strong> {technicians.find((tech) => tech.id === selectedService.responsible)?.name || "No asignado"}</p>
+                  {selectedService.companion && selectedService.companion !== "{}" && selectedService.companion !== '{""}' && (
+                    <p>
+                        <strong>Acompañante(s):</strong>{' '}
+                        {(() => {
+                            // Convierte la cadena de IDs en un array
+                            const companionIds = selectedService.companion
+                                .replace(/[\{\}"]/g, '') // Limpia los caracteres `{}`, `"`
+                                .split(',')
+                                .map((id) => id.trim()); // Divide y recorta espacios
+                            // Mapea los IDs a nombres usando el estado `users`
+                            const companionNames = companionIds.map((id) => {
+                                const tech = technicians.find((tech) => tech.id === id); // Encuentra el usuario por ID
+                                return tech ? `${tech.name} ${tech.lastname || ''}`.trim() : `Desconocido (${id})`;
+                            });
+                            // Devuelve la lista de nombres como texto
+                            return companionNames.join(', ');
+                        })()}
+                    </p>
+                  )}
                   {selectedService.category === "Periódico" && (
                     <p><strong>Cantidad al Mes:</strong> {selectedService.quantity_per_month}</p>
                   )}

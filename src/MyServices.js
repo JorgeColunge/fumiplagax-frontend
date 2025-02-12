@@ -516,6 +516,25 @@ function MyServices() {
                     )}
                   </div>
                   <p className="my-1"><strong>Responsable:</strong> {technicians.find((tech) => tech.id === selectedService.responsible)?.name || "No asignado"}</p>
+                  {selectedService.companion && selectedService.companion !== "{}" && selectedService.companion !== '{""}' && (
+                    <p>
+                        <strong>Acompañante(s):</strong>{' '}
+                        {(() => {
+                            // Convierte la cadena de IDs en un array
+                            const companionIds = selectedService.companion
+                                .replace(/[\{\}"]/g, '') // Limpia los caracteres `{}`, `"`
+                                .split(',')
+                                .map((id) => id.trim()); // Divide y recorta espacios
+                            // Mapea los IDs a nombres usando el estado `users`
+                            const companionNames = companionIds.map((id) => {
+                                const tech = technicians.find((tech) => tech.id === id); // Encuentra el usuario por ID
+                                return tech ? `${tech.name} ${tech.lastname || ''}`.trim() : `Desconocido (${id})`;
+                            });
+                            // Devuelve la lista de nombres como texto
+                            return companionNames.join(', ');
+                        })()}
+                    </p>
+                  )}
                   {selectedService.category === "Periódico" && (
                     <p><strong>Cantidad al Mes:</strong> {selectedService.quantity_per_month}</p>
                   )}
