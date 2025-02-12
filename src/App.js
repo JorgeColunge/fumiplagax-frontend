@@ -44,6 +44,7 @@ function App() {
   const userId = storedUserInfo?.id_usuario || '';
   const [syncCount, setSyncCount] = useState(parseInt(localStorage.getItem('sync') || '0', 10));
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
