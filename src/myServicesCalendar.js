@@ -23,6 +23,7 @@ const MyServicesCalendar = () => {
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const calendarRef = useRef(null);
     const [currentView, setCurrentView] = useState('timeGridWeek');
+    const [mesComp, setMesComp] = useState(moment().format('MMMM YYYY')); // Estado para mesComp
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [showEventModal, setShowEventModal] = useState(false);
     const [selectedService, setSelectedService] = useState('');
@@ -71,19 +72,34 @@ const MyServicesCalendar = () => {
     const userId = storedUserInfo?.id_usuario || '';
     const userColor = storedUserInfo?.color || '#007bff'; // Color del usuario conectado
 
+    const handleDatesSet = (dateInfo) => {
+        const newMesComp = moment(dateInfo.view.currentStart).format('MMMM YYYY'); // Formato 'Mes Año'
+        
+        // Capitalizar la primera letra del mes (en español, Moment.js lo da en minúsculas)
+        const formattedMesComp = newMesComp.charAt(0).toUpperCase() + newMesComp.slice(1);
+        
+        // Verifica si ha cambiado el mes y actualiza el estado
+        if (mesComp !== formattedMesComp) {
+            console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${formattedMesComp}`);
+            setMesComp(formattedMesComp);
+        } else {
+            console.log(`📅 Estás viendo el mes de: ${formattedMesComp}`);
+        }
+    };
+    
     useEffect(() => {
         const fetchData = async () => {
             await fetchScheduleAndServices();
         };
         fetchData();
-    }, []);
+    }, [mesComp]);  // 🔥 Se ejecuta cada vez que `mesComp` cambie       
 
     const fetchScheduleAndServices = async () => {
         try {
             console.log('Fetching schedule and services...');
             
             // Paso 1: Obtén los eventos de la agenda de servicios
-            const scheduleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule`);
+            const scheduleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule?month=${mesComp}`);
             if (!scheduleResponse.ok) throw new Error('Failed to fetch schedule');
             const scheduleData = await scheduleResponse.json();
     
@@ -430,9 +446,10 @@ const MyServicesCalendar = () => {
                             <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().next()}>
                                 <ChevronRight />
                             </Button>
-                            <Button variant="light" className="me-2" onClick={handleTodayClick}>
-                                Hoy
-                            </Button>
+                        <Button variant="outline-dark" className="me-2" onClick={handleTodayClick}>
+                            Hoy
+                        </Button>
+                        <span className="fw-bold fs-5 text-secondary ms-2">{mesComp}</span>
                         </div>
                         <div>
                             <Button
@@ -458,31 +475,32 @@ const MyServicesCalendar = () => {
                         </div>
                     </div>
                     <div className="custom-calendar">
-                        <FullCalendar
-                            ref={calendarRef}
-                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                            initialView={currentView}
-                            headerToolbar={false}
-                            locale={esLocale}
-                            events={events}
-                            editable={false}
-                            eventStartEditable={false}
-                            eventDurationEditable={false}
-                            selectable={true}
-                            select={handleDateSelect}
-                            timeZone="local"
-                            height="70vh"
-                            nowIndicator={true}
-                            slotLabelFormat={{ hour: 'numeric', hour12: true, meridiem: 'short' }}
-                            eventContent={renderEventContent}
-                            eventClick={handleEventClick} // Aquí añadimos el evento
-                            dayHeaderContent={({ date }) => (
-                                <div className="day-header">
-                                    <div className="day-name text-sm text-gray-500">{date.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
-                                    <div className="day-number text-lg font-bold">{date.getDate()}</div>
-                                </div>
-                            )}
-                        />
+                    <FullCalendar
+    ref={calendarRef}
+    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+    initialView={currentView}
+    headerToolbar={false}
+    locale={esLocale}
+    events={events}
+    editable={false}
+    eventStartEditable={false}
+    eventDurationEditable={false}
+    selectable={true}
+    select={handleDateSelect}
+    timeZone="local"
+    height="70vh"
+    nowIndicator={true}
+    slotLabelFormat={{ hour: 'numeric', hour12: true, meridiem: 'short' }}
+    eventContent={renderEventContent}
+    eventClick={handleEventClick}
+    datesSet={handleDatesSet} // 👈 Añadir aquí
+    dayHeaderContent={({ date }) => (
+        <div className="day-header">
+            <div className="day-name text-sm text-gray-500">{date.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
+            <div className="day-number text-lg font-bold">{date.getDate()}</div>
+        </div>
+    )}
+/>
                     </div>
                 </div>
             </div>
