@@ -355,10 +355,10 @@ const deleteUser = async (id) => {
               key={user.id}
               onClick={() => navigate(`/show-profile/${user.id}`)}
             >
-              <td className="text-center align-middle  zoom">
+              <td className="text-center align-middle  zoom position-relative">
                 {isOffline() ? (
                   user.imageBlob ? ( // Asegurar que el usuario tenga una imagen almacenada
-                    <div className="img-mask-sm mx-auto">
+                    <div className="img-mask-sm mx-auto position-relative">
                         <img
                             src={user.imageUrl} // Cargar la imagen desde IndexedDB
                             alt="Foto de perfil"
@@ -374,7 +374,7 @@ const deleteUser = async (id) => {
                 )
                 ) : (
                   user.image ? (
-                    <div className="img-mask-sm mx-auto">
+                    <div className="img-mask-sm mx-auto position-relative">
                       <img
                         src={`${user.image}`}
                         alt="Foto de perfil"
@@ -416,16 +416,16 @@ const deleteUser = async (id) => {
             zIndex: 1060,
           }}
         >
-{(userInfo?.rol === "Superadministrador" || userInfo?.rol === "Administrador" || userInfo?.rol === "SST") && (
-  <Dropdown.Item
-    onClick={() => {
-      closeDropdown();
-      navigate(`/edit-profile/${selectedUser.id}`);
-    }}
-  >
-    <PencilSquare className="me-2" /> Editar
-  </Dropdown.Item>
-)}
+      {(userInfo?.rol === "Superadministrador" || userInfo?.rol === "Administrador" || userInfo?.rol === "SST") && (
+        <Dropdown.Item
+          onClick={() => {
+            closeDropdown();
+            navigate(`/edit-profile/${selectedUser.id}`);
+          }}
+        >
+          <PencilSquare className="me-2" /> Editar
+        </Dropdown.Item>
+      )}
 
           <Dropdown.Item
             onClick={() => {
