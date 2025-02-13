@@ -1159,8 +1159,13 @@ const handleDeleteFinding = () => {
   const { inspection_type, inspection_sub_type, date, time, service_id, exit_time } = inspectionData;
 
   const parsedInspectionTypes = inspection_type
-  ? inspection_type.split(",").map((type) => type.trim())
-  : [];
+  ? [
+      ...inspection_type.split(",").map((type) => type.trim()), 
+      "Observaciones Cliente", 
+      "Observaciones Inspector", 
+      "Observaciones SST"
+    ]
+  : ["Observaciones Cliente", "Observaciones Inspector", "Observaciones SST"];
 
   return (
     <div className="container mt-4">
@@ -1815,21 +1820,21 @@ const handleDeleteFinding = () => {
                         }`} 
                       >
 
-<div className="col-md-2 mt-3 mb-0 ms-auto text-end">
+                    <div className="col-md-2 mt-3 mb-0 ms-auto text-end">
                       <XCircle
                         size={"18px"}
-                        color={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente') ? "gray" : "red"} // Cambiar color si está bloqueado
+                        color={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector') ? "gray" : "red"} // Cambiar color si está bloqueado
                         onClick={() => {
-                          if ((techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente')) {
+                          if ((techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')) {
                             return;
                           }
                           handleShowConfirmDelete(type, idx);
                         }}
                         style={{
-                          cursor: (techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente') ? "not-allowed" : "pointer", // Cambiar cursor si está bloqueado
+                          cursor: (techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector') ? "not-allowed" : "pointer", // Cambiar cursor si está bloqueado
                         }}
                         title={
-                          (techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente')
+                          (techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')
                             ? "Inspección firmada, acción bloqueada"
                             : "Eliminar hallazgo"
                         }
@@ -1849,7 +1854,7 @@ const handleDeleteFinding = () => {
                                 handleFindingChange(type, idx, "place", e.target.value)
                               }
                               placeholder="Lugar"
-                              disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente')}
+                              disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')}
                             />
                           </div>
                           <div className="col-md-8">
@@ -1868,7 +1873,7 @@ const handleDeleteFinding = () => {
                                 handleFindingChange(type, idx, "description", e.target.value)
                               }
                               placeholder="Descripción"
-                              disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente')}
+                              disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')}
                             ></textarea>
                           </div>
                           <div className="col-md-2">
@@ -1888,7 +1893,7 @@ const handleDeleteFinding = () => {
                               <input
                                 type="file"
                                 className="image-input"
-                                disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente')}
+                                disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')}
                                 onChange={(e) =>
                                   handleFindingPhotoChange(type, idx, e.target.files[0])
                                 }
@@ -1904,18 +1909,18 @@ const handleDeleteFinding = () => {
                       <div className="col-md-2 mt-0 mb-0 ms-auto text-end">
                       <XCircle
                         size={"20px"}
-                        color={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente') ? "gray" : "red"} // Cambiar color si está bloqueado
+                        color={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector') ? "gray" : "red"} // Cambiar color si está bloqueado
                         onClick={() => {
-                          if ((techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente')) {
+                          if ((techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')) {
                             return;
                           }
                           handleShowConfirmDelete(type, idx);
                         }}
                         style={{
-                          cursor: (techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente') ? "not-allowed" : "pointer", // Cambiar cursor si está bloqueado
+                          cursor: (techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector') ? "not-allowed" : "pointer", // Cambiar cursor si está bloqueado
                         }}
                         title={
-                          (techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente')
+                          (techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')
                             ? "Inspección firmada, acción bloqueada"
                             : "Eliminar hallazgo"
                         }
@@ -1935,7 +1940,7 @@ const handleDeleteFinding = () => {
                               handleFindingChange(type, idx, "place", e.target.value)
                             }
                             placeholder="Lugar"
-                            disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente')}
+                            disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')}
                           />
                         </div>
                         <div className="col-md-8">
@@ -1954,7 +1959,7 @@ const handleDeleteFinding = () => {
                               handleFindingChange(type, idx, "description", e.target.value)
                             }
                             placeholder="Descripción"
-                            disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente')}
+                            disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')}
                           ></textarea>
                         </div>
                         <div className="col-md-2">
@@ -1974,7 +1979,7 @@ const handleDeleteFinding = () => {
                             <input
                               type="file"
                               className="image-input"
-                              disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente')}
+                              disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')}
                               onChange={(e) =>
                                 handleFindingPhotoChange(type, idx, e.target.files[0])
                               }
@@ -1992,7 +1997,7 @@ const handleDeleteFinding = () => {
             <button
               className="btn btn-outline-success mb-3"
               onClick={() => handleAddFinding(type)}
-              disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol === 'Cliente' && type !== 'Observaciones Cliente')}
+              disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')}
             >
               + Agregar Hallazgo
             </button>
