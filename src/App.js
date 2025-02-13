@@ -35,7 +35,7 @@ import CompanyStations from './CompanyStations';
 import UnsavedChangesModal from './UnsavedChangesModal';
 import { UnsavedChangesProvider } from './UnsavedChangesContext';
 import { syncRequests } from './offlineHandler';
-import { saveUsers, getUsers, syncUsers } from './indexedDBHandler';
+import { saveUsers, getUsers, syncUsers, syncUsersOnStart } from './indexedDBHandler';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -97,79 +97,82 @@ function App() {
       };
     }, []);
 
-  const handleSidebarToggle = (isOpen) => {
-    setIsSidebarOpen(isOpen);
-  };
+    useEffect(() => {
+      syncUsersOnStart(); // Sincroniza usuarios al iniciar la app
+    }, []);
 
-  const handleSync = () => {
-    console.log('Sincronizando...');
-  };
-
-  const handleNotify = () => {
-    console.log('Notificación');
-  };
-
-  useEffect(() => {
-    const handleOnline = () => {
-      console.log('Conexión restaurada. Iniciando sincronización...');
-      syncRequests();
-      syncUsers();
+    const handleSidebarToggle = (isOpen) => {
+      setIsSidebarOpen(isOpen);
     };
 
-    window.addEventListener('online', handleOnline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
+    const handleSync = () => {
+      console.log('Sincronizando...');
     };
-  }, []);
 
+    const handleNotify = () => {
+      console.log('Notificación');
+    };
 
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/notifications/${userId}`);
-        setNotifications(response.data.notifications);
-      } catch (error) {
-        console.error("Error fetching notifications:", error);
+    useEffect(() => {
+      const handleOnline = () => {
+        console.log('Conexión restaurada. Iniciando sincronización...');
+        syncRequests();
+        syncUsers();
+      };
+
+      window.addEventListener('online', handleOnline);
+
+      return () => {
+        window.removeEventListener('online', handleOnline);
+      };
+    }, []);
+
+    useEffect(() => {
+      const fetchNotifications = async () => {
+        try {
+          const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/notifications/${userId}`);
+          setNotifications(response.data.notifications);
+        } catch (error) {
+          console.error("Error fetching notifications:", error);
+        }
+      };
+    
+      if (userId) {
+        fetchNotifications();
       }
-    };
-  
-    if (userId) {
-      fetchNotifications();
-    }
-  }, [userId]);
+    }, [userId]);
 
-  useEffect(() => {
-    const storedUserInfo = localStorage.getItem("user_info");
-    if (storedUserInfo) {
-      setUserInfo(JSON.parse(storedUserInfo));
+    useEffect(() => {
+      const storedUserInfo = localStorage.getItem("user_info");
+      if (storedUserInfo) {
+        setUserInfo(JSON.parse(storedUserInfo));
+        setIsLoggedIn(true);
+      }
+      setLoading(false);
+    }, []);
+
+    const handleLogin = (userData) => {
       setIsLoggedIn(true);
-    }
-    setLoading(false);
-  }, []);
+      setUserInfo(userData);
+      localStorage.setItem("user_info", JSON.stringify(userData));
+    };
 
-  const handleLogin = (userData) => {
-    setIsLoggedIn(true);
-    setUserInfo(userData);
-    localStorage.setItem("user_info", JSON.stringify(userData));
-  };
+    const handleLogout = () => {
+      setIsLoggedIn(false);
+      setUserInfo(null);
+      localStorage.removeItem("user_info");
+    };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUserInfo(null);
-    localStorage.removeItem("user_info");
-  };
+    const handleProfileUpdate = (updatedUserInfo) => {
+      setUserInfo(updatedUserInfo); // Actualiza el estado global
+      localStorage.setItem('user_info', JSON.stringify(updatedUserInfo)); // Opcional: actualiza localStorage
+    };  
 
-  const handleProfileUpdate = (updatedUserInfo) => {
-    setUserInfo(updatedUserInfo); // Actualiza el estado global
-    localStorage.setItem('user_info', JSON.stringify(updatedUserInfo)); // Opcional: actualiza localStorage
-  };  
+    if (loading) return <div className="text-center mt-5">Cargando...</div>;
 
-  if (loading) return <div className="text-center mt-5">Cargando...</div>;
-
-  const isAuthorized = (allowedRoles) => {
-    return isLoggedIn && userInfo && allowedRoles.includes(userInfo.rol);
-  };  
+    const isAuthorized = (allowedRoles) => {
+      return isLoggedIn && userInfo && allowedRoles.includes(userInfo.rol);
+    };  
 
   return (
     <SocketProvider>
