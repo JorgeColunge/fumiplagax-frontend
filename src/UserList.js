@@ -5,6 +5,7 @@ import { initUsersDB, saveUsers, getUsers } from './indexedDBHandler';
 import { Button, Table, InputGroup, FormControl, Modal, Form, Dropdown } from 'react-bootstrap';
 import { PencilSquare, Trash, Envelope, Telephone, Whatsapp, ThreeDots } from 'react-bootstrap-icons';
 import { useNavigate } from 'react-router-dom';
+import './UserList.css';
 import './App.css'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -28,7 +29,7 @@ function UserList() {
   const navigate = useNavigate();
 
   const userInfo = JSON.parse(localStorage.getItem("user_info"));
-  const canAddUser = userInfo?.rol === "Superadministrador" || userInfo?.rol === "Administrador";
+  const canAddUser = userInfo?.rol === "Superadministrador" || userInfo?.rol === "Administrador" || userInfo?.rol === "SST";
   const [profilePicPreview, setProfilePicPreview] = useState("/images/Logo Fumiplagax.png");
   const [searchTerm, setSearchTerm] = useState('');
   const [dropdownPosition, setDropdownPosition] = useState(null);
@@ -118,8 +119,39 @@ function UserList() {
     };
   }, [users]); 
 
-  const handleShowModal = () => setShowModal(true);
-  const handleCloseModal = () => setShowModal(false);
+  const handleShowModal = () => {
+    setNewUser({
+      id: '',
+      name: '',
+      lastname: '',
+      phone: '',
+      rol: 'Técnico',
+      password: '',
+      email: '',
+      image: null,
+      color: '',
+      hexColor: '#ffffff' // Asegurar que también se reinicie el color
+    });
+  
+    setProfilePicPreview("/images/Logo Fumiplagax.png"); // Restablecer la imagen predeterminada
+    setShowModal(true); // Ahora abre el modal después de limpiar los datos
+  };   
+
+  const handleCloseModal = () => {
+    setNewUser({
+      id: '',
+      name: '',
+      lastname: '',
+      phone: '',
+      rol: 'Técnico',
+      password: '',
+      email: '',
+      image: null,
+      color: '',
+      hexColor: '#ffffff' // Asegurar que también se reinicie el color
+    });
+    setShowModal(false);
+  };  
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -279,6 +311,10 @@ const deleteUser = async (id) => {
 
   if (loading) return <div>Cargando usuarios...</div>;
 
+  if (userInfo?.rol !== "Superadministrador" && userInfo?.rol !== "Administrador" && userInfo?.rol !== "SST") {
+    return <div>No tienes permisos para acceder a esta página.</div>;
+  }  
+
   return (
     <div className="container mt-4">
 
@@ -380,14 +416,17 @@ const deleteUser = async (id) => {
             zIndex: 1060,
           }}
         >
-          <Dropdown.Item
-            onClick={() => {
-              closeDropdown();
-              navigate(`/edit-profile/${selectedUser.id}`);
-            }}
-          >
-            <PencilSquare className="me-2" /> Editar
-          </Dropdown.Item>
+{(userInfo?.rol === "Superadministrador" || userInfo?.rol === "Administrador" || userInfo?.rol === "SST") && (
+  <Dropdown.Item
+    onClick={() => {
+      closeDropdown();
+      navigate(`/edit-profile/${selectedUser.id}`);
+    }}
+  >
+    <PencilSquare className="me-2" /> Editar
+  </Dropdown.Item>
+)}
+
           <Dropdown.Item
             onClick={() => {
               closeDropdown();
@@ -482,6 +521,7 @@ const deleteUser = async (id) => {
               <option value="Comercial">Comercial</option>
               <option value="Supervisor Técnico">Supervisor Técnico</option>
               <option value="Técnico">Técnico</option>
+              <option value="Técnico">SST</option>
             </Form.Control>
           </Form.Group>
           <Form.Group controlId="formUserEmail" className="mb-3">
