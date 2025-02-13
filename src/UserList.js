@@ -5,6 +5,7 @@ import { initUsersDB, saveUsers, getUsers } from './indexedDBHandler';
 import { Button, Table, InputGroup, FormControl, Modal, Form, Dropdown } from 'react-bootstrap';
 import { PencilSquare, Trash, Envelope, Telephone, Whatsapp, ThreeDots } from 'react-bootstrap-icons';
 import { useNavigate } from 'react-router-dom';
+import './UserList.css';
 import './App.css'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -343,37 +344,38 @@ const deleteUser = async (id) => {
               key={user.id}
               onClick={() => navigate(`/show-profile/${user.id}`)}
             >
-              <td className="text-center align-middle  zoom">
-                {isOffline() ? (
-                  user.imageUrl ? (
-                    <div className="img-mask mx-auto">
-                      <img
-                        src={user.imageUrl}
-                        alt="Foto de perfil"
-                        className="rounded-img"
-                        width="50"
-                        height="50"
-                      />
-                    </div>
-                  ) : (
-                    <div>No Image</div>
-                  )
-                ) : (
-                  user.image ? (
-                    <div className="img-mask-sm mx-auto">
-                      <img
-                        src={`${user.image}`}
-                        alt="Foto de perfil"
-                        className="rounded-img-sm"
-                        width="50"
-                        height="50"
-                      />
-                    </div>
-                  ) : (
-                    <div>No Image</div>
-                  )
-                )}
-              </td>
+<td className="text-center align-middle zoom position-relative">
+  {isOffline() ? (
+    user.imageUrl ? (
+      <div className="img-mask mx-auto position-relative">
+        <img
+          src={user.imageUrl}
+          alt="Foto de perfil"
+          className="rounded-img"
+          width="50"
+          height="50"
+        />
+      </div>
+    ) : (
+      <div>No Image</div>
+    )
+  ) : (
+    user.image ? (
+      <div className="img-mask-sm mx-auto position-relative">
+        <img
+          src={`${user.image}`}
+          alt="Foto de perfil"
+          className="rounded-img-sm"
+          width="50"
+          height="50"
+        />
+      </div>
+    ) : (
+      <div>No Image</div>
+    )
+  )}
+</td>
+
               <td className="text-center align-middle"><p>{user.id}</p></td>
               <td className="text-center align-middle"><p>{user.name}</p></td>
               <td className="text-center align-middle"><p>{user.rol}</p></td>

@@ -2001,12 +2001,13 @@ const handleDeleteFinding = () => {
             >
               + Agregar Hallazgo
             </button>
-            {type !== 'Observaciones Cliente' && (
-              <>
-            {/* Producto */}
-            <hr></hr>
-            <h6 className='mt-2'>Producto</h6>
-            <div className="row" style={{ minHeight: 0, height: 'auto' }}>
+            {type !== 'Observaciones Cliente' && type !== 'Observaciones Inspector' && type !== 'Observaciones SST' && (
+  <>
+    {/* Producto */}
+    <hr></hr>
+    <h6 className='mt-2'>Producto</h6>
+    <div className="row" style={{ minHeight: 0, height: 'auto' }}>
+
   {/* Selección de Producto */}
   <div className="col-md-6 mb-3">
   <label className="form-label">Producto</label>
