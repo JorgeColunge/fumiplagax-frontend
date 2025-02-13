@@ -23,6 +23,7 @@ const CalendarClient = () => {
     const [services, setServices] = useState([]);
     const calendarRef = useRef(null);
     const [currentView, setCurrentView] = useState('timeGridWeek');
+    const [mesComp, setMesComp] = useState(moment().format('MMMM YYYY')); // Estado para el mes actual    
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const [selectedService, setSelectedService] = useState('');
     const [selectedEvent, setSelectedEvent] = useState(null); // Evento seleccionado
@@ -119,8 +120,9 @@ const CalendarClient = () => {
     useEffect(() => {
         const calendarApi = calendarRef.current?.getApi();
         if (calendarApi) {
-            calendarApi.removeAllEvents();
+            calendarApi.removeAllEvents(); 
             calendarApi.addEventSource(events); // Agrega los eventos actuales
+            setMesComp(moment(calendarApi.getDate()).format('MMMM YYYY')); // Actualiza mesComp
         }
     }, [events]); // Dependencia en `events`
 
@@ -1035,15 +1037,45 @@ const CalendarClient = () => {
                 <div className="card p-4 shadow-sm">
                     <div className="card-header d-flex justify-content-between align-items-center">
                         <div>
-                            <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().prev()}>
-                                <ChevronLeft />
-                            </Button>
-                            <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().next()}>
-                                <ChevronRight />
-                            </Button>
-                            <Button variant="light" className="me-2" onClick={handleTodayClick}>
-                                Hoy
-                            </Button>
+                        <Button 
+    variant="light" 
+    className="me-2" 
+    onClick={() => {
+        const calendarApi = calendarRef.current.getApi();
+        calendarApi.prev();
+        setMesComp(moment(calendarApi.getDate()).format('MMMM YYYY')); // Actualiza mesComp
+    }}
+>
+    <ChevronLeft />
+</Button>
+
+<Button 
+    variant="light" 
+    className="me-2" 
+    onClick={() => {
+        const calendarApi = calendarRef.current.getApi();
+        calendarApi.next();
+        setMesComp(moment(calendarApi.getDate()).format('MMMM YYYY')); // Actualiza mesComp
+    }}
+>
+    <ChevronRight />
+</Button>
+
+<Button 
+    variant="light" 
+    className="me-2" 
+    onClick={() => {
+        const calendarApi = calendarRef.current.getApi();
+        calendarApi.next();
+        setMesComp(moment(calendarApi.getDate()).format('MMMM YYYY'));
+    }}
+>
+    <ChevronRight />
+</Button>
+                        <Button variant="outline-dark" className="me-2" onClick={handleTodayClick}>
+                            Hoy
+                        </Button>
+                        <span className="fw-bold fs-5 text-secondary ms-2">{mesComp}</span>
                         </div>
                         <div>
                             <Button variant={currentView === 'dayGridMonth' ? 'dark' : 'success'} className="me-2" onClick={() => changeView('dayGridMonth')}>
