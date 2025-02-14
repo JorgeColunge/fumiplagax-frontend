@@ -13,6 +13,7 @@ function EditProfile() {
   const [role, setRole] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [profilePic, setProfilePic] = useState("/images/Logo Fumiplagax.png");
+  const [newPassword, setNewPassword] = useState('');
   const [profileColor, setProfileColor] = useState('#ffffff');
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState('');
@@ -92,7 +93,11 @@ useEffect(() => {
     formData.append('phone', phone);
     formData.append('userId', id);
     formData.append('color', profileColor);
-    formData.append('role', role); // 📌 Aquí se agrega el cargo al FormData
+    formData.append('role', role);
+    
+    if (newPassword.trim() !== '') {
+      formData.append('password', newPassword);
+    }    
     if (selectedFile) {
       formData.append('image', selectedFile);
     }
@@ -225,6 +230,17 @@ useEffect(() => {
                   />
                 </div>
               </div>
+              {/* Nueva casilla de cambio de contraseña */}
+<div className="mb-3">
+  <label className="form-label">Nueva Contraseña</label>
+  <input
+    type="password"
+    className="form-control"
+    placeholder="Ingrese nueva contraseña"
+    value={newPassword}
+    onChange={(e) => setNewPassword(e.target.value)}
+  />
+</div>
               <br></br>
               <div className="text-center">
                 <button type="button" onClick={handleSave} className="btn btn-success me-2">

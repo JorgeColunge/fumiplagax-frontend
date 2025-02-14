@@ -5,7 +5,6 @@ import { initUsersDB, saveUsers, getUsers } from './indexedDBHandler';
 import { Button, Table, InputGroup, FormControl, Modal, Form, Dropdown } from 'react-bootstrap';
 import { PencilSquare, Trash, Envelope, Telephone, Whatsapp, ThreeDots } from 'react-bootstrap-icons';
 import { useNavigate } from 'react-router-dom';
-import './UserList.css';
 import './App.css'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
