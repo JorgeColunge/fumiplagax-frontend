@@ -637,22 +637,24 @@ const InspectionCalendar = () => {
     const fetchScheduleAndServices = async () => {
         try {
             console.log(`Fetching schedule and services for: ${mesComp}`);
-
+    
             const scheduleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule?month=${mesComp}`);
             if (!scheduleResponse.ok) throw new Error('Failed to fetch schedule');
             const scheduleData = await scheduleResponse.json();
-
+    
             console.log('Schedule data received:', scheduleData);
-
+    
             const formattedEvents = await Promise.all(
                 scheduleData.map(async (schedule) => {
                     try {
+                        // 🟢 Buscar información del servicio asociado al evento
                         const serviceResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/services/${schedule.service_id}`);
                         if (!serviceResponse.ok) throw new Error(`Failed to fetch service for ID: ${schedule.service_id}`);
                         const serviceData = await serviceResponse.json();
-
+    
+                        // 🟢 Obtener datos del cliente
                         let clientName = 'Sin empresa';
-                        let clientData;
+                        let clientData = null;
                         if (serviceData.client_id) {
                             try {
                                 const clientResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/clients/${serviceData.client_id}`);
@@ -664,9 +666,10 @@ const InspectionCalendar = () => {
                                 console.error(`Error fetching client for ID: ${serviceData.client_id}`, error);
                             }
                         }
-
+    
+                        // 🟢 Obtener datos del responsable
                         let responsibleName = 'Sin responsable';
-                        let responsibleData;
+                        let responsibleData = null;
                         if (serviceData.responsible) {
                             try {
                                 const responsibleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${serviceData.responsible}`);
@@ -678,14 +681,16 @@ const InspectionCalendar = () => {
                                 console.error(`Error fetching responsible for ID: ${serviceData.responsible}`, error);
                             }
                         }
-
+    
+                        // 🟢 Formatear fechas y datos del evento
                         const start = moment(`${schedule.date.split('T')[0]}T${schedule.start_time}`).toISOString();
                         const end = schedule.end_time
                             ? moment(`${schedule.date.split('T')[0]}T${schedule.end_time}`).toISOString()
                             : null;
-
+    
                         const formattedEvent = {
                             id: schedule.id,
+                            service_id: schedule.service_id,
                             title: `${serviceData.id}`,
                             serviceType: serviceData.service_type || 'Sin tipo',
                             description: serviceData.description || 'Sin descripción',
@@ -707,7 +712,7 @@ const InspectionCalendar = () => {
                             end,
                             allDay: false,
                         };
-
+    
                         return formattedEvent;
                     } catch (error) {
                         console.error(`Error processing schedule with service_id: ${schedule.service_id}`, error);
@@ -715,14 +720,27 @@ const InspectionCalendar = () => {
                     }
                 })
             );
-
+    
+            // 🔥 Filtrar eventos nulos
             const validEvents = formattedEvents.filter(event => event !== null);
-            setAllEvents(validEvents);
-            setEvents(validEvents);
+    
+            // 🚀 Evitar duplicados antes de actualizar el estado
+            const uniqueEvents = validEvents.filter((event, index, self) =>
+                index === self.findIndex((e) =>
+                    e.service_id === event.service_id &&
+                    e.start === event.start &&
+                    e.end === event.end
+                )
+            );
+    
+            setAllEvents(uniqueEvents);
+            setEvents(uniqueEvents);
+    
+            console.log("Eventos final procesados sin duplicados:", uniqueEvents);
         } catch (error) {
             console.error('Error loading schedule and services:', error);
         }
-    };
+    };    
 
     const groupByRole = (users) => {
         return users.reduce((groups, user) => {
@@ -1032,6 +1050,7 @@ const InspectionCalendar = () => {
     
             alert('Eventos agendados con éxito.');
             handleScheduleModalClose();
+            window.location.reload();
         } catch (error) {
             console.error('Error scheduling service:', error);
         }
