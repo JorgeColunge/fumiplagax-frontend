@@ -171,6 +171,15 @@ function EditMyProfile({ userInfo, onProfileUpdate }) {
                 />
               </div>
               <div className="mb-3">
+                <label className="form-label">Teléfono</label>
+                <input
+                  type="tel"
+                  className="form-control"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+                </div>
+              <div className="mb-3">
   <label className="form-label">Nueva Contraseña</label>
   <input
     type="password"

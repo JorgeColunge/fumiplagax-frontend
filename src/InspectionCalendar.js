@@ -946,6 +946,10 @@ const InspectionCalendar = () => {
                 alert('Por favor completa todas las opciones de agendamiento repetitivo.');
                 return;
             }
+            
+            // Normalizar fechas para evitar problemas de comparación
+            const start = moment(repetitiveStartDate).startOf('day');
+            const end = moment(repetitiveEndDate).endOf('day');            
     
             let eventsToSchedule = [];
     
@@ -959,15 +963,15 @@ const InspectionCalendar = () => {
                     while (start.isSameOrBefore(end)) {
                         schedules.forEach((manualSchedule) => { // 🔥 Recorre todos los días seleccionados manualmente
                             switch (repetitionOption) {
-                                case 'allWeekdays': // Todos los días hábiles (lunes a viernes)
-                                    if (![0, 6].includes(start.day())) {
+                                case 'allWeekdays': // Todos los días hábiles (lunes a sábado)
+                                    if (start.day() !== 0) { // Excluye solo el domingo (0)
                                         eventsToSchedule.push({
                                             date: start.clone().format('YYYY-MM-DD'),
                                             start_time: manualSchedule.startTime,
                                             end_time: manualSchedule.endTime,
                                         });
                                     }
-                                    break;
+                                    break;                    
                                 case 'specificDay': // Solo los días específicos seleccionados
                                     if (start.format('dddd') === moment(manualSchedule.date).format('dddd')) {
                                         eventsToSchedule.push({
@@ -977,44 +981,95 @@ const InspectionCalendar = () => {
                                         });
                                     }
                                     break;
-                                case 'firstWeekday': // Primer día específico del mes
-                                    if (
-                                        start.format('dddd') === moment(manualSchedule.date).format('dddd') &&
-                                        start.date() <= 7
-                                    ) {
+                                    case 'firstWeekday': // Primer día específico del mes
+                                    let firstScheduled = false; // Asegurar que se agrega la fecha programada manualmente
+                                    
+                                    while (start.isSameOrBefore(end)) {
+                                        let firstDayOfMonth = start.clone().startOf('month'); // Comienza el primer día del mes
+                                    
+                                        // Busca el primer lunes/martes/miércoles/etc. del mes
+                                        while (firstDayOfMonth.format('dddd') !== moment(manualSchedule.date).format('dddd')) {
+                                            firstDayOfMonth.add(1, 'day'); // Avanza un día hasta encontrarlo
+                                        }
+                                    
+                                        // 🟢 **Corrección: Guardar la inspección programada en el mes actual**
+                                        if (firstDayOfMonth.isSame(moment(manualSchedule.date), 'month') && !firstScheduled) {
+                                            eventsToSchedule.push({
+                                                date: manualSchedule.date, // Fecha original seleccionada
+                                                start_time: manualSchedule.startTime,
+                                                end_time: manualSchedule.endTime,
+                                            });
+                                            firstScheduled = true; // Marcar que la inspección del mes actual ya se guardó
+                                        }
+                                    
+                                        // 🔥 Solo programar en meses futuros
+                                        if (!firstDayOfMonth.isSame(moment(manualSchedule.date), 'month')) {
+                                            eventsToSchedule.push({
+                                                date: firstDayOfMonth.format('YYYY-MM-DD'),
+                                                start_time: manualSchedule.startTime,
+                                                end_time: manualSchedule.endTime,
+                                            });
+                                        }
+                                    
+                                        start.add(1, 'month'); // Avanza al siguiente mes
+                                    }
+                                    break;                                                                 
+                                
+                                    case 'biweekly': // Día específico cada 2 semanas
+                                    let biweeklyStart = moment(repetitiveStartDate);
+                                    let biweeklyEnd = moment(repetitiveEndDate);
+                                
+                                    console.log(`📅 Inicio de programación: ${biweeklyStart.format('YYYY-MM-DD')}`);
+                                    console.log(`📅 Fin de programación: ${biweeklyEnd.format('YYYY-MM-DD')}`);
+                                
+                                    // 🔹 Asegurar que la fecha inicial esté alineada con la repetición
+                                    while (!biweeklyStart.isSame(moment(repetitiveStartDate), 'day') &&
+                                           biweeklyStart.isBefore(moment(repetitiveStartDate))) {
+                                        biweeklyStart.add(2, 'weeks');
+                                    }
+                                
+                                    while (biweeklyStart.isSameOrBefore(biweeklyEnd)) {
+                                        console.log(`\n🔄 Programando eventos para el día: ${biweeklyStart.format('YYYY-MM-DD')}`);
+                                
+                                        schedules.forEach((manualSchedule, index) => {
+                                            let newEvent = {
+                                                date: biweeklyStart.format('YYYY-MM-DD'),
+                                                start_time: manualSchedule.startTime,
+                                                end_time: manualSchedule.endTime,
+                                            };
+                                
+                                            eventsToSchedule.push(newEvent);
+                                
+                                            console.log(`✅ Evento ${index + 1} agregado -> Fecha: ${newEvent.date}, Horario: ${newEvent.start_time} - ${newEvent.end_time}`);
+                                        });
+                                
+                                        biweeklyStart.add(2, 'weeks'); // Avanza exactamente 2 semanas
+                                        console.log(`📌 Avanzando 2 semanas... Nueva fecha: ${biweeklyStart.format('YYYY-MM-DD')}`);
+                                    }
+                                
+                                    console.log(`✅ Programación completada. Total de eventos: ${eventsToSchedule.length}`);
+                                    break;
+                                                                                   
+                                
+                                    case 'lastWeekday': // Último día específico del mes
+                                    while (start.isSameOrBefore(end)) {
+                                        let lastDayOfMonth = start.clone().endOf('month'); // Último día del mes
+                                
+                                        // Retrocede hasta encontrar el último lunes/martes/miércoles/etc. del mes
+                                        while (lastDayOfMonth.format('dddd') !== moment(manualSchedule.date).format('dddd')) {
+                                            lastDayOfMonth.subtract(1, 'day'); // Retrocede un día hasta encontrarlo
+                                        }
+                                
+                                        // Agregar evento sin evitar duplicados
                                         eventsToSchedule.push({
-                                            date: start.clone().format('YYYY-MM-DD'),
+                                            date: lastDayOfMonth.format('YYYY-MM-DD'),
                                             start_time: manualSchedule.startTime,
                                             end_time: manualSchedule.endTime,
                                         });
+                                
+                                        start.add(1, 'month'); // Avanza al siguiente mes
                                     }
-                                    break;
-                                case 'biweekly': // Día específico cada 2 semanas
-                                    if (
-                                        start.format('dddd') === moment(manualSchedule.date).format('dddd') &&
-                                        start.diff(moment(repetitiveStartDate), 'weeks') % 2 === 0
-                                    ) {
-                                        eventsToSchedule.push({
-                                            date: start.clone().format('YYYY-MM-DD'),
-                                            start_time: manualSchedule.startTime,
-                                            end_time: manualSchedule.endTime,
-                                        });
-                                    }
-                                    break;
-                                case 'lastWeekday': // Último día específico del mes
-                                    if (
-                                        start.format('dddd') === moment(manualSchedule.date).format('dddd') &&
-                                        start.isSame(start.clone().endOf('month').day(moment(manualSchedule.date).day()))
-                                    ) {
-                                        eventsToSchedule.push({
-                                            date: start.clone().format('YYYY-MM-DD'),
-                                            start_time: manualSchedule.startTime,
-                                            end_time: manualSchedule.endTime,
-                                        });
-                                    }
-                                    break;
-                                default:
-                                    break;
+                                    break;                                                            
                             }
                         });
                         start.add(1, 'day'); // Avanza al siguiente día
@@ -1040,13 +1095,26 @@ const InspectionCalendar = () => {
             console.log('Eventos a agendar:', newEvents);
     
             // Enviar todos los eventos al backend
-            for (const event of newEvents) {
-                await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(event),
-                });
-            }
+// Filtrar eventos duplicados
+const uniqueEvents = newEvents.filter(
+    (event, index, self) =>
+        index === self.findIndex((e) => e.date === event.date && e.start_time === event.start_time)
+);
+
+console.log('Eventos finales a programar:', uniqueEvents);
+
+// Enviar eventos al backend
+for (const event of uniqueEvents) {
+    try {
+        await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(event),
+        });
+    } catch (error) {
+        console.error(`Error programando el evento en ${event.date}:`, error);
+    }
+}
     
             alert('Eventos agendados con éxito.');
             handleScheduleModalClose();
@@ -1112,12 +1180,15 @@ const InspectionCalendar = () => {
                         slotLabelFormat={{ hour: 'numeric', hour12: true, meridiem: 'short' }}
                         eventContent={renderEventContent}
                         eventClick={handleEventClick}
-                        dayHeaderContent={({ date }) => (
-                            <div className="day-header">
-                                <div className="day-name">{date.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
-                                <div className="day-number font-bold">{date.getDate()}</div>
-                            </div>
-                        )}
+                        dayHeaderContent={({ date }) => {
+                            const utcDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+                            return (
+                                <div className="day-header">
+                                    <div className="day-name">{utcDate.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
+                                    <div className="day-number font-bold">{utcDate.getDate()}</div>
+                                </div>
+                            );
+                        }}                        
                         datesSet={handleDatesSet} // 👈 Ejecuta la función cuando cambian las fechas
                     />
                     </div>
