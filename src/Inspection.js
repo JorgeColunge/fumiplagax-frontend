@@ -2076,7 +2076,7 @@ const handleDeleteFinding = () => {
         <div className="card-body">
           {/* Mostrar solo el botón si no hay firmas */}
           {!techSignaturePreview || !clientSignaturePreview? (
-            userRol !== 'Cliente' && (
+            userRol !== 'Cliente' && userRol !== 'SST' && (
             <div className="text-center">
               <button className="btn btn-outline-success" onClick={() => setSignModalOpen(true)}>
                 Firmar

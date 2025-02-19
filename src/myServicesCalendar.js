@@ -476,31 +476,32 @@ const MyServicesCalendar = () => {
                     </div>
                     <div className="custom-calendar">
                     <FullCalendar
-    ref={calendarRef}
-    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-    initialView={currentView}
-    headerToolbar={false}
-    locale={esLocale}
-    events={events}
-    editable={false}
-    eventStartEditable={false}
-    eventDurationEditable={false}
-    selectable={true}
-    select={handleDateSelect}
-    timeZone="local"
-    height="70vh"
-    nowIndicator={true}
-    slotLabelFormat={{ hour: 'numeric', hour12: true, meridiem: 'short' }}
-    eventContent={renderEventContent}
-    eventClick={handleEventClick}
-    datesSet={handleDatesSet} // 👈 Añadir aquí
-    dayHeaderContent={({ date }) => (
-        <div className="day-header">
-            <div className="day-name text-sm text-gray-500">{date.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
-            <div className="day-number text-lg font-bold">{date.getDate()}</div>
-        </div>
-    )}
-/>
+                        ref={calendarRef}
+                        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                        initialView={currentView}
+                        headerToolbar={false}
+                        locale={esLocale}
+                        events={events}
+                        editable={true}
+                        selectable={true}
+                        select={handleDateSelect}
+                        timeZone="local"
+                        height="70vh"
+                        nowIndicator={true}
+                        slotLabelFormat={{ hour: 'numeric', hour12: true, meridiem: 'short' }}
+                        eventContent={renderEventContent}
+                        eventClick={handleEventClick}
+                        dayHeaderContent={({ date }) => {
+                            const utcDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+                            return (
+                                <div className="day-header">
+                                    <div className="day-name">{utcDate.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
+                                    <div className="day-number font-bold">{utcDate.getDate()}</div>
+                                </div>
+                            );
+                        }}                        
+                        datesSet={handleDatesSet} // 👈 Ejecuta la función cuando cambian las fechas
+                    />
                     </div>
                 </div>
             </div>
