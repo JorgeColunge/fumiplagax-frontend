@@ -6,6 +6,7 @@ import { Card, Col, Row, Button, Table, Modal, Form, ModalTitle } from 'react-bo
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Calendar, Person, Bag, Building, PencilSquare, Trash, Bug, Diagram3, GearFill, Clipboard, PlusCircle, InfoCircle, FileText, GeoAlt, PersonFill } from 'react-bootstrap-icons';
 import { useNavigate, useLocation } from 'react-router-dom';
+import 'bootstrap/dist/css/bootstrap.min.css';
 import ClientInfoModal from './ClientInfoModal'; // Ajusta la ruta según la ubicación del componente
 import './ServiceList.css'
 import { useSocket } from './SocketContext';
@@ -443,9 +444,15 @@ useEffect(() => {
     }
   };
   
-  
-
-  if (loading) return <div>Cargando servicios...</div>;
+  if (loading) {
+    return (
+      <div className="loading-overlay">
+        <div className="spinner-border text-success" role="status">
+          <span className="visually-hidden">Cargando...</span>
+        </div>
+      </div>
+    );
+  }  
 
   return (
     <div className="container mt-2">

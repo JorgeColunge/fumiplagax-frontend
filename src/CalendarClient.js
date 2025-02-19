@@ -19,7 +19,8 @@ import { useLocation } from 'react-router-dom'; // Asegúrate de importar useLoc
 
 const CalendarClient = () => {
     const [events, setEvents] = useState([]);
-    const [allEvents, setAllEvents] = useState([]); // Todos los eventos cargados
+    const [allEvents, setAllEvents] = useState([]);
+    const [loading, setLoading] = useState(false); // Estado para el spinner    
     const [services, setServices] = useState([]);
     const calendarRef = useRef(null);
     const [currentView, setCurrentView] = useState('timeGridWeek');
@@ -616,7 +617,8 @@ const CalendarClient = () => {
 
     const fetchScheduleAndServices = async () => {
         try {
-            console.log('Fetching schedule and services...');
+            setLoading(true); // Activar el spinner antes de cargar datos
+            console.log(`Fetching schedule and services for: ${mesComp}`);    
             
             // Paso 1: Obtén los eventos de la agenda de servicios
             const scheduleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule`);
@@ -726,9 +728,12 @@ const CalendarClient = () => {
             setAllEvents(validEvents);
             setEvents(validEvents);
             console.log('Events set in state:', validEvents);
+            setLoading(false); // Desactivar el spinner después de la carga
     
         } catch (error) {
             console.error('Error loading schedule and services:', error);
+        }finally {
+            setLoading(false); // Desactivar el spinner incluso si hay un error
         }
     };
 
@@ -1028,50 +1033,68 @@ const CalendarClient = () => {
         } catch (error) {
             console.error('Error scheduling service:', error);
         }
-    };        
+    };     
+    
+    const handleDatesSet = (dateInfo) => {
+        console.log("Rango de fechas actualizado:", dateInfo.start, dateInfo.end);
+    
+        // Actualiza el mes en el estado cuando cambien las fechas del calendario
+        setMesComp(moment(dateInfo.start).format('MMMM YYYY'));
+    };    
 
     return (
         <div className="d-flex">
+            {loading && (
+                <div className="loading-overlay">
+                    <div className="spinner-border text-primary" role="status">
+                        <span className="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            )}
+    
             {/* Contenedor principal */}
             <div className="calendar-container flex-grow-1">
                 <div className="card p-4 shadow-sm">
                     <div className="card-header d-flex justify-content-between align-items-center">
                         <div>
                         <Button 
-    variant="light" 
-    className="me-2" 
-    onClick={() => {
-        const calendarApi = calendarRef.current.getApi();
-        calendarApi.prev();
-        setMesComp(moment(calendarApi.getDate()).format('MMMM YYYY')); // Actualiza mesComp
-    }}
->
-    <ChevronLeft />
-</Button>
+                        variant="light" 
+                        className="me-2" 
+                        onClick={async () => {
+                            setLoading(true); // Activar el spinner antes de cambiar el mes
+                            const calendarApi = calendarRef.current.getApi();
+                            calendarApi.prev();
+                            setMesComp(moment(calendarApi.getDate()).format('MMMM YYYY'));
+                            await fetchScheduleAndServices(); // Cargar nuevos eventos
+                            setLoading(false); // Desactivar el spinner después de la carga
+                        }}
+                    >
+                        <ChevronLeft />
+                    </Button>
 
-<Button 
-    variant="light" 
-    className="me-2" 
-    onClick={() => {
-        const calendarApi = calendarRef.current.getApi();
-        calendarApi.next();
-        setMesComp(moment(calendarApi.getDate()).format('MMMM YYYY')); // Actualiza mesComp
-    }}
->
-    <ChevronRight />
-</Button>
+                    <Button 
+                        variant="light" 
+                        className="me-2" 
+                        onClick={() => {
+                            const calendarApi = calendarRef.current.getApi();
+                            calendarApi.next();
+                            setMesComp(moment(calendarApi.getDate()).format('MMMM YYYY')); // Actualiza mesComp
+                        }}
+                    >
+                        <ChevronRight />
+                    </Button>
 
-<Button 
-    variant="light" 
-    className="me-2" 
-    onClick={() => {
-        const calendarApi = calendarRef.current.getApi();
-        calendarApi.next();
-        setMesComp(moment(calendarApi.getDate()).format('MMMM YYYY'));
-    }}
->
-    <ChevronRight />
-</Button>
+                    <Button 
+                        variant="light" 
+                        className="me-2" 
+                        onClick={() => {
+                            const calendarApi = calendarRef.current.getApi();
+                            calendarApi.next();
+                            setMesComp(moment(calendarApi.getDate()).format('MMMM YYYY'));
+                        }}
+                    >
+                        <ChevronRight />
+                    </Button>
                         <Button variant="outline-dark" className="me-2" onClick={handleTodayClick}>
                             Hoy
                         </Button>
@@ -1120,12 +1143,16 @@ const CalendarClient = () => {
                             slotLabelFormat={{ hour: 'numeric', hour12: true, meridiem: 'short' }}
                             eventContent={renderEventContent}
                             eventClick={handleEventClick}
-                            dayHeaderContent={({ date }) => (
-                                <div className="day-header">
-                                    <div className="day-name">{date.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
-                                    <div className="day-number font-bold">{date.getDate()}</div>
-                                </div>
-                            )}
+                            dayHeaderContent={({ date }) => {
+                                const utcDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+                                return (
+                                    <div className="day-header">
+                                        <div className="day-name">{utcDate.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
+                                        <div className="day-number font-bold">{utcDate.getDate()}</div>
+                                    </div>
+                                );
+                            }}                        
+                            datesSet={handleDatesSet} // 👈 Ejecuta la función cuando cambian las fechas
                         />
                     </div>
                 </div>

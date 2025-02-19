@@ -776,7 +776,16 @@ const handleCustomInterventionAreaChange = (e) => {
   };
   
 
-  if (loading) return <div>Cargando servicios...</div>;
+  if (loading) {
+    return (
+      <div className="loading-overlay">
+        <div className="spinner-border text-success" role="status">
+          <span className="visually-hidden">Cargando...</span>
+        </div>
+      </div>
+    );
+  }
+  
 
   const handleCompanionChange = (e) => {
     const { value, checked } = e.target;

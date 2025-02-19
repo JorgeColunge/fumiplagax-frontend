@@ -20,6 +20,7 @@ import { useSocket } from './SocketContext';
 const InspectionCalendar = () => {
     const [events, setEvents] = useState([]);
     const [allEvents, setAllEvents] = useState([]); // Todos los eventos cargados
+    const [isLoading, setIsLoading] = useState(false); // Nuevo estado para el spinner
     const [mesComp, setMesComp] = useState(moment().format('MM/YYYY')); // Estado para mesComp
     const [services, setServices] = useState([]);
     const calendarRef = useRef(null);
@@ -90,17 +91,19 @@ const InspectionCalendar = () => {
     }, [location.search, services]); // Ejecuta el efecto cuando cambie la URL o los servicios
 
     const handleDatesSet = (dateInfo) => {
-        const newMesComp = moment(dateInfo.view.currentStart).format('MM/YYYY'); // Formato mm/aaaa
-        const viewType = dateInfo.view.type; // Tipo de vista actual
+        const newMesComp = moment(dateInfo.view.currentStart).format('MMMM YYYY'); // Formato 'Mes Año'
+        
+        // Capitalizar la primera letra del mes (Moment.js devuelve en minúsculas en español)
+        const formattedMesComp = newMesComp.charAt(0).toUpperCase() + newMesComp.slice(1);
         
         // Verifica si ha cambiado el mes y actualiza el estado
-        if (mesComp !== newMesComp) {
-            console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${newMesComp}`);
-            setMesComp(newMesComp); // Actualiza el estado y dispara `useEffect`
+        if (mesComp !== formattedMesComp) {
+            console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${formattedMesComp}`);
+            setMesComp(formattedMesComp);
         } else {
-            console.log(`📅 Estás viendo el mes de: ${newMesComp}`);
+            console.log(`📅 Estás viendo el mes de: ${formattedMesComp}`);
         }
-    };    
+    };       
 
     useEffect(() => {
         if (showEventModal && selectedEvent) {
@@ -636,6 +639,7 @@ const InspectionCalendar = () => {
 
     const fetchScheduleAndServices = async () => {
         try {
+            setIsLoading(true); // Activar el spinner antes de la carga
             console.log(`Fetching schedule and services for: ${mesComp}`);
     
             const scheduleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule?month=${mesComp}`);
@@ -737,8 +741,11 @@ const InspectionCalendar = () => {
             setEvents(uniqueEvents);
     
             console.log("Eventos final procesados sin duplicados:", uniqueEvents);
+            setIsLoading(false); // Desactivar el spinner después de cargar los datos
         } catch (error) {
             console.error('Error loading schedule and services:', error);
+        } finally {
+            setIsLoading(false); // Desactivar el spinner incluso si hay un error
         }
     };    
 
@@ -949,7 +956,9 @@ const InspectionCalendar = () => {
             
             // Normalizar fechas para evitar problemas de comparación
             const start = moment(repetitiveStartDate).startOf('day');
-            const end = moment(repetitiveEndDate).endOf('day');            
+            const end = moment(repetitiveEndDate).endOf('day');       
+            
+            setIsLoading(true); // 🔄 Activar spinner al iniciar
     
             let eventsToSchedule = [];
     
@@ -1095,56 +1104,66 @@ const InspectionCalendar = () => {
             console.log('Eventos a agendar:', newEvents);
     
             // Enviar todos los eventos al backend
-// Filtrar eventos duplicados
-const uniqueEvents = newEvents.filter(
-    (event, index, self) =>
-        index === self.findIndex((e) => e.date === event.date && e.start_time === event.start_time)
-);
+                // Filtrar eventos duplicados
+                const uniqueEvents = newEvents.filter(
+                    (event, index, self) =>
+                        index === self.findIndex((e) => e.date === event.date && e.start_time === event.start_time)
+                );
 
-console.log('Eventos finales a programar:', uniqueEvents);
+                console.log('Eventos finales a programar:', uniqueEvents);
 
-// Enviar eventos al backend
-for (const event of uniqueEvents) {
-    try {
-        await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(event),
-        });
-    } catch (error) {
-        console.error(`Error programando el evento en ${event.date}:`, error);
-    }
-}
+                // Enviar eventos al backend
+                for (const event of uniqueEvents) {
+                    try {
+                        await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(event),
+                        });
+                    } catch (error) {
+                        console.error(`Error programando el evento en ${event.date}:`, error);
+                    }
+                }
+                    
+                            alert('Eventos agendados con éxito.');
+                            handleScheduleModalClose();
+                            window.location.reload();
+                        } catch (error) {
+                            console.error('Error scheduling service:', error);
+                        }finally {
+                            setIsLoading(false); // ✅ Desactivar spinner al finalizar (éxito o error)
+                        }
+                    };    
     
-            alert('Eventos agendados con éxito.');
-            handleScheduleModalClose();
-            window.location.reload();
-        } catch (error) {
-            console.error('Error scheduling service:', error);
-        }
-    };    
-    
-    return (
-        <div className="d-flex">
-            {/* Contenedor principal */}
-            <div className="calendar-container flex-grow-1">
-                <div className="card p-4 shadow-sm">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                    <div>
-    <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().prev()}>
-        <ChevronLeft />
-    </Button>
-    <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().next()}>
-        <ChevronRight />
-    </Button>
-    <Button variant="outline-dark" className="me-2" onClick={handleTodayClick}>
-        Hoy
-    </Button>
-    {/* Mostrar el mes y año actual */}
-    <span className="fw-bold ms-3" style={{ fontSize: "1.2rem" }}>
-        {mesComp}
-    </span>
-</div>
+                            return (
+                                <div className="d-flex">
+                                    {isLoading && (
+                                        <div className="loading-overlay">
+                                            <div className="spinner-border text-primary" role="status">
+                                                <span className="visually-hidden">Cargando...</span>
+                                            </div>
+                                        </div>
+                                    )}
+                            
+                                    {/* Contenedor principal */}
+                                    <div className="calendar-container flex-grow-1">
+                                        <div className="card p-4 shadow-sm">
+                                            <div className="card-header d-flex justify-content-between align-items-center">
+                                            <div>
+                            <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().prev()}>
+                                <ChevronLeft />
+                            </Button>
+                            <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().next()}>
+                                <ChevronRight />
+                            </Button>
+                            <Button variant="outline-dark" className="me-2" onClick={handleTodayClick}>
+                                Hoy
+                            </Button>
+                            {/* Mostrar el mes y año actual */}
+                            <span className="fw-bold ms-3" style={{ fontSize: "1.2rem" }}>
+                                {mesComp}
+                            </span>
+                        </div>
 
                         <div>
                             <Button variant={currentView === 'dayGridMonth' ? 'dark' : 'success'} className="me-2" onClick={() => changeView('dayGridMonth')}>
@@ -1385,45 +1404,55 @@ for (const event of uniqueEvents) {
                                 <Form.Group controlId="formRepetitionOption" className="mb-3">
                                     <Form.Label>Repetir</Form.Label>
                                     <Form.Select
-    value={repetitionOption}
-    onChange={(e) => setRepetitionOption(e.target.value)}
->
-    <option value="">Selecciona una opción</option>
-    <option value="allWeekdays">Todos los días hábiles</option>
-    <option value="specificDay">
-    Todos los {schedules.map(s => moment(s.date).format('dddd')).join(', ')}
-    </option>
-    <option value="firstWeekday">
-        Primer {moment(schedules[0]?.date).format('dddd')} del mes
-    </option>
-    <option value="biweekly">
-        {moment(schedules[0]?.date).format('dddd')} cada 2 semanas
-    </option>
-    <option value="lastWeekday">
-        Último {moment(schedules[0]?.date).format('dddd')} del mes
-    </option>
-</Form.Select>
+                                value={repetitionOption}
+                                onChange={(e) => setRepetitionOption(e.target.value)}
+                            >
+                                <option value="">Selecciona una opción</option>
+                                <option value="allWeekdays">Todos los días hábiles</option>
+                                <option value="specificDay">
+                                Todos los {schedules.map(s => moment(s.date).format('dddd')).join(', ')}
+                                </option>
+                                <option value="firstWeekday">
+                                    Primer {moment(schedules[0]?.date).format('dddd')} del mes
+                                </option>
+                                <option value="biweekly">
+                                    {moment(schedules[0]?.date).format('dddd')} cada 2 semanas
+                                </option>
+                                <option value="lastWeekday">
+                                    Último {moment(schedules[0]?.date).format('dddd')} del mes
+                                </option>
+                            </Form.Select>
                                 </Form.Group>
                             </div>
+                                )}
+                            </>
                         )}
-                    </>
-                )}
-                </Modal.Body>
-                <Modal.Footer>
-                <Button
-    variant="outline-primary"
-    onClick={() => {
-        setSchedules([...schedules, {
-            date: moment().format('YYYY-MM-DD'),
-            startTime: moment().format('HH:mm'),
-            endTime: moment().add(1, 'hour').format('HH:mm'),
-        }]);
-    }}
->
-    Seguir Agendando
-</Button>
-                <Button variant="secondary" onClick={handleScheduleModalClose}>Cancelar</Button>
-                <Button variant="success" onClick={handleScheduleService} disabled={!!scheduleConflictMessage}>Guardar</Button>
+                        </Modal.Body>
+                        <Modal.Footer>
+                        <Button
+                                variant="outline-primary"
+                                onClick={() => {
+                                    setSchedules([...schedules, {
+                                        date: moment().format('YYYY-MM-DD'),
+                                        startTime: moment().format('HH:mm'),
+                                        endTime: moment().add(1, 'hour').format('HH:mm'),
+                                    }]);
+                                }}
+                            >
+                                Seguir Agendando
+                            </Button>
+                                            <Button variant="secondary" onClick={handleScheduleModalClose}>Cancelar</Button>
+                                            <Button variant="success" onClick={handleScheduleService} disabled={isLoading || !!scheduleConflictMessage}>
+                                {isLoading ? (
+                                    <>
+                                        <span className="spinner-border spinner-border-sm me-2"></span>
+                                        Guardando...
+                                    </>
+                                ) : (
+                                    "Guardar"
+                                )}
+                            </Button>
+
             </Modal.Footer>
             </Modal>
 
