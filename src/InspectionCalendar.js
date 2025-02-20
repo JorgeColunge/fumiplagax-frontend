@@ -91,19 +91,17 @@ const InspectionCalendar = () => {
     }, [location.search, services]); // Ejecuta el efecto cuando cambie la URL o los servicios
 
     const handleDatesSet = (dateInfo) => {
-        const newMesComp = moment(dateInfo.view.currentStart).format('MMMM YYYY'); // Formato 'Mes Año'
-        
-        // Capitalizar la primera letra del mes (Moment.js devuelve en minúsculas en español)
-        const formattedMesComp = newMesComp.charAt(0).toUpperCase() + newMesComp.slice(1);
+        const newMesComp = moment(dateInfo.view.currentStart).format('MM/YYYY'); // Formato mm/aaaa
+        const viewType = dateInfo.view.type; // Tipo de vista actual
         
         // Verifica si ha cambiado el mes y actualiza el estado
-        if (mesComp !== formattedMesComp) {
-            console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${formattedMesComp}`);
-            setMesComp(formattedMesComp);
+        if (mesComp !== newMesComp) {
+            console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${newMesComp}`);
+            setMesComp(newMesComp); // Actualiza el estado y dispara `useEffect`
         } else {
-            console.log(`📅 Estás viendo el mes de: ${formattedMesComp}`);
+            console.log(`📅 Estás viendo el mes de: ${newMesComp}`);
         }
-    };       
+    };    
 
     useEffect(() => {
         if (showEventModal && selectedEvent) {
@@ -972,15 +970,15 @@ const InspectionCalendar = () => {
                     while (start.isSameOrBefore(end)) {
                         schedules.forEach((manualSchedule) => { // 🔥 Recorre todos los días seleccionados manualmente
                             switch (repetitionOption) {
-                                case 'allWeekdays': // De lunes a viernes
-                                if (start.day() !== 0 && start.day() !== 6) { // Excluye domingo (0) y sábado (6)
-                                    eventsToSchedule.push({
-                                        date: start.clone().format('YYYY-MM-DD'),
-                                        start_time: manualSchedule.startTime,
-                                        end_time: manualSchedule.endTime,
-                                    });
-                                }
-                                break;                                            
+                                case 'allWeekdays': // Solo de lunes a viernes
+                                    if (start.day() >= 1 && start.day() <= 5) { // Excluye sábados (6) y domingos (0)
+                                        eventsToSchedule.push({
+                                            date: start.clone().format('YYYY-MM-DD'),
+                                            start_time: manualSchedule.startTime,
+                                            end_time: manualSchedule.endTime,
+                                        });
+                                    }
+                                    break;                            
                                 case 'specificDay': // Solo los días específicos seleccionados
                                     if (start.format('dddd') === moment(manualSchedule.date).format('dddd')) {
                                         eventsToSchedule.push({
@@ -1445,7 +1443,6 @@ const InspectionCalendar = () => {
                                             <Button variant="success" onClick={handleScheduleService} disabled={isLoading || !!scheduleConflictMessage}>
                                 {isLoading ? (
                                     <>
-                                        <span className="spinner-border spinner-border-sm me-2"></span>
                                         Guardando...
                                     </>
                                 ) : (
