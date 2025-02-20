@@ -972,15 +972,15 @@ const InspectionCalendar = () => {
                     while (start.isSameOrBefore(end)) {
                         schedules.forEach((manualSchedule) => { // 🔥 Recorre todos los días seleccionados manualmente
                             switch (repetitionOption) {
-                                case 'allWeekdays': // Todos los días hábiles (lunes a sábado)
-                                    if (start.day() !== 0) { // Excluye solo el domingo (0)
-                                        eventsToSchedule.push({
-                                            date: start.clone().format('YYYY-MM-DD'),
-                                            start_time: manualSchedule.startTime,
-                                            end_time: manualSchedule.endTime,
-                                        });
-                                    }
-                                    break;                    
+                                case 'allWeekdays': // De lunes a viernes
+                                if (start.day() !== 0 && start.day() !== 6) { // Excluye domingo (0) y sábado (6)
+                                    eventsToSchedule.push({
+                                        date: start.clone().format('YYYY-MM-DD'),
+                                        start_time: manualSchedule.startTime,
+                                        end_time: manualSchedule.endTime,
+                                    });
+                                }
+                                break;                                            
                                 case 'specificDay': // Solo los días específicos seleccionados
                                     if (start.format('dddd') === moment(manualSchedule.date).format('dddd')) {
                                         eventsToSchedule.push({
