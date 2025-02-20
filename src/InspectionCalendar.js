@@ -21,12 +21,10 @@ const InspectionCalendar = () => {
     const [events, setEvents] = useState([]);
     const [allEvents, setAllEvents] = useState([]); // Todos los eventos cargados
     const [isLoading, setIsLoading] = useState(false); // Nuevo estado para el spinner
-    const [mesComp, setMesComp] = useState(moment().format('MM/YYYY'));
-    const mesCompNom = moment(mesComp, 'MM/YYYY').format('MMMM YYYY'); // ✅ Nuevo formato con nombre del mes
+    const [mesComp, setMesComp] = useState(moment().format('MM/YYYY')); // Estado para mesComp
     const [services, setServices] = useState([]);
     const calendarRef = useRef(null);
     const [currentView, setCurrentView] = useState('timeGridWeek');
-    const [searchTerm, setSearchTerm] = useState(''); // Estado para el buscador
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const [selectedService, setSelectedService] = useState('');
     const [selectedEvent, setSelectedEvent] = useState(null); // Evento seleccionado
@@ -93,17 +91,19 @@ const InspectionCalendar = () => {
     }, [location.search, services]); // Ejecuta el efecto cuando cambie la URL o los servicios
 
     const handleDatesSet = (dateInfo) => {
-        const newMesComp = moment(dateInfo.view.currentStart).format('MM/YYYY'); // Formato mm/aaaa
-        const viewType = dateInfo.view.type; // Tipo de vista actual
-    
+        const newMesComp = moment(dateInfo.view.currentStart).format('MMMM YYYY'); // Formato 'Mes Año'
+        
+        // Capitalizar la primera letra del mes (Moment.js devuelve en minúsculas en español)
+        const formattedMesComp = newMesComp.charAt(0).toUpperCase() + newMesComp.slice(1);
+        
         // Verifica si ha cambiado el mes y actualiza el estado
-        if (mesComp !== newMesComp) {
-            console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${newMesComp}`);
-            setMesComp(newMesComp); // ✅ Actualiza el estado y `mesCompNom` se actualizará automáticamente
+        if (mesComp !== formattedMesComp) {
+            console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${formattedMesComp}`);
+            setMesComp(formattedMesComp);
         } else {
-            console.log(`📅 Estás viendo el mes de: ${moment(newMesComp, 'MM/YYYY').format('MMMM YYYY')}`);
+            console.log(`📅 Estás viendo el mes de: ${formattedMesComp}`);
         }
-    };      
+    };       
 
     useEffect(() => {
         if (showEventModal && selectedEvent) {
@@ -972,16 +972,15 @@ const InspectionCalendar = () => {
                     while (start.isSameOrBefore(end)) {
                         schedules.forEach((manualSchedule) => { // 🔥 Recorre todos los días seleccionados manualmente
                             switch (repetitionOption) {
-                                case 'allWeekdays': // Solo de lunes a viernes
-                                    if (start.day() >= 1 && start.day() <= 5) { // Excluye sábados (6) y domingos (0)
-                                        eventsToSchedule.push({
-                                            date: start.clone().format('YYYY-MM-DD'),
-                                            start_time: manualSchedule.startTime,
-                                            end_time: manualSchedule.endTime,
-                                        });
-                                    }
-                                    break;
-                            }                                                
+                                case 'allWeekdays': // De lunes a viernes
+                                if (start.day() !== 0 && start.day() !== 6) { // Excluye domingo (0) y sábado (6)
+                                    eventsToSchedule.push({
+                                        date: start.clone().format('YYYY-MM-DD'),
+                                        start_time: manualSchedule.startTime,
+                                        end_time: manualSchedule.endTime,
+                                    });
+                                }
+                                break;                                            
                                 case 'specificDay': // Solo los días específicos seleccionados
                                     if (start.format('dddd') === moment(manualSchedule.date).format('dddd')) {
                                         eventsToSchedule.push({
@@ -1161,9 +1160,9 @@ const InspectionCalendar = () => {
                                 Hoy
                             </Button>
                             {/* Mostrar el mes y año actual */}
-                            <span className="fw-bold ms-3" style={{ fontSize: "1.2rem", textTransform: "capitalize" }}>
-                            {mesCompNom}
-                        </span>
+                            <span className="fw-bold ms-3" style={{ fontSize: "1.2rem" }}>
+                                {mesComp}
+                            </span>
                         </div>
 
                         <div>
@@ -1236,7 +1235,6 @@ const InspectionCalendar = () => {
                     >
                     <div className="flex-grow-1 text-center text-dark fw-bold">Todos</div>
                     </div>
-                        {/* 🔍 Campo de búsqueda */}
                         {Object.entries(groupByRole(users)).map(([role, roleUsers]) => (
                             <div key={role} className="mb-4">
                                 <h6 className="text-secondary text-uppercase">{role}</h6>
