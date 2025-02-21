@@ -1294,11 +1294,15 @@ const InspectionCalendar = () => {
                                     marginBottom: '5px',
                                 }}
                             />
-                            <div>
-                                <strong style={{ fontSize: '14px', color: '#333' }}>{user.name}</strong>
-                                <br />
-                                <small style={{ fontSize: '12px', color: '#666' }}>{user.rol}</small>
-                            </div>
+                        <div style={{ textAlign: 'center' }}>  {/* 👈 Asegura que el texto esté centrado */}
+                            <strong style={{ fontSize: '14px', color: '#333', display: 'block' }}>
+                                {user.name}  {/* 👈 Nombre en una línea */}
+                            </strong>
+                            <span style={{ fontSize: '14px', color: '#666', display: 'block' }}>
+                                {user.lastname}  {/* 👈 Apellido en otra línea */}
+                            </span>
+                            <small style={{ fontSize: '12px', color: '#888' }}>{user.rol}</small>
+                        </div>
                         </div>
                     ))}
                 </div>
