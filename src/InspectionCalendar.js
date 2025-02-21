@@ -1571,7 +1571,7 @@ const InspectionCalendar = () => {
                                     {selectedEvent.category === "Periódico" && (
                                         <p><strong>Cantidad al Mes:</strong> {selectedEvent.quantyPerMonth}</p>
                                     )}
-                                    <p><strong>Valor:</strong> ${selectedEvent.value}</p> {/* Agrega el valor si está disponible */}
+                                    <p><strong>Valor:</strong> {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(selectedEvent.value)}</p>
                                 </div>
                             </div>
 
