@@ -304,6 +304,11 @@ a {
 /* Estilo del ID del evento */
 .event-id {
     font-weight: bold; /* Negrita para el ID */
+    font-size: 12px;
+}
+
+.event-client {
+    font-weight: bold; /* Negrita para el ID */
 }
 
 /* Estilo de las horas */
