@@ -1024,44 +1024,6 @@ const dataURLtoBlob = (dataURL) => {
     setUnsavedRoute(location.pathname);
   };
 
-  const saveStationFindingOffline = async (stationId, finding) => {
-    const db = await initDB();
-    const tx = db.transaction("stationFindings", "readwrite");
-    const store = tx.objectStore("stationFindings");
-  
-    await store.put({
-      id: stationId,
-      ...finding,
-      photoBlob: finding.photoBlob ? new Blob([finding.photoBlob], { type: "image/jpeg" }) : null,
-    });
-  
-    await tx.done;
-    console.log("Hallazgo guardado offline para estación:", stationId);
-  };  
-
-  const syncStationFindings = async () => {
-    const db = await initDB();
-    const tx = db.transaction("stationFindings", "readonly");
-    const store = tx.objectStore("stationFindings");
-    const findings = await store.getAll();
-  
-    for (const finding of findings) {
-      const formData = new FormData();
-      formData.append("stationId", finding.id);
-      formData.append("description", finding.description || "");
-      if (finding.photoBlob) {
-        formData.append("photo", finding.photoBlob, `${finding.id}.jpg`);
-      }
-  
-      try {
-        await api.post("/station/findings", formData);
-        console.log(`Hallazgo sincronizado para estación: ${finding.id}`);
-      } catch (error) {
-        console.error(`Error al sincronizar hallazgo para estación ${finding.id}:`, error);
-      }
-    }
-  }; 
-
   // Manejador de estado de colapso
 const handleCollapseToggle = (currentKey) => {
   setCollapseStates({ [currentKey]: !collapseStates[currentKey] }); // Solo permite un hallazgo expandido
@@ -1160,12 +1122,9 @@ const handleDeleteFinding = () => {
 
   const parsedInspectionTypes = inspection_type
   ? [
-      ...inspection_type.split(",").map((type) => type.trim()), 
-      "Observaciones Cliente", 
-      "Observaciones Inspector", 
-      "Observaciones SST"
+      ...inspection_type.split(",").map((type) => type.trim())
     ]
-  : ["Observaciones Cliente", "Observaciones Inspector", "Observaciones SST"];
+  : [];
 
   return (
     <div className="container mt-4">
@@ -2003,65 +1962,65 @@ const handleDeleteFinding = () => {
             </button>
             {type !== 'Observaciones Cliente' && type !== 'Observaciones Inspector' && type !== 'Observaciones SST' && (
   <>
-    {/* Producto */}
-    <hr></hr>
-    <h6 className='mt-2'>Producto</h6>
-    <div className="row" style={{ minHeight: 0, height: 'auto' }}>
+                {/* Producto */}
+                <hr></hr>
+                <h6 className='mt-2'>Producto</h6>
+                <div className="row" style={{ minHeight: 0, height: 'auto' }}>
 
-  {/* Selección de Producto */}
-  <div className="col-md-6 mb-3">
-  <label className="form-label">Producto</label>
-  <select
-  id={`product-${type}`}
-  className="form-select"
-  value={productsByType[type]?.product || ''}
-  onChange={(e) => {
-    const selectedProductName = e.target.value;
-    const selectedProduct = getFilteredProducts(type).find(
-      (product) => product.name === selectedProductName
-    );
+              {/* Selección de Producto */}
+              <div className="col-md-6 mb-3">
+              <label className="form-label">Producto</label>
+              <select
+              id={`product-${type}`}
+              className="form-select"
+              value={productsByType[type]?.product || ''}
+              onChange={(e) => {
+                const selectedProductName = e.target.value;
+                const selectedProduct = getFilteredProducts(type).find(
+                  (product) => product.name === selectedProductName
+                );
 
-    handleProductChange(type, 'product', selectedProductName);
-    handleProductChange(type, 'unit', selectedProduct?.unity || ''); // Asegura que la unidad se actualiza
-  }}
-  disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
->
-  <option value="">Seleccione un producto</option>
-  {getFilteredProducts(type).map((product) => (
-    <option key={product.id} value={product.name}>
-      {product.name}
-    </option>
-  ))}
-</select>
-</div>
+                handleProductChange(type, 'product', selectedProductName);
+                handleProductChange(type, 'unit', selectedProduct?.unity || ''); // Asegura que la unidad se actualiza
+              }}
+              disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+            >
+              <option value="">Seleccione un producto</option>
+              {getFilteredProducts(type).map((product) => (
+                <option key={product.id} value={product.name}>
+                  {product.name}
+                </option>
+              ))}
+            </select>
+            </div>
 
-{/* Entrada de Dosificación */}
-<div className="col-md-4 mb-3">
-  <label className="form-label">Dosificación</label>
-  <input
-    id={`dosage-${type}`}
-    type="number"
-    className="form-control"
-    value={productsByType[type]?.dosage || ''}
-    onChange={(e) => handleProductChange(type, 'dosage', e.target.value)}
-    placeholder="Ingrese la dosificación"
-    disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
-  />
-</div>
+            {/* Entrada de Dosificación */}
+            <div className="col-md-4 mb-3">
+              <label className="form-label">Dosificación</label>
+              <input
+                id={`dosage-${type}`}
+                type="number"
+                className="form-control"
+                value={productsByType[type]?.dosage || ''}
+                onChange={(e) => handleProductChange(type, 'dosage', e.target.value)}
+                placeholder="Ingrese la dosificación"
+                disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+              />
+            </div>
 
-{/* Unidad del Producto */}
-<div className="col-md-2 mb-3">
-  <label className="form-label">Unidad</label>
-  <input
-    id={`unit-${type}`}
-    type="text"
-    className="form-control"
-    value={productsByType[type]?.unit || ''}
-    readOnly
-    placeholder="Unidad"
-  />
-</div>
-</div>
+            {/* Unidad del Producto */}
+            <div className="col-md-2 mb-3">
+              <label className="form-label">Unidad</label>
+              <input
+                id={`unit-${type}`}
+                type="text"
+                className="form-control"
+                value={productsByType[type]?.unit || ''}
+                readOnly
+                placeholder="Unidad"
+              />
+            </div>
+            </div>
 
             </>
            )}

@@ -2,8 +2,53 @@ import { openDB } from 'idb';
 import api from './Api';
 import axios from 'axios';
 
+// Solicitar almacenamiento persistente y mostrar detalles de almacenamiento
+const requestPersistentStorage = async () => {
+  if (navigator.storage && navigator.storage.persist) {
+    console.log("🟢 Verificando si el almacenamiento ya es persistente...");
+    const isPersisted = await navigator.storage.persisted();
+
+    if (!isPersisted) {
+      try {
+        const granted = await navigator.storage.persist();
+        console.log(granted 
+          ? "✅ Almacenamiento persistente concedido con éxito." 
+          : "❌ No se pudo establecer almacenamiento persistente.");
+
+        if (!granted) {
+          console.warn("🔍 Posibles razones del rechazo:");
+          console.warn("1️⃣ El usuario no ha interactuado lo suficiente con la app.");
+          console.warn("2️⃣ La app no está instalada como PWA.");
+          console.warn("3️⃣ El sitio no está en HTTPS (excepto localhost).");
+          console.warn("4️⃣ Restricciones del navegador o modo incógnito.");
+          console.warn("5️⃣ No se ha alcanzado el umbral de uso de almacenamiento.");
+        }
+      } catch (error) {
+        console.error("❌ Error al solicitar almacenamiento persistente:", error);
+        return false;
+      }
+    } else {
+      console.log("✅ El almacenamiento YA era persistente.");
+    }
+
+    // Obtener detalles de almacenamiento
+    if (navigator.storage && navigator.storage.estimate) {
+      const estimate = await navigator.storage.estimate();
+      console.log(`📊 Cuota total: ${(estimate.quota / 1024 / 1024).toFixed(2)} MB`);
+      console.log(`📦 Espacio usado: ${(estimate.usage / 1024 / 1024).toFixed(2)} MB`);
+      console.log(`💾 Uso: ${(estimate.usage / estimate.quota * 100).toFixed(2)}%`);
+    }
+
+    return isPersisted;
+  } else {
+    console.warn("❌ El navegador NO soporta `navigator.storage.persist()`.");
+    return false;
+  }
+};
+
 // Inicializar IndexedDB para los usuarios
 export const initUsersDB = async () => {
+    await requestPersistentStorage();
     return openDB('offline-ddbb', 3, { // Incrementa la versión a 3
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
@@ -19,15 +64,7 @@ export const initUsersDB = async () => {
     });
   };
 
-  export const initDB = async () => {
-    return openDB('offline-ddbb', 3, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains('stationFindings')) {
-          db.createObjectStore('stationFindings', { keyPath: 'id' });
-        }
-      },
-    });
-  };
+  
 
   const getImageUrl = (image) => {
     if (!image) return null;
@@ -73,7 +110,7 @@ export const initUsersDB = async () => {
 
     // Ahora guarda los usuarios en IndexedDB
     const db = await initUsersDB();
-    const tx = db.transaction('users', 'readwrite');
+    const tx = db.transaction('users', 'readwrite', { durability: 'strict' });
     const store = tx.objectStore('users');
   
     // Las operaciones de IndexedDB son rápidas y síncronas
@@ -148,7 +185,7 @@ export const initUsersDB = async () => {
           console.log(`Usuario sincronizado correctamente: ${user.id}`);
   
           // Actualiza el estado del usuario en IndexedDB
-          const tx = db.transaction('users', 'readwrite');
+          const tx = db.transaction('users', 'readwrite', { durability: 'strict' });
           const store = tx.objectStore('users');
           user.synced = true; // Marca como sincronizado
           await store.put(user);
@@ -177,7 +214,7 @@ export const initUsersDB = async () => {
             const serverUserIds = new Set(serverUsers.map(user => user.id));
 
             // Eliminar usuarios de IndexedDB que no están en el servidor
-            const tx = db.transaction('users', 'readwrite');
+            const tx = db.transaction('users', 'readwrite', { durability: 'strict' });
             const store = tx.objectStore('users');
             for (const user of usersInDB) {
                 if (!serverUserIds.has(user.id)) { // Si el ID no está en el servidor, eliminarlo
@@ -201,6 +238,7 @@ export const initUsersDB = async () => {
 
 // Inicializa IndexedDB para perfiles
 export const initProfileDB = async () => {
+    await requestPersistentStorage();
     return openDB('offline-profile', 3, {
         upgrade(db) {
             if (!db.objectStoreNames.contains('profile')) {
@@ -213,7 +251,7 @@ export const initProfileDB = async () => {
 // Guardar perfil en IndexedDB
 export const saveProfile = async (user) => {
     const db = await initProfileDB();
-    const tx = db.transaction('profile', 'readwrite');
+    const tx = db.transaction('profile', 'readwrite', { durability: 'strict' });
     const store = tx.objectStore('profile');
     await store.put(user);
     await tx.done;
@@ -229,9 +267,10 @@ export const getProfile = async (userId) => {
 
 // Inicializar IndexedDB para servicios y clientes
 export const initServicesDB = async () => {
-  return openDB('offline-services', 6, { // Asegura que la versión sea mayor a la anterior
+  await requestPersistentStorage();
+  return openDB('offline-services', 7, { // Asegura que la versión sea mayor a la anterior
       upgrade(db, oldVersion) {
-          if (oldVersion < 6) {
+          if (oldVersion < 7) {
               if (!db.objectStoreNames.contains('services')) {
                   db.createObjectStore('services', { keyPath: 'id' });
               }
@@ -247,6 +286,9 @@ export const initServicesDB = async () => {
               if (!db.objectStoreNames.contains('inspections')) {
                 db.createObjectStore('inspections', { keyPath: 'id' });
               }
+              if (!db.objectStoreNames.contains('pending_inspections')) {
+                db.createObjectStore('pending_inspections', { keyPath: 'id', autoIncrement: true });
+              }
           }
       },
   });
@@ -256,7 +298,7 @@ export const initServicesDB = async () => {
 export const saveServices = async (services, clients) => {
   try {
       const db = await initServicesDB();
-      const tx = db.transaction(['services', 'clients'], 'readwrite');
+      const tx = db.transaction(['services', 'clients'], 'readwrite', { durability: 'strict' });
       const serviceStore = tx.objectStore('services');
       const clientStore = tx.objectStore('clients');
 
@@ -364,6 +406,7 @@ export const syncServicesOnStart = async () => {
 
 // Inicializar IndexedDB para clientes
 export const initClientsDB = async () => {
+  await requestPersistentStorage();
   return openDB('offline-clients', 1, { // Asegurar nueva versión
       upgrade(db, oldVersion) {
           if (oldVersion < 6) {
@@ -379,7 +422,7 @@ export const initClientsDB = async () => {
 export const saveClients = async (clients) => {
   try {
       const db = await initClientsDB();
-      const tx = db.transaction('clients', 'readwrite');
+      const tx = db.transaction('clients', 'readwrite', { durability: 'strict' });
       const store = tx.objectStore('clients');
 
       for (const client of clients) {
@@ -409,7 +452,7 @@ export const getClients = async () => {
 export const saveEvents = async (events) => {
   try {
       const db = await initServicesDB();
-      const tx = db.transaction('events', 'readwrite');
+      const tx = db.transaction('events', 'readwrite', { durability: 'strict' });
       const eventStore = tx.objectStore('events');
 
       // Guardar cada evento en IndexedDB
@@ -441,7 +484,7 @@ export const getEvents = async () => {
 export const saveTechnicians = async (technicians) => {
   try {
       const db = await initServicesDB();
-      const tx = db.transaction('technicians', 'readwrite');
+      const tx = db.transaction('technicians', 'readwrite', { durability: 'strict' });
       const techStore = tx.objectStore('technicians');
 
       // Guardar cada técnico en IndexedDB
@@ -474,14 +517,19 @@ export const getTechnicians = async () => {
 export const saveInspections = async (inspections) => {
   try {
       const db = await initServicesDB();
-      const tx = db.transaction('inspections', 'readwrite');
+      const tx = db.transaction('inspections', 'readwrite', { durability: 'strict' });
       const inspectionStore = tx.objectStore('inspections');
 
       console.log("🔄 Guardando inspecciones en IndexedDB...", inspections);
 
-      for (const inspection of inspections) {
-          console.log("➡️ Guardando inspección con service_id:", inspection.service_id, " - ID:", inspection.id);
-          await inspectionStore.put(inspection);
+      // 🔥 Convertir el objeto de inspecciones en un array plano
+      for (const serviceId in inspections) { 
+          if (Array.isArray(inspections[serviceId])) { // Verifica que sea un array
+              for (const inspection of inspections[serviceId]) {
+                  console.log("➡️ Guardando inspección con service_id:", inspection.service_id, " - ID:", inspection.id);
+                  await inspectionStore.put(inspection);
+              }
+          }
       }
 
       await tx.done;
@@ -491,7 +539,7 @@ export const saveInspections = async (inspections) => {
   }
 };
 
-export const getInspections = async (serviceId) => {
+export const getInspections = async () => {
   try {
       const db = await initServicesDB();
       const tx = db.transaction('inspections', 'readonly');
@@ -499,16 +547,168 @@ export const getInspections = async (serviceId) => {
 
       console.log("📂 Todas las inspecciones en IndexedDB:", allInspections);
 
-      // Convertimos serviceId a string para asegurar que el filtrado funcione correctamente
-      const serviceIdStr = String(serviceId);
+      // 🔥 Agrupar inspecciones por `service_id`
+      const inspectionsByService = {};
+      for (const inspection of allInspections) {
+          if (!inspectionsByService[inspection.service_id]) {
+              inspectionsByService[inspection.service_id] = [];
+          }
+          inspectionsByService[inspection.service_id].push(inspection);
+      }
 
-      // Filtrar solo las inspecciones que pertenecen al servicio
-      const serviceInspections = allInspections.filter(ins => String(ins.service_id) === serviceIdStr);
-
-      console.log(`📂 Inspecciones obtenidas desde IndexedDB para el servicio ${serviceId}:`, serviceInspections);
-      return serviceInspections;
+      console.log("📂 Inspecciones organizadas por servicio:", inspectionsByService);
+      return inspectionsByService;
   } catch (error) {
       console.error("❌ Error al obtener inspecciones desde IndexedDB:", error);
-      return [];
+      return {};
+  }
+};
+
+export const getInspectionById = async (inspectionId) => {
+  try {
+    const db = await initServicesDB();
+    const tx = db.transaction('inspections', 'readonly');
+    const store = tx.objectStore('inspections');
+
+    // Buscar la inspección por ID
+    const inspection = await store.get(inspectionId);
+
+    if (inspection) {
+      console.log(`🔍 Inspección encontrada con ID ${inspectionId}:`, inspection);
+      return inspection;
+    } else {
+      console.warn(`⚠️ No se encontró la inspección con ID ${inspectionId}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`❌ Error al obtener la inspección con ID ${inspectionId}:`, error);
+    return null;
+  }
+};
+
+export const savePendingInspection = async (inspectionData) => {
+  try {
+    console.log("📴 Modo offline: generando ID personalizado...");
+
+    // 📌 Generar ID basado en la fecha y hora actual
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0'); // Mes empieza desde 0
+    const year = String(now.getFullYear()).slice(-2); // Últimos dos dígitos del año
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+
+    const generatedId = `offline${day}${month}${year}-${hours}${minutes}`;
+
+    console.log(`✅ ID generado para inspección offline: ${generatedId}`);
+
+    // 📌 Agregar el ID personalizado a la inspección antes de almacenarla
+    const inspectionWithId = {
+      id: generatedId, // ID generado
+      ...inspectionData,
+    };
+
+    // 🛢️ Guardar en `pending_inspections`
+    const db = await initServicesDB();
+    let tx = db.transaction('pending_inspections', 'readwrite');
+    let store = tx.objectStore('pending_inspections');
+    await store.add(inspectionWithId);
+    await tx.done;
+
+    console.log(`✅ Inspección guardada en IndexedDB en 'pending_inspections' con ID: ${generatedId}`);
+
+    // 🛢️ Guardar también en `inspections`
+    tx = db.transaction('inspections', 'readwrite');
+    store = tx.objectStore('inspections');
+    await store.put(inspectionWithId);
+    await tx.done;
+
+    console.log(`✅ Inspección guardada en IndexedDB en 'inspections' con ID: ${generatedId}`);
+
+    return generatedId; // Retornar el ID para redirigir en MyServices.js
+
+  } catch (error) {
+    console.error("❌ Error al guardar inspección en IndexedDB:", error);
+  }
+};
+
+export const syncPendingInspections = async () => {
+  try {
+    const db = await initServicesDB();
+    const tx = db.transaction('pending_inspections', 'readonly');
+    const pendingInspections = await tx.objectStore('pending_inspections').getAll();
+
+    if (pendingInspections.length === 0) {
+      console.log("✅ No hay inspecciones pendientes por sincronizar.");
+      return;
+    }
+
+    console.log("🔄 Sincronizando inspecciones pendientes:", pendingInspections);
+
+    for (const inspection of pendingInspections) {
+      try {
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/inspections`, inspection);
+
+        if (response.data.success && response.data.newId) {
+          const newId = response.data.newId; // ID generado por el servidor
+          console.log(`✅ Inspección ${inspection.id} sincronizada con nuevo ID: ${newId}`);
+
+          // 🛢️ Eliminar inspección sincronizada de `pending_inspections`
+          const deleteTx = db.transaction('pending_inspections', 'readwrite');
+          await deleteTx.objectStore('pending_inspections').delete(inspection.id);
+          await deleteTx.done;
+
+          // 🛢️ Actualizar ID en `inspections`
+          const updateTx = db.transaction('inspections', 'readwrite');
+          const store = updateTx.objectStore('inspections');
+          await store.delete(inspection.id); // Eliminar el antiguo registro
+          await store.put({ ...inspection, id: newId }); // Guardar con el nuevo ID
+          await updateTx.done;
+
+          console.log(`✅ Inspección con ID ${inspection.id} actualizada a ${newId} en IndexedDB.`);
+        } else {
+          console.error(`❌ Error al sincronizar inspección ${inspection.id}:`, response.data.message);
+        }
+      } catch (error) {
+        console.error(`❌ Error en la sincronización de la inspección ${inspection.id}:`, error);
+      }
+    }
+
+    console.log("✅ Sincronización de inspecciones completada.");
+  } catch (error) {
+    console.error("❌ Error al sincronizar inspecciones pendientes:", error);
+  }
+};
+
+// 🔄 Nueva función para actualizar los campos de la inspección en IndexedDB según los datos recibidos
+export const updateInspection = async (inspectionId, newObservations, exitTime, findings) => {
+  try {
+    const db = await initServicesDB();
+    const tx = db.transaction('inspections', 'readwrite');
+    const store = tx.objectStore('inspections');
+    
+    const inspection = await store.get(inspectionId);
+    if (!inspection) {
+      console.warn(`⚠️ No se encontró la inspección con ID ${inspectionId}`);
+      return;
+    }
+    
+    // Actualizar solo los campos que reciban datos
+    if (newObservations !== undefined) {
+      inspection.observations = newObservations;
+    }
+    if (exitTime !== undefined) {
+      inspection.exit_time = exitTime;
+    }
+    if (findings !== undefined) {
+      inspection.findings = findings;
+    }
+    
+    await store.put(inspection);
+    await tx.done;
+    
+    console.log(`✅ Inspección con ID ${inspectionId} actualizada.`, { observations: newObservations, exit_time: exitTime, findings: findings });
+  } catch (error) {
+    console.error(`❌ Error al actualizar la inspección con ID ${inspectionId}:`, error);
   }
 };
