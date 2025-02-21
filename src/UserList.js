@@ -520,7 +520,6 @@ const deleteUser = async (id) => {
               <option value="Comercial">Comercial</option>
               <option value="Supervisor Técnico">Supervisor Técnico</option>
               <option value="Técnico">Técnico</option>
-              <option value="Técnico">SST</option>
             </Form.Control>
           </Form.Group>
           <Form.Group controlId="formUserEmail" className="mb-3">

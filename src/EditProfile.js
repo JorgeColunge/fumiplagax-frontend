@@ -231,16 +231,16 @@ useEffect(() => {
                 </div>
               </div>
               {/* Nueva casilla de cambio de contraseña */}
-<div className="mb-3">
-  <label className="form-label">Nueva Contraseña</label>
-  <input
-    type="password"
-    className="form-control"
-    placeholder="Ingrese nueva contraseña"
-    value={newPassword}
-    onChange={(e) => setNewPassword(e.target.value)}
-  />
-</div>
+              <div className="mb-3">
+                <label className="form-label">Nueva Contraseña</label>
+                <input
+                  type="password"
+                  className="form-control"
+                  placeholder="Ingrese nueva contraseña"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+              </div>
               <br></br>
               <div className="text-center">
                 <button type="button" onClick={handleSave} className="btn btn-success me-2">
