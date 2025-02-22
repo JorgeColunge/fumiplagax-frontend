@@ -391,14 +391,14 @@ const handleCustomInterventionAreaChange = (e) => {
         }
 
         const formattedEditService = {
-          ...editService,
-          intervention_areas: `{${interventionAreas.map((a) => `"${a}"`).join(",")}}`,
-          pest_to_control: `{${editService.pest_to_control.map((p) => `"${p}"`).join(",")}}`,
-          service_type: `{${editService.service_type.map((s) => `"${s}"`).join(",")}}`,
-          companion: `{${editService.companion.map((c) => `"${c}"`).join(",")}}`, 
-          customInterventionArea: "",
-      };
-
+            ...editService,
+            responsible: editService.responsible || "", // ✅ Evita valores `null`
+            intervention_areas: `{${interventionAreas.map((a) => `"${a}"`).join(",")}}`,
+            pest_to_control: `{${editService.pest_to_control.map((p) => `"${p}"`).join(",")}}`,
+            service_type: `{${editService.service_type.map((s) => `"${s}"`).join(",")}}`,
+            companion: `{${editService.companion.map((c) => `"${c}"`).join(",")}}`,
+            customInterventionArea: "",
+        };
 
         const response = await axios.put(
             `${process.env.REACT_APP_API_URL}/api/services/${editService.id}`,
@@ -415,12 +415,11 @@ const handleCustomInterventionAreaChange = (e) => {
             );
 
             handleCloseEditModal();
-            setEditService(null);
         }
-        } catch (error) {
-            console.error("Error updating service:", error);
-        }
-    };
+    } catch (error) {
+        console.error("Error updating service:", error);
+    }
+};
   
   const handleDeleteClick = async (serviceId) => {
     try {

@@ -362,7 +362,6 @@ const MyServicesCalendar = () => {
                 }
             >
                 <div className="event-container">
-                    <div className="event-client">{clientName}</div>
                     <div className="event-id">{eventInfo.event.title}</div>
                     <div className="event-time">{`${startTime} – ${endTime}`}</div>
                 </div>

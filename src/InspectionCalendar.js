@@ -950,6 +950,14 @@ const InspectionCalendar = () => {
                 alert('Por favor completa todas las opciones de agendamiento repetitivo.');
                 return;
             }
+
+                    // 🔴 Nueva validación: Asegurar que ningún campo de horario esté vacío o null
+                    for (const schedule of schedules) {
+                    if (!schedule.date || !schedule.startTime || !schedule.endTime) {
+                        alert('Debes llenar todos los campos: Fecha, Hora de Inicio y Hora de Fin.');
+                        return;
+                    }
+                }
             
             // Normalizar fechas para evitar problemas de comparación
             const start = moment(repetitiveStartDate).startOf('day');
