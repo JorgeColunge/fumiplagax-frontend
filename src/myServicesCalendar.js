@@ -19,6 +19,7 @@ import { useSocket } from './SocketContext';
 const MyServicesCalendar = () => {
     const [events, setEvents] = useState([]);
     const [allEvents, setAllEvents] = useState([]);
+    const [loading, setLoading] = useState(false); // 🔄 Nuevo estado para el spinner    
     const [services, setServices] = useState([]);
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const calendarRef = useRef(null);
@@ -99,6 +100,7 @@ const MyServicesCalendar = () => {
 
     const fetchScheduleAndServices = async () => {
         try {
+            setLoading(true); // 🔄 Activar el spinner antes de cargar los datos
             console.log('Fetching schedule and services...');
             
             // Paso 1: Obtén los eventos de la agenda de servicios
@@ -228,6 +230,8 @@ const MyServicesCalendar = () => {
             setEvents(validEvents);
         } catch (error) {
             console.error('Error loading schedule and services:', error);
+        } finally {
+            setLoading(false); // ✅ Desactivar el spinner después de la carga
         }
     };
 
