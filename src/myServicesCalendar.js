@@ -19,11 +19,13 @@ import { useSocket } from './SocketContext';
 const MyServicesCalendar = () => {
     const [events, setEvents] = useState([]);
     const [allEvents, setAllEvents] = useState([]);
+    const [loading, setLoading] = useState(false); // 🔄 Nuevo estado para el spinner    
     const [services, setServices] = useState([]);
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const calendarRef = useRef(null);
     const [currentView, setCurrentView] = useState('timeGridWeek');
-    const [mesComp, setMesComp] = useState(moment().format('MMMM YYYY')); // Estado para mesComp
+    const [mesComp, setMesComp] = useState(moment().format('MM/YYYY'));
+    const [mesCompNom, setMesCompNom] = useState(moment().format('MMMM YYYY').charAt(0).toUpperCase() + moment().format('MMMM YYYY').slice(1)); // Estado para el nombre del mes 
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [showEventModal, setShowEventModal] = useState(false);
     const [selectedService, setSelectedService] = useState('');
@@ -73,15 +75,17 @@ const MyServicesCalendar = () => {
     const userColor = storedUserInfo?.color || '#007bff'; // Color del usuario conectado
 
     const handleDatesSet = (dateInfo) => {
-        const newMesComp = moment(dateInfo.view.currentStart).format('MMMM YYYY'); // Formato 'Mes Año'
+        const newMesComp = moment(dateInfo.view.currentStart).format('MM/YYYY'); // Formato MM/YYYY
+        const newMesCompNom = moment(dateInfo.view.currentStart).format('MMMM YYYY');
         
         // Capitalizar la primera letra del mes (en español, Moment.js lo da en minúsculas)
         const formattedMesComp = newMesComp.charAt(0).toUpperCase() + newMesComp.slice(1);
         
         // Verifica si ha cambiado el mes y actualiza el estado
         if (mesComp !== formattedMesComp) {
-            console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${formattedMesComp}`);
-            setMesComp(formattedMesComp);
+            console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${newMesComp}`);
+            setMesComp(newMesComp);
+            setMesCompNom(newMesCompNom.charAt(0).toUpperCase() + newMesCompNom.slice(1));
         } else {
             console.log(`📅 Estás viendo el mes de: ${formattedMesComp}`);
         }
@@ -96,6 +100,7 @@ const MyServicesCalendar = () => {
 
     const fetchScheduleAndServices = async () => {
         try {
+            setLoading(true); // 🔄 Activar el spinner antes de cargar los datos
             console.log('Fetching schedule and services...');
             
             // Paso 1: Obtén los eventos de la agenda de servicios
@@ -225,6 +230,8 @@ const MyServicesCalendar = () => {
             setEvents(validEvents);
         } catch (error) {
             console.error('Error loading schedule and services:', error);
+        } finally {
+            setLoading(false); // ✅ Desactivar el spinner después de la carga
         }
     };
 
@@ -362,7 +369,6 @@ const MyServicesCalendar = () => {
                 }
             >
                 <div className="event-container">
-                    <div className="event-client">{clientName}</div>
                     <div className="event-id">{eventInfo.event.title}</div>
                     <div className="event-time">{`${startTime} – ${endTime}`}</div>
                 </div>
@@ -450,7 +456,9 @@ const MyServicesCalendar = () => {
                         <Button variant="outline-dark" className="me-2" onClick={handleTodayClick}>
                             Hoy
                         </Button>
-                        <span className="fw-bold fs-5 text-secondary ms-2">{mesComp}</span>
+                        <span className="fw-bold ms-3" style={{ fontSize: "1.2rem" }}>
+                            {mesCompNom}
+                        </span>
                         </div>
                         <div>
                             <Button
