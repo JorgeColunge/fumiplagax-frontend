@@ -548,7 +548,7 @@ function ProductList() {
 
 <Form.Group className="mb-3">
   <Form.Label>Tiempo de reingreso en horas</Form.Label>
-  <Form.Control type="text" name="residual_duration" value={newProduct.residual_duration} onChange={handleInputChange} />
+  <Form.Control type="number" name="residual_duration" value={newProduct.residual_duration} onChange={handleInputChange} />
 </Form.Group>
 
 {/* Nuevo campo Lote */}
