@@ -1159,7 +1159,7 @@ const handleDeleteFinding = () => {
                   }
                 }}
                 placeholder="Ingrese sus observaciones generales aquí"
-                disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
               ></textarea>
             </div>
 
@@ -1383,7 +1383,7 @@ const handleDeleteFinding = () => {
   <button
     className="btn btn-outline-success"
     onClick={() => handleOpenStationModal(station.id)}
-    disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+    disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
   >
     Editar
   </button>
@@ -1476,15 +1476,15 @@ const handleDeleteFinding = () => {
                                   <button
                                     className="btn btn-link p-0"
                                     onClick={() => handleOpenStationModal(station.id)}
-                                    disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'} // Bloquear si ya está firmado
+                                    disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'} // Bloquear si ya está firmado
                                     style={{ border: "none", background: "none" }} // Estilo para eliminar apariencia de botón
                                   >
                                     <PencilSquare
                                       className="mx-2"
                                       size={"20px"}
-                                      color={techSignaturePreview && clientSignaturePreview ? "gray" : "green"} // Cambiar color si está bloqueado
+                                      color={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico' ? "gray" : "green"} // Cambiar color si está bloqueado
                                       type="button"
-                                      title={techSignaturePreview && clientSignaturePreview ? "Inspección firmada, edición bloqueada" : "Editar"}
+                                      title={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico' ? "Inspección firmada, edición bloqueada" : "Editar"}
                                     />
                                   </button>
                                 </td>
@@ -1496,7 +1496,7 @@ const handleDeleteFinding = () => {
                                   <button
                                     className="btn btn-outline-success"
                                     onClick={() => handleOpenStationModal(station.id)}
-                                    disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                                    disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
                                   >
                                     +
                                   </button>
@@ -1604,7 +1604,7 @@ const handleDeleteFinding = () => {
                                   <button
                                     className="btn btn-outline-success"
                                     onClick={() => handleOpenStationModalDesinsectacion(station.id)}
-                                    disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                                    disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
                                   >
                                     Editar
                                   </button>
@@ -1615,7 +1615,7 @@ const handleDeleteFinding = () => {
                                   <button
                                     className="btn btn-outline-success"
                                     onClick={() => handleOpenStationModalDesinsectacion(station.id)}
-                                    disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                                    disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
                                   >
                                     +
                                   </button>
@@ -1704,7 +1704,7 @@ const handleDeleteFinding = () => {
                                   <button
                                     className="btn btn-link p-0"
                                     onClick={() => handleOpenStationModal(station.id)}
-                                    disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                                    disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
                                     style={{ border: "none", background: "none" }}
                                   >
                                     <PencilSquare
@@ -1713,7 +1713,7 @@ const handleDeleteFinding = () => {
                                       color='green'
                                       type='button'
                                       onClick={() => handleOpenStationModalDesinsectacion(station.id)}
-                                      disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                                      disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
                                     />
                                   </button>
                                   </td>
@@ -1725,7 +1725,7 @@ const handleDeleteFinding = () => {
                                     <button
                                       className="btn btn-outline-success"
                                       onClick={() => handleOpenStationModalDesinsectacion(station.id)}
-                                      disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                                      disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
                                     >
                                       +
                                     </button>
@@ -1782,18 +1782,18 @@ const handleDeleteFinding = () => {
                     <div className="col-md-2 mt-3 mb-0 ms-auto text-end">
                       <XCircle
                         size={"18px"}
-                        color={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector') ? "gray" : "red"} // Cambiar color si está bloqueado
+                        color={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico') ? "gray" : "red"} // Cambiar color si está bloqueado
                         onClick={() => {
-                          if ((techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')) {
+                          if (( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')) {
                             return;
                           }
                           handleShowConfirmDelete(type, idx);
                         }}
                         style={{
-                          cursor: (techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector') ? "not-allowed" : "pointer", // Cambiar cursor si está bloqueado
+                          cursor: ( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico') ? "not-allowed" : "pointer", // Cambiar cursor si está bloqueado
                         }}
                         title={
-                          (techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')
+                          ( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')
                             ? "Inspección firmada, acción bloqueada"
                             : "Eliminar hallazgo"
                         }
@@ -1813,7 +1813,7 @@ const handleDeleteFinding = () => {
                                 handleFindingChange(type, idx, "place", e.target.value)
                               }
                               placeholder="Lugar"
-                              disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')}
+                              disabled={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
                             />
                           </div>
                           <div className="col-md-8">
@@ -1832,7 +1832,7 @@ const handleDeleteFinding = () => {
                                 handleFindingChange(type, idx, "description", e.target.value)
                               }
                               placeholder="Descripción"
-                              disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')}
+                              disabled={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
                             ></textarea>
                           </div>
                           <div className="col-md-2">
@@ -1852,7 +1852,7 @@ const handleDeleteFinding = () => {
                               <input
                                 type="file"
                                 className="image-input"
-                                disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')}
+                                disabled={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
                                 onChange={(e) =>
                                   handleFindingPhotoChange(type, idx, e.target.files[0])
                                 }
@@ -1868,18 +1868,18 @@ const handleDeleteFinding = () => {
                       <div className="col-md-2 mt-0 mb-0 ms-auto text-end">
                       <XCircle
                         size={"20px"}
-                        color={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector') ? "gray" : "red"} // Cambiar color si está bloqueado
+                        color={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico') ? "gray" : "red"} // Cambiar color si está bloqueado
                         onClick={() => {
-                          if ((techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')) {
+                          if (( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')) {
                             return;
                           }
                           handleShowConfirmDelete(type, idx);
                         }}
                         style={{
-                          cursor: (techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector') ? "not-allowed" : "pointer", // Cambiar cursor si está bloqueado
+                          cursor: ( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico') ? "not-allowed" : "pointer", // Cambiar cursor si está bloqueado
                         }}
                         title={
-                          (techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')
+                          ( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')
                             ? "Inspección firmada, acción bloqueada"
                             : "Eliminar hallazgo"
                         }
@@ -1899,7 +1899,7 @@ const handleDeleteFinding = () => {
                               handleFindingChange(type, idx, "place", e.target.value)
                             }
                             placeholder="Lugar"
-                            disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')}
+                            disabled={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
                           />
                         </div>
                         <div className="col-md-8">
@@ -1918,7 +1918,7 @@ const handleDeleteFinding = () => {
                               handleFindingChange(type, idx, "description", e.target.value)
                             }
                             placeholder="Descripción"
-                            disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')}
+                            disabled={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
                           ></textarea>
                         </div>
                         <div className="col-md-2">
@@ -1938,7 +1938,7 @@ const handleDeleteFinding = () => {
                             <input
                               type="file"
                               className="image-input"
-                              disabled={(techSignaturePreview && clientSignaturePreview && userRol !== 'Cliente' ) || (userRol !== 'Cliente' && type === 'Observaciones Cliente') || (userRol !== 'Supervisor Técnico' && userRol !== 'Administrador' && type === 'Observaciones Inspector') ||(userRol !== 'SST' && type === 'Observaciones SST') ||(userRol === 'Cliente' && type !== 'Observaciones Cliente' && type !== 'Observaciones SST' && type !== 'Observaciones Inspector')}
+                              disabled={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
                               onChange={(e) =>
                                 handleFindingPhotoChange(type, idx, e.target.files[0])
                               }
@@ -1956,7 +1956,7 @@ const handleDeleteFinding = () => {
             <button
               className="btn btn-outline-success mb-3"
               onClick={() => handleAddFinding(type)}
-              disabled= {(userRol === 'Cliente' && type !== 'Observaciones Cliente') || (userRol === 'SST' && type !== 'Observaciones SST') || (userRol === 'Administrador' && type !== 'Observaciones Inspector')}
+              disabled= {(techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
             >
               + Agregar Hallazgo
             </button>
@@ -1983,7 +1983,7 @@ const handleDeleteFinding = () => {
                 handleProductChange(type, 'product', selectedProductName);
                 handleProductChange(type, 'unit', selectedProduct?.unity || ''); // Asegura que la unidad se actualiza
               }}
-              disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+              disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
             >
               <option value="">Seleccione un producto</option>
               {getFilteredProducts(type).map((product) => (
@@ -2004,7 +2004,7 @@ const handleDeleteFinding = () => {
                 value={productsByType[type]?.dosage || ''}
                 onChange={(e) => handleProductChange(type, 'dosage', e.target.value)}
                 placeholder="Ingrese la dosificación"
-                disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
               />
             </div>
 
@@ -2200,7 +2200,7 @@ const handleDeleteFinding = () => {
                 
                 onChange={(e) => handleStationFindingChange('description', e.target.value)}
                 placeholder="Ingrese una descripción del hallazgo"
-                disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
             ></textarea>
             </div>
             <div className="mb-3">
@@ -2220,7 +2220,7 @@ const handleDeleteFinding = () => {
               <input
                 type="file"
                 className="image-input"
-                disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
                 onChange={(e) => {
                   const file = e.target.files[0];
                   if (file) {
@@ -2316,7 +2316,7 @@ const handleDeleteFinding = () => {
                 value={stationFindingDesinsectacion.description}
                 onChange={(e) => handleStationFindingChangeDesinsectacion('description', e.target.value)}
                 placeholder="Ingrese una descripción del hallazgo"
-                disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
             ></textarea>
             </div>
             <div className="mb-3">
@@ -2336,7 +2336,7 @@ const handleDeleteFinding = () => {
               <input
                 type="file"
                 className="image-input"
-                disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
                 onChange={(e) => {
                   const file = e.target.files[0];
                   if (file) {
@@ -2433,7 +2433,7 @@ const handleDeleteFinding = () => {
                 style={{ cursor: "pointer" }}
                 title="Limpiar Firma Técnico"
                 onClick={handleClearTechSignature}
-                disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
               />
             </div>
             <div className="mt-4 text-center">
@@ -2463,7 +2463,7 @@ const handleDeleteFinding = () => {
                 style={{ cursor: "pointer" }}
                 title="Limpiar Firma Cliente"
                 onClick={handleClearClientSignature}
-                disabled={techSignaturePreview && clientSignaturePreview || userRol === 'Cliente'}
+                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
               />
             </div>
           </div>
