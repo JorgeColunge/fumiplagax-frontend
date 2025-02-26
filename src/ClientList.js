@@ -1190,7 +1190,6 @@ const handleSaveNewAirStation = async () => {
                 name="description"
                 value={newAirStation.description}
                 onChange={handleNewAirStationInputChange}
-                disabled
               />
             </Form.Group>
             <Form.Group controlId="formAirStationControlMethod" className="mb-3">
@@ -1236,7 +1235,6 @@ const handleSaveNewAirStation = async () => {
                 name="description"
                 value={newRodentStation.description}
                 onChange={handleNewRodentStationInputChange}
-                disabled
               />
             </Form.Group>
             <Form.Group controlId="formRodentStationType" className="mb-3">
