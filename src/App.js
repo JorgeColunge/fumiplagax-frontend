@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { SocketProvider } from './SocketContext';
+import { SocketProvider, useSocket } from './SocketContext';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import moment from 'moment-timezone';
 import Login from './Login';
 import Register from './Register';
 import UserProfile from './UserProfile';
@@ -8,7 +9,7 @@ import EditProfile from './EditProfile';
 import EditMyProfile from './EditMyProfile';
 import EditMyProfileClient from './EditMyProfileClient';
 import SidebarMenu from './SidebarMenu';
-import TopBar from './TopBar'; // Importa el componente TopBar
+import TopBar from './TopBar';
 import axios from 'axios';
 import UserList from './UserList';
 import ClientProfile from './ClientProfile';
@@ -35,7 +36,7 @@ import CompanyStations from './CompanyStations';
 import UnsavedChangesModal from './UnsavedChangesModal';
 import { UnsavedChangesProvider } from './UnsavedChangesContext';
 import { syncRequests } from './offlineHandler';
-import { saveUsers, getUsers, syncUsers, syncUsersOnStart } from './indexedDBHandler';
+import { saveUsers, getUsers, syncUsers, syncUsersOnStart, saveServices, saveEvents, saveTechnicians, saveInspections, syncPendingInspections } from './indexedDBHandler';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -50,6 +51,8 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(window.innerWidth > 768);
   const [notifications, setNotifications] = useState([]);
+  const [services, setServices] = useState([]);
+  const socket = useSocket();
 
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);
@@ -98,8 +101,158 @@ function App() {
     }, []);
 
     useEffect(() => {
-      syncUsersOnStart(); // Sincroniza usuarios al iniciar la app
+      syncUsersOnStart();
+      fetchMyServices();
+      fetchAllInspections(services);
+      fetchTechnicians();
     }, []);
+
+    // 📌 Cargar servicios desde IndexedDB o API
+    const fetchMyServices = async () => {
+      try {
+        if (navigator.onLine) {
+          console.log("🌐 Modo online: obteniendo servicios desde el servidor...");
+
+          const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/services`);
+          const userServices = response.data.filter(service => {
+            const isResponsible = service.responsible === userId;
+            const isCompanion = service.companion?.includes(`"${userId}"`);
+            return isResponsible || isCompanion;
+          });
+
+          console.log("✅ Servicios filtrados para el usuario:", userServices);
+
+          // Obtener nombres de los clientes
+          const clientData = {};
+          for (const service of userServices) {
+            if (service.client_id && !clientData[service.client_id]) {
+              try {
+                const clientResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/clients/${service.client_id}`);
+                clientData[service.client_id] = clientResponse.data.name;
+              } catch (error) {
+                console.error(`⚠️ Error obteniendo cliente ${service.client_id}:`, error);
+              }
+            }
+          }
+
+          // Guardar en IndexedDB
+          await saveServices(userServices, clientData);
+          console.log("📥 Servicios y clientes almacenados en IndexedDB.");
+          setServices(userServices);
+        } else {
+          console.log("📴 Modo offline: obtener datos desde IndexedDB...");
+        }
+      } catch (error) {
+        console.error("❌ Error al obtener servicios:", error);
+      }
+    };
+
+    const fetchTechnicians = async () => {
+      try {
+          if (navigator.onLine) {
+              console.log("🌐 Modo online: obteniendo técnicos desde el servidor...");
+              const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/users?role=Technician`);
+
+              console.log("✅ Respuesta de la API de técnicos:", response.data);
+
+              // Guardar técnicos en IndexedDB para modo offline
+              await saveTechnicians(response.data);
+          } else {
+              console.log("📴 Modo offline: obtener técnicos desde IndexedDB...");
+          }
+
+      } catch (error) {
+          console.error("❌ Error al obtener técnicos:", error);
+      }
+  };
+
+  const fetchAllInspections = async (services) => {
+    try {
+        console.log("🔄 Iniciando fetchAllInspections...");
+        if (navigator.onLine) {
+            console.log("🌐 Modo online: obteniendo inspecciones de todos los servicios...");
+
+            const inspectionsByService = {};
+            console.log("📋 Servicios recibidos:", services);
+
+            for (const service of services) {
+                console.log(`🔍 Procesando servicio: ${service.id}`);
+
+                try {
+                    console.log(`📡 Realizando petición a: ${process.env.REACT_APP_API_URL}/api/inspections_service/${service.id}`);
+                    
+                    const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/inspections_service/${service.id}`);
+
+                    console.log(`✅ Inspecciones recibidas para el servicio ${service.id}:`, response.data);
+
+                    const formattedInspections = response.data.map((inspection) => ({
+                        ...inspection,
+                        date: moment(inspection.date).format("DD/MM/YYYY"),
+                        time: inspection.time ? moment(inspection.time, "HH:mm:ss").format("HH:mm") : "--",
+                        exit_time: inspection.exit_time ? moment(inspection.exit_time, "HH:mm:ss").format("HH:mm") : "--",
+                        observations: inspection.observations || "Sin observaciones",
+                    }));
+
+                    inspectionsByService[service.id] = formattedInspections;
+                    console.log(`📊 Inspecciones formateadas para ${service.id}:`, formattedInspections);
+                } catch (error) {
+                    console.error(`❌ Error obteniendo inspecciones para el servicio ${service.id}:`, error);
+                    console.log(`⚠️ Respuesta del error (si existe):`, error.response?.data || "No hay respuesta");
+                    inspectionsByService[service.id] = []; // Si hay error, asegurarse de que exista la clave
+                }
+            }
+
+            console.log("💾 Guardando inspecciones en IndexedDB...");
+            await saveInspections(inspectionsByService);
+            console.log("✅ Inspecciones guardadas exitosamente en IndexedDB");
+
+        } else {
+            console.log("📴 Modo offline: obtener inspecciones desde IndexedDB...");
+        }
+
+    } catch (error) {
+        console.error("❌ Error general cargando inspecciones:", error);
+    }
+};
+
+
+    useEffect(() => {
+      const fetchScheduledEvents = async () => {
+          try {
+              const userServiceIds = services.map(service => service.id).join(",");
+  
+              console.log("📌 Lista de service_id del usuario:", userServiceIds);
+  
+              if (!userServiceIds) {
+                  console.log("❌ No hay servicios asignados al usuario. No se solicitarán eventos.");
+                  return;
+              }
+  
+              if (navigator.onLine) {
+                  console.log("🌐 Modo online: obteniendo eventos desde el servidor...");
+                  const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/service-service-schedule?serviceIds=${userServiceIds}`);
+  
+                  console.log("✅ Respuesta de la API de eventos:", response.data);
+  
+                  // Guardar eventos en IndexedDB para uso offline
+                  await saveEvents(response.data);
+  
+              } else {
+                  console.log("📴 Modo offline: obteniendo eventos desde IndexedDB...");
+              }
+  
+          } catch (error) {
+              console.error("❌ Error al obtener eventos programados:", error);
+          }
+      };
+  
+      if (services.length > 0) {
+          console.log("📢 Se han obtenido servicios, procediendo a solicitar eventos...");
+          fetchScheduledEvents();
+      } else {
+          console.log("⚠️ Aún no hay servicios cargados, esperando actualización...");
+      }
+  }, [services]); // Se ejecuta cuando los servicios cambian
 
     const handleSidebarToggle = (isOpen) => {
       setIsSidebarOpen(isOpen);
@@ -114,14 +267,28 @@ function App() {
     };
 
     useEffect(() => {
-      const handleOnline = () => {
-        console.log('Conexión restaurada. Iniciando sincronización...');
-        syncRequests();
-        syncUsers();
+      const handleOnline = async () => {
+        console.log('🌐 Conexión restaurada. Sincronizando inspecciones pendientes...');
+        
+        try {
+          await syncPendingInspections();
+          console.log("✅ Inspecciones sincronizadas con éxito.");
+          
+          console.log("📡 Sincronizando solicitudes...");
+          await syncRequests();
+          console.log("✅ Solicitudes sincronizadas.");
+          
+          console.log("👤 Sincronizando usuarios...");
+          await syncUsers();
+          console.log("✅ Usuarios sincronizados.");
+    
+        } catch (error) {
+          console.error("❌ Error en la sincronización:", error);
+        }
       };
-
+    
       window.addEventListener('online', handleOnline);
-
+    
       return () => {
         window.removeEventListener('online', handleOnline);
       };

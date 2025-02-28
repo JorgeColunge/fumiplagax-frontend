@@ -1,6 +1,7 @@
 import { openDB } from 'idb';
 import api from './Api';
 import axios from 'axios';
+import { updateRequestsWithNewInspectionId } from './offlineHandler';
 
 // Solicitar almacenamiento persistente y mostrar detalles de almacenamiento
 const requestPersistentStorage = async () => {
@@ -632,7 +633,7 @@ export const savePendingInspection = async (inspectionData) => {
   }
 };
 
-export const syncPendingInspections = async () => {
+export const syncPendingInspections = async (socket) => {
   try {
     const db = await initServicesDB();
     const tx = db.transaction('pending_inspections', 'readonly');
@@ -649,8 +650,8 @@ export const syncPendingInspections = async () => {
       try {
         const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/inspections`, inspection);
 
-        if (response.data.success && response.data.newId) {
-          const newId = response.data.newId; // ID generado por el servidor
+        if (response.data.success && response.data.inspection.id) {
+          const newId = response.data.inspection.id; // ID generado por el servidor
           console.log(`✅ Inspección ${inspection.id} sincronizada con nuevo ID: ${newId}`);
 
           // 🛢️ Eliminar inspección sincronizada de `pending_inspections`
@@ -666,6 +667,17 @@ export const syncPendingInspections = async () => {
           await updateTx.done;
 
           console.log(`✅ Inspección con ID ${inspection.id} actualizada a ${newId} en IndexedDB.`);
+
+          // 🔄 ACTUALIZAR TODAS LAS SOLICITUDES QUE USABAN EL ID PROVISIONAL
+          await updateRequestsWithNewInspectionId(inspection.id, newId);
+
+          // 📡 Enviar solicitud al backend para que emita el evento del socket
+          await axios.post(`${process.env.REACT_APP_API_URL}/api/emit-inspection-update`, {
+            oldId: inspection.id,
+            newId
+          });
+          console.log(`📡 Solicitud enviada al backend para emitir evento con oldId: ${inspection.id}, newId: ${newId}`);
+
         } else {
           console.error(`❌ Error al sincronizar inspección ${inspection.id}:`, response.data.message);
         }
