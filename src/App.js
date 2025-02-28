@@ -211,7 +211,7 @@ function App() {
                 <Route path="/" element={isLoggedIn ? <Navigate to="/profile" /> : <Navigate to="/login" />} />
                 <Route path="/login" element={isLoggedIn ? <Navigate to="/profile" /> : <Login onLogin={handleLogin} />} />
                 <Route path="/register" element={isLoggedIn ? <Navigate to="/profile" /> : <Register />} />
-                <Route path="/profile" element={<UserProfile userInfo={userInfo} />} />
+                <Route path="/profile" element={isAuthorized(["SST","Comercial", "Supervisor Técnico", "Administrador", "Superadministrador", "Técnico"]) ? <UserProfile /> : <Navigate to="/login" />} />
                 <Route path="/client-profile" element={isAuthorized(["Cliente"])? <ClientProfile userInfo={userInfo}/> : <Navigate to="/login" />} />
                 <Route path="/edit-profile/:id" element={<EditProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} />} />
                 <Route path="/edit-my-profile/:id" element={<EditMyProfile userInfo={userInfo} onProfileUpdate={handleProfileUpdate} />} />
