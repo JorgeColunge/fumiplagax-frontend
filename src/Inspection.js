@@ -4,14 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Table, InputGroup, FormControl, Modal, Form } from 'react-bootstrap';
 import api from './Api'; // Usa el archivo de API con lógica offline integrada
 import { saveRequest, isOffline } from './offlineHandler';
-import { initUsersDB, saveUsers, getUsers, getInspectionById, saveInspections } from './indexedDBHandler';
+import { initDB, initUsersDB, saveUsers, getUsers } from './indexedDBHandler';
 import SignatureCanvas from 'react-signature-canvas';
 import "./Inspection.css";
 import { ArrowDownSquare, ArrowUpSquare, Eye, FileEarmarkArrowDown, FileEarmarkPlus, EnvelopePaper, Whatsapp, Radioactive, FileEarmarkExcel, FileEarmarkImage, FileEarmarkPdf, FileEarmarkWord, PencilSquare, QrCodeScan, XCircle } from 'react-bootstrap-icons';
 import  {useUnsavedChanges} from './UnsavedChangesContext'
 import QrScannerComponent from './QrScannerComponent';
 import moment from 'moment';
-import { useSocket } from './SocketContext';
 
 function Inspection() {
   const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
@@ -89,60 +88,6 @@ function Inspection() {
   const [loadingConvertToPdf, setLoadingConvertToPdf] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const navigate = useNavigate();
-
-  const socket = useSocket(); // Obtenemos el socket
-
-useEffect(() => {
-  if (socket) {
-    socket.on("inspection_synced", ({ oldId, newId }) => {
-      console.log(`🔄 La inspección ${oldId} ha sido actualizada a ${newId}`);
-
-      if (inspectionId === oldId) {
-        console.log(`✅ Actualizando ID de la inspección actual: ${oldId} → ${newId}`);
-
-        // Actualizamos la URL sin recargar la página
-        navigate(`/inspection/${newId}`, { replace: true });
-
-        // Actualizamos el estado para reflejar el nuevo ID
-        setInspectionData((prevData) => ({
-          ...prevData,
-          id: newId, // Reemplazamos el ID viejo con el nuevo
-        }));
-
-        // Reemplazamos en los hallazgos y firmas si es necesario
-        setFindingsByType((prevFindings) => {
-          const updatedFindings = { ...prevFindings };
-          for (const type in updatedFindings) {
-            updatedFindings[type] = updatedFindings[type].map(finding =>
-              finding.inspection_id === oldId ? { ...finding, inspection_id: newId } : finding
-            );
-          }
-          return updatedFindings;
-        });
-
-        setClientStations((prevStations) => {
-          const updatedStations = { ...prevStations };
-          for (const stationId in updatedStations) {
-            if (updatedStations[stationId].inspection_id === oldId) {
-              updatedStations[stationId].inspection_id = newId;
-            }
-          }
-          return updatedStations;
-        });
-
-        setActions((prevActions) =>
-          prevActions.map((action) =>
-            action.inspection_id === oldId ? { ...action, inspection_id: newId } : action
-          )
-        );
-      }
-    });
-
-    return () => {
-      socket.off("inspection_synced");
-    };
-  }
-}, [socket, inspectionId, navigate]);
 
   // Abrir el modal
   const handleOpenConvertToPdfModal = () => {
@@ -370,71 +315,72 @@ useEffect(() => {
   
     const fetchInspectionData = async () => {
       try {
-        console.log('🔍 Verificando modo de conexión...');
-    
-        let inspectionData;
-    
-        if (isOffline()) {
-          console.log('📴 Modo offline activado. Consultando IndexedDB...');
-          inspectionData = await getInspectionById(inspectionId);
-    
-          if (!inspectionData) {
-            console.warn(`⚠️ Inspección ${inspectionId} no encontrada en IndexedDB.`);
-            return setLoading(false);
-          }
-    
-          console.log('✅ Inspección cargada desde IndexedDB:', inspectionData);
-
-          // 🔥 Convertir `inspection_type` de array a string separado por comas
-          if (Array.isArray(inspectionData.inspection_type)) {
-            inspectionData.inspection_type = inspectionData.inspection_type.join(", ");
-          }
-        } else {
-          console.log('🌐 Modo online. Consultando API...');
-          const response = await api.get(`${process.env.REACT_APP_API_URL}/api/inspections/${inspectionId}`);
-          inspectionData = response.data;
-    
-          console.log('✅ Inspección obtenida desde API:', inspectionData);
-    
-          // Guardar en IndexedDB para acceso offline en el futuro
-          await saveInspections({ [inspectionData.service_id]: [inspectionData] });
-          console.log('📥 Inspección almacenada en IndexedDB.');
-        }
-    
-        setInspectionData(inspectionData);
-    
+        console.log('Iniciando la carga de datos de inspección...');
+        const response = await api.get(`${process.env.REACT_APP_API_URL}/api/inspections/${inspectionId}`);
+        console.log('Datos de inspección obtenidos:', response.data);
+  
+        setInspectionData(response.data);
+  
         // Cargar observaciones generales
-        setGeneralObservations(inspectionData.observations || '');
-    
-        // Procesar hallazgos
-        const initialFindings = inspectionData.findings?.findingsByType || {};
+        setGeneralObservations(response.data.observations || '');
+  
+        // Inicializar findingsByType
+        const initialFindings = response.data.findings?.findingsByType || {};
+        console.log('Hallazgos iniciales:', initialFindings);
+
         for (const type of Object.keys(initialFindings)) {
+          console.log(`Procesando hallazgos para el tipo: ${type}`);
           initialFindings[type] = await Promise.all(
             initialFindings[type].map(async (finding) => {
-              if (!finding.photo) return { ...finding, photo: null, photoRelative: null, photoBlob: null };
-    
+              console.log(`Procesando hallazgo con ID: ${finding.id}`);
+        
+              // Validación para verificar si existe una URL de foto
+              if (!finding.photo) {
+                console.warn(`El hallazgo con ID ${finding.id} no tiene foto asociada.`);
+                return {
+                  ...finding,
+                  photo: null,
+                  photoRelative: null,
+                  photoBlob: null,
+                };
+              }
+        
+              // Intentar pre-firmar la URL
               let signedUrl = null;
               try {
                 signedUrl = await preSignUrl(finding.photo);
+                console.log(`URL pre-firmada para hallazgo con ID ${finding.id}: ${signedUrl}`);
               } catch (error) {
-                console.error(`❌ Error al pre-firmar la URL del hallazgo ${finding.id}:`, error);
+                console.error(`Error al pre-firmar la URL para hallazgo con ID ${finding.id}:`, error);
               }
-    
-              return { ...finding, photo: signedUrl, photoRelative: finding.photo || null, photoBlob: null };
+        
+              return {
+                ...finding,
+                photo: signedUrl, // Usar la URL pre-firmada
+                photoRelative: finding.photo || null,
+                photoBlob: null,
+              };
             })
           );
         }
+  
         setFindingsByType(initialFindings);
-    
-        // Cargar firmas y pre-firmar URLs
-        const signatures = inspectionData.findings?.signatures || {};
+        console.log('findingsByType actualizado:', initialFindings);
+
+        const initialProducts = response.data.findings?.productsByType || {};
+        setProductsByType(initialProducts);
+  
+        // Cargar firmas si existen y prefirmar URLs
+        const signatures = response.data.findings?.signatures || {};
         if (signatures.technician?.signature) {
-          setTechSignaturePreview(await preSignUrl(signatures.technician.signature) || signatures.technician.signature);
+          const techSignedUrl = await preSignUrl(signatures.technician.signature);
+          setTechSignaturePreview(techSignedUrl || signatures.technician.signature);
         }
         if (signatures.client?.signature) {
-          setClientSignaturePreview(await preSignUrl(signatures.client.signature) || signatures.client.signature);
+          const clientSignedUrl = await preSignUrl(signatures.client.signature);
+          setClientSignaturePreview(clientSignedUrl || signatures.client.signature);
         }
-        
+  
         // Cargar datos del cliente
         if (signatures.client) {
           setSignData({
@@ -443,42 +389,46 @@ useEffect(() => {
             position: signatures.client.position || '',
           });
         }
-    
-        // Procesar hallazgos en estaciones
-        const clientStationsData = {};
-        for (const finding of inspectionData.findings?.stationsFindings || []) {
-          try {
-            const signedUrl = finding.photo ? await preSignUrl(finding.photo) : null;
-            if (!finding.stationId) continue;
-    
-            clientStationsData[finding.stationId] = { ...finding, photo: signedUrl, photoRelative: finding.photo || null, photoBlob: null };
-          } catch (error) {
-            console.error(`❌ Error procesando hallazgo en estación ${finding.stationId}:`, error);
-          }
-        }
-        setClientStations(clientStationsData);
-    
+  
+      // Estaciones
+      const initialStationsFindings = response.data.findings?.stationsFindings || [];
+      console.log('Datos iniciales de hallazgos en estaciones:', initialStationsFindings);
+
+      const clientStationsData = {};
+      for (const finding of initialStationsFindings) {
+        const signedUrl = finding.photo ? await preSignUrl(finding.photo) : null;
+        clientStationsData[finding.stationId] = {
+          ...finding,
+          photo: signedUrl, // URL pre-firmada
+          photoRelative: finding.photo || null,
+          photoBlob: null,
+        };
+      }
+      setClientStations(clientStationsData);
+      console.log('Datos de estaciones procesados:', clientStationsData);
+  
         // Cargar estaciones relacionadas
-        if (!isOffline() && inspectionData.service_id) {
-          const serviceResponse = await api.get(`${process.env.REACT_APP_API_URL}/api/services/${inspectionData.service_id}`);
-          const clientId = serviceResponse.data.client_id;
-    
-          if (clientId) {
-            const stationsResponse = await api.get(`${process.env.REACT_APP_API_URL}/api/stations/client/${clientId}`);
-            setStations(stationsResponse.data);
-          }
+        const clientId = response.data.service_id
+          ? (await api.get(`${process.env.REACT_APP_API_URL}/api/services/${response.data.service_id}`)).data
+              .client_id
+          : null;
+  
+        if (clientId) {
+          const stationsResponse = await api.get(
+            `${process.env.REACT_APP_API_URL}/api/stations/client/${clientId}`
+          );
+          setStations(stationsResponse.data);
         }
-    
-        // Cargar productos disponibles
-        if (!isOffline()) {
-          const productsResponse = await api.get(`${process.env.REACT_APP_API_URL}/api/products`);
-          setAvailableProducts(productsResponse.data);
-        }
-    
+  
+        // Consultar productos disponibles
+        const productsResponse = await api.get(`${process.env.REACT_APP_API_URL}/api/products`);
+        console.log('Productos obtenidos desde la API:', productsResponse.data);
+        setAvailableProducts(productsResponse.data);
+  
         setLoading(false);
-        console.log('✅ Carga de datos de inspección completada.');
+        console.log('Carga de datos de inspección completada.');
       } catch (error) {
-        console.error('❌ Error al cargar los datos de inspección:', error);
+        console.error('Error al cargar los datos de inspección:', error);
         setLoading(false);
       }
     };
@@ -498,7 +448,7 @@ useEffect(() => {
     fetchActions();
   
     fetchInspectionData();
-  }, []); 
+  }, [inspectionId]); 
   
   const fetchDocuments = async () => {
     try {
@@ -607,6 +557,7 @@ const handleSaveChanges = async () => {
           id: productData.id || null, // Incluir el ID
           product: productData.product || '',
           dosage: productData.dosage || '',
+          unity: productData.unity || 'No especificado', // Evita valores nulos
         };
       }
     });
@@ -1397,47 +1348,47 @@ const handleDeleteFinding = () => {
                                 collapseStates[currentKey] ? 'd-block' : 'd-none'
                               } mt-2`}
                             >
-<>
-  <p><strong>Finalidad:</strong> {clientStations[station.id]?.purpose || '-'}</p>
+                          <>
+                            <p><strong>Finalidad:</strong> {clientStations[station.id]?.purpose || '-'}</p>
 
-  {clientStations[station.id]?.purpose === 'Consumo' && (
-    <p><strong>Cantidad Consumida:</strong> {clientStations[station.id]?.consumptionAmount || '-'}</p>
-  )}
+                            {clientStations[station.id]?.purpose === 'Consumo' && (
+                              <p><strong>Cantidad Consumida:</strong> {clientStations[station.id]?.consumptionAmount || '-'}</p>
+                            )}
 
-  {clientStations[station.id]?.purpose === 'Captura' && (
-    <p><strong>Cantidad Capturada:</strong> {clientStations[station.id]?.captureQuantity || '-'}</p>
-  )}
+                            {clientStations[station.id]?.purpose === 'Captura' && (
+                              <p><strong>Cantidad Capturada:</strong> {clientStations[station.id]?.captureQuantity || '-'}</p>
+                            )}
 
-  <p><strong>Estado Físico:</strong> {clientStations[station.id]?.physicalState || '-'}</p>
-  {clientStations[station.id]?.physicalState === 'Dañada' && (
-    <>
-      <p><strong>Lugar del Daño:</strong> {clientStations[station.id]?.damageLocation || '-'}</p>
-      <p><strong>Requiere Cambio:</strong> {clientStations[station.id]?.requiresChange || '-'}</p>
-      {clientStations[station.id]?.requiresChange === 'Si' && (
-        <p><strong>Prioridad de Cambio:</strong> {clientStations[station.id]?.changePriority || '-'}</p>
-      )}
-    </>
-  )}
-  <p><strong>Descripción:</strong> {clientStations[station.id]?.description || '-'}</p>
-  <div className="mb-3">
-    {clientStations[station.id]?.photo ? (
-      <img
-        src={clientStations[station.id]?.photo}
-        alt="Foto"
-        style={{ width: '150px', objectFit: 'cover' }}
-      />
-    ) : (
-      <span>Sin Foto</span>
-    )}
-  </div>
-  <button
-    className="btn btn-outline-success"
-    onClick={() => handleOpenStationModal(station.id)}
-    disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-  >
-    Editar
-  </button>
-</>
+                            <p><strong>Estado Físico:</strong> {clientStations[station.id]?.physicalState || '-'}</p>
+                            {clientStations[station.id]?.physicalState === 'Dañada' && (
+                              <>
+                                <p><strong>Lugar del Daño:</strong> {clientStations[station.id]?.damageLocation || '-'}</p>
+                                <p><strong>Requiere Cambio:</strong> {clientStations[station.id]?.requiresChange || '-'}</p>
+                                {clientStations[station.id]?.requiresChange === 'Si' && (
+                                  <p><strong>Prioridad de Cambio:</strong> {clientStations[station.id]?.changePriority || '-'}</p>
+                                )}
+                              </>
+                            )}
+                            <p><strong>Descripción:</strong> {clientStations[station.id]?.description || '-'}</p>
+                            <div className="mb-3">
+                              {clientStations[station.id]?.photo ? (
+                                <img
+                                  src={clientStations[station.id]?.photo}
+                                  alt="Foto"
+                                  style={{ width: '150px', objectFit: 'cover' }}
+                                />
+                              ) : (
+                                <span>Sin Foto</span>
+                              )}
+                            </div>
+                            <button
+                              className="btn btn-outline-success"
+                              onClick={() => handleOpenStationModal(station.id)}
+                              disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                            >
+                              Editar
+                            </button>
+                          </>
                             </div>
                           </div>
                         );
@@ -2019,30 +1970,40 @@ const handleDeleteFinding = () => {
 
               {/* Selección de Producto */}
               <div className="col-md-6 mb-3">
-              <label className="form-label">Producto</label>
-              <select
-              id={`product-${type}`}
-              className="form-select"
-              value={productsByType[type]?.product || ''}
-              onChange={(e) => {
-                const selectedProductName = e.target.value;
-                const selectedProduct = getFilteredProducts(type).find(
-                  (product) => product.name === selectedProductName
-                );
+                <label className="form-label">Producto</label>
+                <select
+                id={`product-${type}`}
+                className="form-select"
+                value={productsByType[type]?.product || ''}
+                onChange={(e) => {
+                  const selectedProductName = e.target.value;
+                  const selectedProduct = getFilteredProducts(type).find(
+                    (product) => product.name === selectedProductName
+                  );
 
-                handleProductChange(type, 'product', selectedProductName);
-                handleProductChange(type, 'unit', selectedProduct?.unity || ''); // Asegura que la unidad se actualiza
-              }}
-              disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-            >
-              <option value="">Seleccione un producto</option>
-              {getFilteredProducts(type).map((product) => (
-                <option key={product.id} value={product.name}>
-                  {product.name}
-                </option>
-              ))}
-            </select>
-            </div>
+                  if (!selectedProduct) return; // Evitar errores si el producto no existe
+
+                  setProductsByType((prevState) => ({
+                    ...prevState,
+                    [type]: {
+                      id: selectedProduct.id,
+                      product: selectedProductName,
+                      dosage: prevState[type]?.dosage || '',
+                      unity: selectedProduct.unity || 'Unidad no definida',
+                    }
+                  }));
+                }}
+                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+              >
+                <option value="">Seleccione un producto</option>
+                {getFilteredProducts(type).map((product) => (
+                  <option key={product.id} value={product.name}>
+                    {product.name}
+                  </option>
+                ))}
+              </select>
+
+              </div>
 
             {/* Entrada de Dosificación */}
             <div className="col-md-4 mb-3">
@@ -2065,7 +2026,7 @@ const handleDeleteFinding = () => {
                 id={`unit-${type}`}
                 type="text"
                 className="form-control"
-                value={productsByType[type]?.unit || ''}
+                value={productsByType[type]?.unity || ''}
                 readOnly
                 placeholder="Unidad"
               />
@@ -2139,6 +2100,32 @@ const handleDeleteFinding = () => {
             <Modal.Title>Agregar Hallazgo para la Estación</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+        {/* Selección de Producto para la categoría Desratización */}
+        <div className="mb-3">
+            <label className="form-label">Producto</label>
+            <select
+                id="product-desratization"
+                className="form-select"
+                value={stationFinding.product || ''}
+                onChange={(e) => {
+                    const selectedProductName = e.target.value;
+                    const selectedProduct = getFilteredProducts('Desratización').find(
+                        (product) => product.name === selectedProductName
+                    );
+
+                    handleStationFindingChange('product', selectedProductName);
+                    handleStationFindingChange('unit', selectedProduct?.unity || ''); // Asegura que la unidad se actualiza
+                }}
+                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+            >
+                <option value="">Seleccione un producto</option>
+                {getFilteredProducts('Desratización').map((product) => (
+                    <option key={product.id} value={product.name}>
+                        {product.name}
+                    </option>
+                ))}
+            </select>
+        </div>
             <div className="mb-3">
             <label className="form-label">Finalidad</label>
             <select
@@ -2296,6 +2283,34 @@ const handleDeleteFinding = () => {
             <Modal.Title>Agregar Hallazgo para la Estación</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+    {/* Selección de Producto para la categoría Desinsectación */}
+    <div className="mb-3">
+        <label className="form-label">Producto</label>
+        <select
+            id="product-desinsectacion"
+            className="form-select"
+            value={stationFindingDesinsectacion.product || ''}
+            onChange={(e) => {
+                const selectedProductName = e.target.value;
+                const selectedProduct = getFilteredProducts('Desinsectación').find(
+                    (product) => product.name === selectedProductName
+                );
+
+                handleStationFindingChangeDesinsectacion('product', selectedProductName);
+                handleStationFindingChangeDesinsectacion('unit', selectedProduct?.unity || ''); // Asegura que la unidad se actualiza
+            }}
+            disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+        >
+            <option value="">Seleccione un producto</option>
+            {getFilteredProducts('Desinsectación').map((product) => (
+                <option key={product.id} value={product.name}>
+                    {product.name}
+                </option>
+            ))}
+        </select>
+    </div>
+
+    {/* Cantidad de Capturas */}
             <div className="mb-3">
             <label className="form-label">Cantidad de Capturas</label>
             <input
@@ -2730,7 +2745,6 @@ const handleDeleteFinding = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-
     </div>
   );
 }
