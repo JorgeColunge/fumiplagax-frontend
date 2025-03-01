@@ -271,7 +271,7 @@ function App() {
         console.log('🌐 Conexión restaurada. Sincronizando inspecciones pendientes...');
         
         try {
-          await syncPendingInspections();
+          await syncPendingInspections(socket);
           console.log("✅ Inspecciones sincronizadas con éxito.");
           
           console.log("📡 Sincronizando solicitudes...");
