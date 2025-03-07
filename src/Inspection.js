@@ -474,6 +474,12 @@ useEffect(() => {
           const productsResponse = await api.get(`${process.env.REACT_APP_API_URL}/api/products`);
           setAvailableProducts(productsResponse.data);
         }
+
+        // 🔥 Cargar productos utilizados en la inspección
+        if (inspectionData.findings?.productsByType) {
+          console.log('🛠 Cargando productos desde la inspección:', inspectionData.findings.productsByType);
+          setProductsByType(inspectionData.findings.productsByType);
+        }
     
         setLoading(false);
         console.log('✅ Carga de datos de inspección completada.');
@@ -2011,80 +2017,107 @@ const handleDeleteFinding = () => {
             >
               + Agregar Hallazgo
             </button>
+            
             {type !== 'Observaciones Cliente' && type !== 'Observaciones Inspector' && type !== 'Observaciones SST' && (
-  <>
+              <>
                 {/* Producto */}
                 <hr></hr>
                 <h6 className='mt-2'>Producto</h6>
-                <div className="row" style={{ minHeight: 0, height: 'auto' }}>
+                {Object.entries(productsByType)
+                  .filter(([key]) => key.startsWith(type))
+                  .map(([key, productData], index) => (
+                    <div key={key} className="row" style={{ minHeight: 0, height: 'auto' }}>
+                      {/* Selección de Producto */}
+                      <div className="col-md-6 mb-3">
+                        <label className="form-label">Producto</label>
+                        <select
+                          id={`product-${key}`}
+                          className="form-select"
+                          value={productData.product || ''}
+                          onChange={(e) => {
+                            const selectedProductName = e.target.value;
+                            const selectedProduct = getFilteredProducts(type).find(
+                              (product) => product.name === selectedProductName
+                            );
 
-              {/* Selección de Producto */}
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Producto</label>
-                <select
-                id={`product-${type}`}
-                className="form-select"
-                value={productsByType[type]?.product || ''}
-                onChange={(e) => {
-                  const selectedProductName = e.target.value;
-                  const selectedProduct = getFilteredProducts(type).find(
-                    (product) => product.name === selectedProductName
-                  );
+                            if (!selectedProduct) return;
 
-                  if (!selectedProduct) return; // Evitar errores si el producto no existe
+                            setProductsByType((prevState) => ({
+                              ...prevState,
+                              [`${type}-${index}`]: {
+                                id: selectedProduct.id,
+                                product: selectedProductName,
+                                unity: selectedProduct.unity || 'Unidad no definida',
+                                dosage: prevState[`${type}-${index}`]?.dosage || '',
+                              },
+                            }));
+                          }}
+                          disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                        >
+                          <option value="">Seleccione un producto</option>
+                          {getFilteredProducts(type).map((product) => (
+                            <option key={product.id} value={product.name}>
+                              {product.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                  setProductsByType((prevState) => ({
-                    ...prevState,
-                    [type]: {
-                      id: selectedProduct.id,
-                      product: selectedProductName,
-                      dosage: prevState[type]?.dosage || '',
-                      unity: selectedProduct.unity || 'Unidad no definida',
-                    }
-                  }));
-                }}
-                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-              >
-                <option value="">Seleccione un producto</option>
-                {getFilteredProducts(type).map((product) => (
-                  <option key={product.id} value={product.name}>
-                    {product.name}
-                  </option>
-                ))}
-              </select>
+                      {/* Entrada de Dosificación */}
+                      <div className="col-md-4 mb-3">
+                        <label className="form-label">Dosificación</label>
+                        <input
+                          id={`dosage-${key}`}
+                          type="number"
+                          className="form-control"
+                          value={productData.dosage || ''}
+                          onChange={(e) => {
+                            setProductsByType((prevState) => ({
+                              ...prevState,
+                              [key]: {
+                                ...prevState[key],
+                                dosage: e.target.value,
+                              },
+                            }));
+                          }}
+                          placeholder="Ingrese la dosificación"
+                          disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                        />
+                      </div>
 
-              </div>
+                      {/* Unidad del Producto */}
+                      <div className="col-md-2 mb-3">
+                        <label className="form-label">Unidad</label>
+                        <input
+                          id={`unit-${key}`}
+                          type="text"
+                          className="form-control"
+                          value={productData.unity || ''}
+                          readOnly
+                          placeholder="Unidad"
+                        />
+                      </div>
+                    </div>
+                  ))}
 
-            {/* Entrada de Dosificación */}
-            <div className="col-md-4 mb-3">
-              <label className="form-label">Dosificación</label>
-              <input
-                id={`dosage-${type}`}
-                type="number"
-                className="form-control"
-                value={productsByType[type]?.dosage || ''}
-                onChange={(e) => handleProductChange(type, 'dosage', e.target.value)}
-                placeholder="Ingrese la dosificación"
-                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-              />
-            </div>
-
-            {/* Unidad del Producto */}
-            <div className="col-md-2 mb-3">
-              <label className="form-label">Unidad</label>
-              <input
-                id={`unit-${type}`}
-                type="text"
-                className="form-control"
-                value={productsByType[type]?.unity || ''}
-                readOnly
-                placeholder="Unidad"
-              />
-            </div>
-            </div>
-
-            </>
-           )}
+                {/* Botón para agregar nuevo producto */}
+                <div className="col-12 d-flex justify-content-center mt-3">
+                  <button
+                    className="btn btn-outline-success"
+                    type="button"
+                    onClick={() => {
+                      const newIndex = Object.keys(productsByType).filter((key) => key.startsWith(type)).length;
+                      setProductsByType((prevProducts) => ({
+                        ...prevProducts,
+                        [`${type}-${newIndex}`]: { product: '', dosage: '', unity: '', id: null },
+                      }));
+                    }}
+                  >
+                    Agregar Producto
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       
