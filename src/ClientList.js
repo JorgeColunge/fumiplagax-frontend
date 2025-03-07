@@ -28,6 +28,8 @@ function ClientList() {
   const [searchText, setSearchText] = useState(''); // Estado para el texto de búsqueda
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingStation, setEditingStation] = useState(null);
+  const [showEditStationModal, setShowEditStationModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -47,8 +49,8 @@ function ClientList() {
   const [newClient, setNewClient] = useState({
     name: '',
     address: '',
-    department: 'Nariño', // Valor predeterminado
-    city: 'Pasto', // Valor predeterminado
+    department: '', // Valor predeterminado
+    city: '', // 
     phone: '',
     email: '',
     representative: '',
@@ -121,8 +123,8 @@ const handleSearch = (e) => {
       setNewClient({
         name: '',
         address: '',
-        department: 'Nariño', // Valor predeterminado
-        city: 'Pasto', // Valor predeterminado
+        department: '', // 
+        city: '', // 
         phone: '',
         email: '',
         representative: '',
@@ -490,6 +492,102 @@ const handleSaveNewAirStation = async () => {
     setShowImageModal(false); // Cierra el modal
   };  
 
+  const handleShowEditStationModal = (station) => {
+    setEditingStation(station);
+    setShowEditStationModal(true);
+  };
+  
+  const handleCloseEditStationModal = () => {
+    setShowEditStationModal(false);
+    setEditingStation(null);
+  };
+
+  const handleSaveEditedStation = async () => {
+    if (!editingStation) return;
+  
+    try {
+      const response = await axios.put(
+        `${process.env.REACT_APP_API_URL}/api/stations/${editingStation.id}`,
+        editingStation
+      );
+  
+      // Actualizar lista de estaciones en tiempo real
+      setAirStations((prevStations) =>
+        prevStations.map((station) =>
+          station.id === editingStation.id ? response.data.station : station
+        )
+      );
+  
+      setRodentStations((prevStations) =>
+        prevStations.map((station) =>
+          station.id === editingStation.id ? response.data.station : station
+        )
+      );
+  
+      handleShowNotification("Estación actualizada exitosamente");
+      handleCloseEditStationModal();
+    } catch (error) {
+      console.error("Error al actualizar la estación:", error);
+      handleShowNotification("Hubo un error al actualizar la estación");
+    }
+  };  
+
+  const handleSaveStation = async () => {
+    try {
+      if (editingStation) {
+        // Editar estación existente
+        await axios.put(`${process.env.REACT_APP_API_URL}/api/stations/${editingStation.id}`, editingStation);
+  
+        setAirStations(prevStations =>
+          prevStations.map(station =>
+            station.id === editingStation.id ? editingStation : station
+          )
+        );
+  
+        handleShowNotification("Estación actualizada exitosamente");
+        handleCloseEditStationModal();
+      } else {
+        // Crear nueva estación
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/stations`, newAirStation);
+        setAirStations([...airStations, response.data.station]);
+  
+        handleShowNotification("Estación creada exitosamente");
+        handleCloseAddAirStationModal();
+      }
+    } catch (error) {
+      console.error("Error al guardar la estación:", error);
+      handleShowNotification("Hubo un error al guardar la estación.");
+    }
+  };
+
+  const handleSaveRodentStation = async () => {
+    try {
+      if (editingStation) {
+        // Editar estación existente
+        await axios.put(`${process.env.REACT_APP_API_URL}/api/stations/${editingStation.id}`, editingStation);
+  
+        setRodentStations(prevStations =>
+          prevStations.map(station =>
+            station.id === editingStation.id ? editingStation : station
+          )
+        );
+  
+        handleShowNotification("Estación de roedores actualizada exitosamente");
+        handleCloseEditStationModal();
+      } else {
+        // Crear nueva estación
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/stations`, newRodentStation);
+        setRodentStations([...rodentStations, response.data.station]);
+  
+        handleShowNotification("Estación de roedores creada exitosamente");
+        handleCloseAddRodentStationModal();
+      }
+    } catch (error) {
+      console.error("Error al guardar la estación de roedores:", error);
+      handleShowNotification("Hubo un error al guardar la estación de roedores.");
+    }
+  };  
+
   return (
     <div className="container mt-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -654,12 +752,12 @@ const handleSaveNewAirStation = async () => {
               <Form.Control
                 type="text"
                 name="city"
-                value={newClient.city || "Pasto"} // Valor inicial
-                onChange={(e) =>
-                  setNewClient({ ...newClient, city: e.target.value })
-                }
+                value={newClient.city} // Se usa solo el valor de `newClient.city`
+                onChange={(e) => setNewClient({ ...newClient, city: e.target.value })}
+                placeholder="Ingrese la ciudad"
                 required
               />
+
             </Form.Group>
             <Form.Group controlId="formClientPhone" className="mb-3">
               <Form.Label>Teléfono</Form.Label>
@@ -847,7 +945,9 @@ const handleSaveNewAirStation = async () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {airStations.map((station) => (
+                    {[...airStations]
+                      .sort((a, b) => Number(a.description) - Number(b.description)) // 🔹 Ordena de menor a mayor
+                      .map((station) => (
                         <tr key={station.id}>
                           <td>{station.description}</td>
                           <td>{station.control_method}</td>
@@ -919,7 +1019,9 @@ const handleSaveNewAirStation = async () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {rodentStations.map((station) => (
+                    {[...rodentStations]
+                        .sort((a, b) => Number(a.description) - Number(b.description)) // 🔹 Ordena de menor a mayor
+                        .map((station) => (
                         <tr key={station.id}>
                           <td>{station.description}</td>
                           <td>{station.type}</td>
@@ -937,20 +1039,25 @@ const handleSaveNewAirStation = async () => {
                             )}
                           </td>
                           <td style={{ textAlign: 'center', position: 'relative' }}>
-                            {/* Ícono de eliminación al final de la fila */}
-                            <XCircle
-                              style={{
-                                cursor: 'pointer',
-                                color: 'red',
-                                fontSize: '1.2rem',
-                              }}
+                            <i
+                              className="fas fa-edit text-primary me-2"
+                              style={{ cursor: 'pointer', fontSize: '1.2rem' }}
                               onClick={(e) => {
-                                e.stopPropagation(); // Evita eventos innecesarios
-                                handleDeleteRodentStation(station.id); // Llama a la función para eliminar
+                                e.stopPropagation();
+                                handleShowEditStationModal(station);
+                              }}
+                              title="Editar estación"
+                            ></i>
+                            <XCircle
+                              style={{ cursor: 'pointer', color: 'red', fontSize: '1.2rem' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAirStation(station.id);
                               }}
                               title="Eliminar estación"
                             />
                           </td>
+
                         </tr>
                       ))}
                     </tbody>
@@ -1169,109 +1276,147 @@ const handleSaveNewAirStation = async () => {
         </Modal.Footer>
       </Modal>
 
-      <Modal show={showAddAirStationModal} onHide={handleCloseAddAirStationModal}>
-        <Modal.Header closeButton>
-          <Modal.Title>Agregar Estación Aérea</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group controlId="formAirStationType" className="mb-3">
-            <Form.Label>Tipo</Form.Label>
-              <Form.Control
-                type="text"
-                name="category"
-                value={newAirStation.category}
-                onChange={handleNewAirStationInputChange}
-                disabled
-              />
-              <Form.Label>#</Form.Label>
-              <Form.Control
-                type="text"
-                name="description"
-                value={newAirStation.description}
-                onChange={handleNewAirStationInputChange}
-              />
-            </Form.Group>
-            <Form.Group controlId="formAirStationControlMethod" className="mb-3">
-              <Form.Label>Método de Control</Form.Label>
-              <Form.Control
-                type="text"
-                name="control_method"
-                value={newAirStation.control_method}
-                onChange={handleNewAirStationInputChange}
-                disabled
-              />
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseAddAirStationModal}>
-            Cancelar
-          </Button>
-          <Button variant="success" onClick={handleSaveNewAirStation}>
-            Guardar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      <Modal show={showAddAirStationModal || showEditStationModal} onHide={showAddAirStationModal ? handleCloseAddAirStationModal : handleCloseEditStationModal}>
+              <Modal.Header closeButton>
+                <Modal.Title>{editingStation ? "Editar Estación Aérea" : "Agregar Estación Aérea"}</Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                <Form>
+                  {/* Tipo de Estación (Siempre fijo) */}
+                  <Form.Group controlId="formAirStationType" className="mb-3">
+                    <Form.Label>Tipo</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="category"
+                      value={editingStation ? editingStation.category : newAirStation.category}
+                      disabled
+                    />
+                  </Form.Group>
 
-      <Modal show={showAddRodentStationModal} onHide={handleCloseAddRodentStationModal}>
-        <Modal.Header closeButton>
-          <Modal.Title>Agregar Estación de Roedores</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group controlId="formRodentStationCategory" className="mb-3">
-              <Form.Label>Tipo</Form.Label>
-              <Form.Control
-                type="text"
-                name="category"
-                value={newRodentStation.category}
-                onChange={handleNewRodentStationInputChange}
-                disabled
-              />
-              <Form.Label>#</Form.Label>
-              <Form.Control
-                type="text"
-                name="description"
-                value={newRodentStation.description}
-                onChange={handleNewRodentStationInputChange}
-              />
-            </Form.Group>
-            <Form.Group controlId="formRodentStationType" className="mb-3">
-              <Form.Label>Tipo de Estación</Form.Label>
-              <Form.Select
-                name="type"
-                value={newRodentStation.type}
-                onChange={handleNewRodentStationInputChange}
-              >
-                <option value="Caja Beta">Caja Beta</option>
-                <option value="Tubo">Tubo</option>
-              </Form.Select>
-            </Form.Group>
-            <Form.Group controlId="formRodentStationControlMethod" className="mb-3">
-              <Form.Label>Método de Control</Form.Label>
-              <Form.Select
-                name="control_method"
-                value={newRodentStation.control_method}
-                onChange={handleNewRodentStationInputChange}
-              >
-                <option value="Lámina">Lámina</option>
-                <option value="Cebo">Cebo</option>
-                <option value="Impacto">Impacto</option>
-                <option value="Bebedero">Bebedero</option>
-              </Form.Select>
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseAddRodentStationModal}>
-            Cancelar
-          </Button>
-          <Button variant="success" onClick={handleSaveNewRodentStation}>
-            Guardar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+                  {/* Número de estación */}
+                  <Form.Group controlId="formAirStationDescription" className="mb-3">
+                    <Form.Label>#</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="description"
+                      value={editingStation ? editingStation.description : newAirStation.description}
+                      onChange={(e) => {
+                        if (editingStation) {
+                          setEditingStation({ ...editingStation, description: e.target.value });
+                        } else {
+                          setNewAirStation({ ...newAirStation, description: e.target.value });
+                        }
+                      }}
+                    />
+                  </Form.Group>
+
+                  {/* Método de Control (Siempre fijo) */}
+                  <Form.Group controlId="formAirStationControlMethod" className="mb-3">
+                    <Form.Label>Método de Control</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="control_method"
+                      value={editingStation ? editingStation.control_method : newAirStation.control_method}
+                      disabled
+                    />
+                  </Form.Group>
+                </Form>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="secondary" onClick={showAddAirStationModal ? handleCloseAddAirStationModal : handleCloseEditStationModal}>
+                  Cancelar
+                </Button>
+                <Button variant="success" onClick={handleSaveStation}>
+                  {editingStation ? "Guardar Cambios" : "Guardar"}
+                </Button>
+              </Modal.Footer>
+            </Modal>
+
+            <Modal show={showAddRodentStationModal || showEditStationModal} onHide={showAddRodentStationModal ? handleCloseAddRodentStationModal : handleCloseEditStationModal}>
+              <Modal.Header closeButton>
+                <Modal.Title>{editingStation ? "Editar Estación de Roedores" : "Agregar Estación de Roedores"}</Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                <Form>
+                  {/* Tipo de Estación (Siempre fijo) */}
+                  <Form.Group controlId="formRodentStationCategory" className="mb-3">
+                    <Form.Label>Tipo</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="category"
+                      value={editingStation ? editingStation.category : newRodentStation.category}
+                      disabled
+                    />
+                  </Form.Group>
+
+                  {/* Número de estación */}
+                  <Form.Group controlId="formRodentStationDescription" className="mb-3">
+                    <Form.Label>#</Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="description"
+                      value={editingStation ? editingStation.description : newRodentStation.description}
+                      onChange={(e) => {
+                        if (editingStation) {
+                          setEditingStation({ ...editingStation, description: e.target.value });
+                        } else {
+                          setNewRodentStation({ ...newRodentStation, description: e.target.value });
+                        }
+                      }}
+                    />
+                  </Form.Group>
+
+                  {/* Tipo de Estación */}
+                  <Form.Group controlId="formRodentStationType" className="mb-3">
+                    <Form.Label>Tipo de Estación</Form.Label>
+                    <Form.Select
+                      name="type"
+                      value={editingStation ? editingStation.type : newRodentStation.type}
+                      onChange={(e) => {
+                        if (editingStation) {
+                          setEditingStation({ ...editingStation, type: e.target.value });
+                        } else {
+                          setNewRodentStation({ ...newRodentStation, type: e.target.value });
+                        }
+                      }}
+                    >
+                      <option value="Caja Beta">Caja Beta</option>
+                      <option value="Tubo">Tubo</option>
+                    </Form.Select>
+                  </Form.Group>
+
+                  {/* Método de Control */}
+                  <Form.Group controlId="formRodentStationControlMethod" className="mb-3">
+                    <Form.Label>Método de Control</Form.Label>
+                    <Form.Select
+                      name="control_method"
+                      value={editingStation ? editingStation.control_method : newRodentStation.control_method}
+                      onChange={(e) => {
+                        if (editingStation) {
+                          setEditingStation({ ...editingStation, control_method: e.target.value });
+                        } else {
+                          setNewRodentStation({ ...newRodentStation, control_method: e.target.value });
+                        }
+                      }}
+                    >
+                      <option value="Lámina">Lámina</option>
+                      <option value="Cebo">Cebo</option>
+                      <option value="Impacto">Impacto</option>
+                      <option value="Bebedero">Bebedero</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Form>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="secondary" onClick={showAddRodentStationModal ? handleCloseAddRodentStationModal : handleCloseEditStationModal}>
+                  Cancelar
+                </Button>
+                <Button variant="success" onClick={handleSaveRodentStation}>
+                  {editingStation ? "Guardar Cambios" : "Guardar"}
+                </Button>
+              </Modal.Footer>
+            </Modal>
+
       <Modal show={showAddMapModal} onHide={handleCloseAddMapModal}>
   <Modal.Header closeButton>
     <Modal.Title>Agregar Mapa</Modal.Title>
