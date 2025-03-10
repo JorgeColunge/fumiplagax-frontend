@@ -122,6 +122,9 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
       { label: "Foto Hallazgo", value: "findings_findingsByType_photo" },
       { label: "Producto", value: "findings_productsByType_product" },
       { label: "Dosificación", value: "findings_productsByType_dosage" },
+      { label: "Unidad", value: "findings_productsByType_unity" },
+      { label: "Lote", value: "findings_productsByType_batch" },
+      { label: "Ingrediente Activo", value: "findings_productsByType_activeIngredient" },
     ];
   
     const stationDesratizacion = [

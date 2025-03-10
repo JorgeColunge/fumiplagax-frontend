@@ -613,6 +613,8 @@ const handleSaveChanges = async () => {
           id: productData.id || null, // Incluir el ID
           product: productData.product || '',
           dosage: productData.dosage || '',
+          activeIngredient: productData.active_ingredient || '',
+          batch: productData.batch || '',
           unity: productData.unity || 'No especificado', // Evita valores nulos
         };
       }
@@ -782,6 +784,9 @@ const dataURLtoBlob = (dataURL) => {
         updatedProduct.product = value;
         updatedProduct.id = selectedProduct ? selectedProduct.id : null;
         updatedProduct.active_ingredient = selectedProduct ? selectedProduct.active_ingredient : null;
+        updatedProduct.batch = selectedProduct ? selectedProduct.batch : null;
+        updatedProduct.dosage = selectedProduct ? selectedProduct.dosage : null;
+        updatedProduct.unity = selectedProduct ? selectedProduct.unity : null;
       } else {
         updatedProduct[field] = value;
       }
@@ -2020,103 +2025,128 @@ const handleDeleteFinding = () => {
             
             {type !== 'Observaciones Cliente' && type !== 'Observaciones Inspector' && type !== 'Observaciones SST' && (
               <>
-                {/* Producto */}
-                <hr></hr>
-                <h6 className='mt-2'>Producto</h6>
-                {Object.entries(productsByType)
-                  .filter(([key]) => key.startsWith(type))
-                  .map(([key, productData], index) => (
-                    <div key={key} className="row" style={{ minHeight: 0, height: 'auto' }}>
-                      {/* Selección de Producto */}
-                      <div className="col-md-6 mb-3">
-                        <label className="form-label">Producto</label>
-                        <select
-                          id={`product-${key}`}
-                          className="form-select"
-                          value={productData.product || ''}
-                          onChange={(e) => {
-                            const selectedProductName = e.target.value;
-                            const selectedProduct = getFilteredProducts(type).find(
-                              (product) => product.name === selectedProductName
-                            );
+              {/* Producto */}
+              <hr />
+              <h6 className="mt-2">Producto</h6>
+              {Object.entries(productsByType)
+                .filter(([key]) => key.startsWith(type))
+                .map(([key, productData], index) => (
+                  <div key={key} className="row align-items-end" style={{ minHeight: 0, height: 'auto' }}>
+                    
+                    {/* Selección de Producto - Aumentado a col-md-6 */}
+                    <div className="col-md-6">
+                      <label className="form-label">Producto</label>
+                      <select
+                        id={`product-${key}`}
+                        className="form-select"
+                        value={productData.product || ''}
+                        onChange={(e) => {
+                          const selectedProductName = e.target.value;
+                          const selectedProduct = getFilteredProducts(type).find(
+                            (product) => product.name === selectedProductName
+                          );
 
-                            if (!selectedProduct) return;
+                          if (!selectedProduct) return;
 
-                            setProductsByType((prevState) => ({
-                              ...prevState,
-                              [`${type}-${index}`]: {
-                                id: selectedProduct.id,
-                                product: selectedProductName,
-                                unity: selectedProduct.unity || 'Unidad no definida',
-                                dosage: prevState[`${type}-${index}`]?.dosage || '',
-                              },
-                            }));
-                          }}
-                          disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-                        >
-                          <option value="">Seleccione un producto</option>
-                          {getFilteredProducts(type).map((product) => (
-                            <option key={product.id} value={product.name}>
-                              {product.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Entrada de Dosificación */}
-                      <div className="col-md-4 mb-3">
-                        <label className="form-label">Dosificación</label>
-                        <input
-                          id={`dosage-${key}`}
-                          type="number"
-                          className="form-control"
-                          value={productData.dosage || ''}
-                          onChange={(e) => {
-                            setProductsByType((prevState) => ({
-                              ...prevState,
-                              [key]: {
-                                ...prevState[key],
-                                dosage: e.target.value,
-                              },
-                            }));
-                          }}
-                          placeholder="Ingrese la dosificación"
-                          disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-                        />
-                      </div>
-
-                      {/* Unidad del Producto */}
-                      <div className="col-md-2 mb-3">
-                        <label className="form-label">Unidad</label>
-                        <input
-                          id={`unit-${key}`}
-                          type="text"
-                          className="form-control"
-                          value={productData.unity || ''}
-                          readOnly
-                          placeholder="Unidad"
-                        />
-                      </div>
+                          setProductsByType((prevState) => ({
+                            ...prevState,
+                            [`${type}${index}`]: {
+                              ...prevState[`${type}${index}`], // Mantiene los valores previos del producto
+                              id: selectedProduct.id,
+                              product: selectedProductName,
+                              unity: selectedProduct.unity || 'Unidad no definida',
+                              dosage: prevState[`${type}${index}`]?.dosage || '',
+                              active_ingredient: selectedProduct.active_ingredient || 'No especificado', // Almacena el ingrediente activo
+                              batch: selectedProduct.batch || 'No especificado', // Almacena el lote
+                            },
+                          }));                          
+                        }}
+                        disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                      >
+                        <option value="">Seleccione un producto</option>
+                        {getFilteredProducts(type).map((product) => (
+                          <option key={product.id} value={product.name}>
+                            {product.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  ))}
 
-                {/* Botón para agregar nuevo producto */}
-                <div className="col-12 d-flex justify-content-center mt-3">
-                  <button
-                    className="btn btn-outline-success"
-                    type="button"
-                    onClick={() => {
-                      const newIndex = Object.keys(productsByType).filter((key) => key.startsWith(type)).length;
-                      setProductsByType((prevProducts) => ({
-                        ...prevProducts,
-                        [`${type}-${newIndex}`]: { product: '', dosage: '', unity: '', id: null },
-                      }));
-                    }}
-                  >
-                    Agregar Producto
-                  </button>
-                </div>
-              </>
+                    {/* Entrada de Dosificación - Reducida a 90px */}
+                    <div className="col-md-3">
+                      <label className="form-label">Dosificación</label>
+                      <input
+                        id={`dosage-${key}`}
+                        type="number"
+                        className="form-control"
+                        style={{ width: '250px' }} // Ajuste de tamaño
+                        value={productData.dosage || ''}
+                        onChange={(e) => {
+                          setProductsByType((prevState) => ({
+                            ...prevState,
+                            [key]: {
+                              ...prevState[key],
+                              dosage: e.target.value,
+                            },
+                          }));
+                        }}
+                        placeholder="Dosificación"
+                        disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                      />
+                    </div>
+
+                    {/* Unidad del Producto - Reducida a 70px */}
+                    <div className="col-md-2">
+                      <label className="form-label">Unidad</label>
+                      <input
+                        id={`unit-${key}`}
+                        type="text"
+                        className="form-control"
+                        style={{ width: '170px' }} // Ajuste de tamaño
+                        value={productData.unity || ''}
+                        readOnly
+                        placeholder="Unidad"
+                      />
+                    </div>
+
+                    {/* Botón de Eliminar - Se mantiene en col-md-2 */}
+                    <div className="col-md-1 d-flex align-items-center justify-content-center">
+                    <XCircle
+                            className="text-danger"
+                            size={18}
+                            style={{ cursor: "pointer" }}
+                            title="Eliminar producto"
+                            onClick={() => {
+                              setProductsByType((prevState) => {
+                                const updatedProducts = { ...prevState };
+                                delete updatedProducts[key]; // Elimina el producto actual
+                                return updatedProducts;
+                              });
+                            }}
+                            disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                          />
+                    </div>
+
+                  </div>
+                ))}
+
+              {/* Botón para agregar nuevo producto */}
+              <div className="col-12 d-flex justify-content-center mt-3">
+                <button
+                  className="btn btn-outline-success"
+                  type="button"
+                  onClick={() => {
+                    const newIndex = Object.keys(productsByType).filter((key) => key.startsWith(type)).length;
+                    setProductsByType((prevProducts) => ({
+                      ...prevProducts,
+                      [`${type}${newIndex}`]: { batch: '', active_ingredient: '', product: '', dosage: '', unity: '', id: null },
+                    }));                    
+                  }}
+                >
+                  Agregar Producto
+                </button>
+              </div>
+            </>
             )}
           </div>
         </div>
