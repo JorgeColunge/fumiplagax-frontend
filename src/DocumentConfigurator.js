@@ -82,7 +82,7 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     { label: "Tipo de Servicio", value: "service_type" },
     { label: "Descripción", value: "description" },
     { label: "Plaga a Controlar", value: "pest_to_control" },
-    { label: "Área de Intervención", value: "intervention_area" },
+    { label: "Área de Intervención", value: "intervention_areas" },
     { label: "Responsable", value: "responsible" },
     { label: "Categoría", value: "category" },
     { label: "Cantidad por Mes", value: "quantity_per_month" },
