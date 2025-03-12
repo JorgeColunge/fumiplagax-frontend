@@ -616,6 +616,7 @@ const handleSaveChanges = async () => {
           activeIngredient: productData.active_ingredient || '',
           batch: productData.batch || '',
           unity: productData.unity || 'No especificado', // Evita valores nulos
+          category: productData.category || 'No especificado',
         };
       }
     });
@@ -787,6 +788,7 @@ const dataURLtoBlob = (dataURL) => {
         updatedProduct.batch = selectedProduct ? selectedProduct.batch : null;
         updatedProduct.dosage = selectedProduct ? selectedProduct.dosage : null;
         updatedProduct.unity = selectedProduct ? selectedProduct.unity : null;
+        updatedProduct.category = selectedProduct ? selectedProduct.category : null;
       } else {
         updatedProduct[field] = value;
       }
@@ -2058,6 +2060,7 @@ const handleDeleteFinding = () => {
                               dosage: prevState[`${type}${index}`]?.dosage || '',
                               active_ingredient: selectedProduct.active_ingredient || 'No especificado', // Almacena el ingrediente activo
                               batch: selectedProduct.batch || 'No especificado', // Almacena el lote
+                              category: selectedProduct.category || 'No especificado', //Almacena la categoría
                             },
                           }));                          
                         }}
