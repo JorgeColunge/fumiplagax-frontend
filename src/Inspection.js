@@ -617,6 +617,7 @@ const handleSaveChanges = async () => {
           batch: productData.batch || '',
           unity: productData.unity || 'No especificado', // Evita valores nulos
           category: productData.category || 'No especificado',
+          residualDuration: productData.residual_duration ||  'No especificado',
         };
       }
     });
@@ -789,6 +790,7 @@ const dataURLtoBlob = (dataURL) => {
         updatedProduct.dosage = selectedProduct ? selectedProduct.dosage : null;
         updatedProduct.unity = selectedProduct ? selectedProduct.unity : null;
         updatedProduct.category = selectedProduct ? selectedProduct.category : null;
+        updatedProduct.residual_duration = selectedProduct ? selectedProduct.residual_duration : null;
       } else {
         updatedProduct[field] = value;
       }
@@ -2061,6 +2063,7 @@ const handleDeleteFinding = () => {
                               active_ingredient: selectedProduct.active_ingredient || 'No especificado', // Almacena el ingrediente activo
                               batch: selectedProduct.batch || 'No especificado', // Almacena el lote
                               category: selectedProduct.category || 'No especificado', //Almacena la categoría
+                              residual_duration: selectedProduct.residual_duration || 'No especificado', //Almacena el tiempo de espera
                             },
                           }));                          
                         }}
@@ -2142,7 +2145,7 @@ const handleDeleteFinding = () => {
                     const newIndex = Object.keys(productsByType).filter((key) => key.startsWith(type)).length;
                     setProductsByType((prevProducts) => ({
                       ...prevProducts,
-                      [`${type}${newIndex}`]: { batch: '', active_ingredient: '', product: '', dosage: '', unity: '', id: null },
+                      [`${type}${newIndex}`]: { residual_duration: '', batch: '', active_ingredient: '', product: '', dosage: '', unity: '', id: null },
                     }));                    
                   }}
                 >

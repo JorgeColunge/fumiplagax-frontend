@@ -98,34 +98,40 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     { label: "Descripción", value: "description" },
   ];
 
+  const procedures = [
+    { label: "Procedimiento", value: "process" },
+    { label: "Método de aplicación", value: "application" },
+  ];
+
   const getInspectionFields = (serviceType) => {
     const commonFields = [
       { label: "ID", value: "id" },
-      { label: "Fecha", value: "date" },
-      { label: "Hora", value: "time" },
-      { label: "Duración", value: "duration" },
+      { label: "Fecha de la inspección", value: "date" },
+      { label: "Hora de entrada", value: "time" },
+      { label: "Duración de la inspección", value: "duration" },
       { label: "Observaciones", value: "observations" },
       { label: "ID del Servicio", value: "service_id" },
       { label: "Hora de Salida", value: "exit_time" },
       { label: "Tipo de Inspección", value: "inspection_type" },
       { label: "Subtipo de Inspección", value: "inspection_sub_type" },
-      { label: "Responsable", value: "findings_signatures_technician_name" },
+      { label: "Nombre del Responsable", value: "findings_signatures_technician_name" },
       { label: "Cédula del Responsable", value: "findings_signatures_technician_id" },
       { label: "Firma del Técnico", value: "findings_signatures_technician_signature" },
       { label: "Firma del Cliente", value: "findings_signatures_client_signature" },
       { label: "Nombre del Cliente", value: "findings_signatures_client_name" },
       { label: "Cédula Cliente", value: "findings_signatures_client_id" },
-      { label: "Cargo", value: "findings_signatures_client_position" },
+      { label: "Cargo del cliente", value: "findings_signatures_client_position" },
       { label: "Hallazgos (Todo)", value: "findings_all" },
       { label: "Lugar Hallazgo", value: "findings_findingsByType_place" },
       { label: "Descripción Hallazgo", value: "findings_findingsByType_description" },
       { label: "Foto Hallazgo", value: "findings_findingsByType_photo" },
-      { label: "Producto", value: "findings_productsByType_product" },
+      { label: "Nombre del Producto", value: "findings_productsByType_product" },
       { label: "Dosificación", value: "findings_productsByType_dosage" },
-      { label: "Unidad", value: "findings_productsByType_unity" },
-      { label: "Lote", value: "findings_productsByType_batch" },
+      { label: "Unidad del producto", value: "findings_productsByType_unity" },
+      { label: "Lote del producto", value: "findings_productsByType_batch" },
       { label: "Ingrediente Activo", value: "findings_productsByType_activeIngredient" },
       { label: "Categoría Producto", value: "findings_productsByType_category" },
+      { label: "Hora de reingreso", value: "findings_productsByType_residualDuration" },
     ];
   
     const stationDesratizacion = [
@@ -267,9 +273,9 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     ];
   
     if (selectedEntity === "servicio") {
-      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente"];
+      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
     } else if (selectedEntity === "inspeccion") {
-      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente"];
+      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
     }
   
     setSourceOptions((prev) => ({ ...prev, [variable]: options }));
@@ -396,9 +402,9 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     ];
   
     if (selectedEntity === "servicio") {
-      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente"];
+      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
     } else if (selectedEntity === "inspeccion") {
-      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente"];
+      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
     }
   
     setSourceOptions((prev) => ({
@@ -504,6 +510,11 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
         ...prev,
         [`${key}-${inputId}`]: rulesClient,
       }));
+    } else if (source === "Procedimiento") {
+      setTableFieldOptions((prev) => ({
+        ...prev,
+        [`${key}-${inputId}`]: procedures,
+      }));
     } else if (source === "Responsable" || source === "Acompañante") {
       setTableFieldOptions((prev) => ({
         ...prev,
@@ -599,6 +610,10 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     if (source === "Inspecciones" || source === "Inspección" || source === "Servicios") {
       combinedValue = `${source}-${period}-${serviceType}-${field}`;
     }
+    if (source === "Procedimiento") {
+      combinedValue = `${source}-${serviceType}-${field}`;
+    }
+    
   
     // Actualizar el valor combinado del input
     setTableIaDynamicInputs((prev) => ({
@@ -688,9 +703,9 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     ];
   
     if (selectedEntity === "servicio") {
-      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente"];
+      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
     } else if (selectedEntity === "inspeccion") {
-      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente"];
+      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
     }
   
     setSourceOptions((prev) => ({ ...prev, [variable]: options }));
@@ -777,6 +792,11 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
         ...prev,
         [`${variable}-${id}`]: rulesClient,
       }));
+    } else if (source === "Procedimiento") {
+      setIaFieldOptions((prev) => ({
+        ...prev,
+        [`${variable}-${id}`]: procedures,
+      }));
     } else if (source === "Responsable" || source === "Acompañante") {
       setIaFieldOptions((prev) => ({
         ...prev,
@@ -842,6 +862,10 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     // Si la fuente es "Inspecciones" o "Servicios", incluir período y tipo
     if (source === "Inspecciones" || source === "Inspección" || source === "Servicios") {
       combinedValue = `${source}-${period}-${serviceType}-${field}`;
+    }
+
+    if (source === "Procedimiento") {
+      combinedValue = `${source}-${serviceType}-${field}`;
     }
   
     // Actualizar el valor combinado del input
@@ -911,9 +935,9 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
   
     // Personalizar opciones según la entidad seleccionada
     if (selectedEntity === "servicio") {
-      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente"];
+      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
     } else if (selectedEntity === "inspeccion") {
-      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente"];
+      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
     }
   
     // Actualizar las opciones en el estado `tableSourceOptions`
@@ -964,6 +988,9 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     } else if (source === "Normativa Cliente") {
       // Opciones de campos para Cliente
       setFieldOptions((prev) => ({ ...prev, [variable]: rulesClient }));
+    } else if (source === "Procedimiento") {
+      // Opciones de campos para Cliente
+      setFieldOptions((prev) => ({ ...prev, [variable]: procedures }));
     } else if (source === "Responsable") {
       // Opciones de campos para Responsable
       setFieldOptions((prev) => ({ ...prev, [variable]: responsibleFields }));
@@ -1061,6 +1088,10 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     if (source === "Inspecciones" || source === "Inspección" || source === "Servicios") {
       combinedValue = `${source}-${period}-${serviceType}-${field}`;
     }
+
+    if (source === "Procedimiento") {
+      combinedValue = `${source}-${serviceType}-${field}`;
+    }
   
     setTableData((prevTables) => {
       const updatedTable = { ...prevTables[tableName] };
@@ -1085,6 +1116,10 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     // Incluir el período y tipo si la fuente es "Inspecciones" o "Servicios"
     if (source === "Inspecciones" || source === "Inspección" || source === "Servicios") {
       combinedValue = `${source}-${period}-${serviceType}-${field}`;
+    }
+
+    if (source === "Procedimiento") {
+      combinedValue = `${source}-${serviceType}-${field}`;
     }
   
     setVariableMappings((prevMappings) => ({
@@ -1388,7 +1423,7 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
             </>
             )}
 
-            {(showSourceDropdown[variable.nombre] && selectedSource[variable.nombre] === "Inspección") && (
+            {(showSourceDropdown[variable.nombre] && selectedSource[variable.nombre] === "Inspección" || showSourceDropdown[variable.nombre] && selectedSource[variable.nombre] === "Procedimiento") && (
             <>
                 <Col sm={12} className="mt-2">
                 <Form.Select
@@ -1562,7 +1597,7 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
                     )}
 
                     {/* Selectores adicionales */}
-                    {(input.source === "Inspección") && (
+                    {(input.source === "Inspección" || input.source === "Procedimiento") && (
                       <>
                         <Col sm={6} className="mt-2">
                           <Form.Select
@@ -1828,7 +1863,7 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
                             )}
 
                             {/* Selector intermedio para "Inspección" */}
-                            {(tableSelectedSource[`${table.nombre}_${rowIndex}_${colIndex}`] === "Inspección") && (
+                            {(tableSelectedSource[`${table.nombre}_${rowIndex}_${colIndex}`] === "Inspección" || tableSelectedSource[`${table.nombre}_${rowIndex}_${colIndex}`] === "Procedimiento") && (
                               <>
                         
                                 {/* Selector de Tipo de Servicio */}
