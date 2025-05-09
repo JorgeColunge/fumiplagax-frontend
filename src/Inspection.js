@@ -29,6 +29,7 @@ function Inspection() {
   const [stationModalOpen, setStationModalOpen] = useState(false);
   const [currentStationId, setCurrentStationId] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [procedures, setProcedures] = useState([]);
   const [stationFinding, setStationFinding] = useState({
     category: 'Roedores',
     purpose: 'Consumo', // Valor predeterminado
@@ -505,6 +506,24 @@ useEffect(() => {
   
     fetchInspectionData();
   }, []); 
+
+  useEffect(() => {
+    const fetchProcedures = async () => {
+      try {
+        console.log('📄 Consultando procedimientos desde el backend...');
+  
+        const response = await api.get(`${process.env.REACT_APP_API_URL}/api/procedures`);
+        const procedures = response.data;
+  
+        console.log('✅ Procedimientos cargados:', procedures);
+        setProcedures(procedures); // Asegúrate de tener este estado definido con `useState`
+      } catch (error) {
+        console.error('❌ Error al consultar los procedimientos:', error);
+      }
+    };
+  
+    fetchProcedures();
+  }, []);  
   
   const fetchDocuments = async () => {
     try {
@@ -596,11 +615,46 @@ const handleSaveChanges = async () => {
     // Procesar findingsByType
     const findingsByTypeProcessed = {};
     Object.keys(findingsByType).forEach((type) => {
-      findingsByTypeProcessed[type] = findingsByType[type].map((finding) => ({
-        ...finding,
-        photo: finding.photoBlob ? null : finding.photoRelative, // Enviar la URL relativa si no hay nueva imagen
-      }));
-    });
+      findingsByTypeProcessed[type] = findingsByType[type].map((finding) => {
+        const base = {
+          id: finding.id,
+          faseLavado: finding.faseLavado || null,
+        };
+    
+        const photoUrl = finding.photoBlob ? null : finding.photoRelative || null;
+    
+        switch (finding.faseLavado) {
+          case "Antes":
+            return {
+              ...base,
+              placeAn: finding.place || '',
+              descriptionAn: finding.description || '',
+              photoAn: photoUrl,
+            };
+          case "Durante":
+            return {
+              ...base,
+              placeDu: finding.place || '',
+              descriptionDu: finding.description || '',
+              photoDu: photoUrl,
+            };
+          case "Después":
+            return {
+              ...base,
+              placeDe: finding.place || '',
+              descriptionDe: finding.description || '',
+              photoDe: photoUrl,
+            };
+          default:
+            return {
+              ...base,
+              place: finding.place || '',
+              description: finding.description || '',
+              photo: photoUrl,
+            };
+        }
+      });
+    });    
 
     formData.append("findingsByType", JSON.stringify(findingsByTypeProcessed));
     
@@ -608,6 +662,8 @@ const handleSaveChanges = async () => {
     const productsByTypeProcessed = {};
     Object.keys(productsByType).forEach((type) => {
       const productData = productsByType[type];
+      const baseType = type.replace(/[0-9]+$/, ''); // ← extrae solo el tipo
+      const procedureMatch = procedures.find(proc => proc.category === baseType);
       if (productData) {
         productsByTypeProcessed[type] = {
           id: productData.id || null, // Incluir el ID
@@ -618,6 +674,10 @@ const handleSaveChanges = async () => {
           unity: productData.unity || 'No especificado', // Evita valores nulos
           category: productData.category || 'No especificado',
           residualDuration: productData.residual_duration ||  'No especificado',
+          expirationDate: productData.expiration_date || 'No especificado',
+          tipo: baseType,
+          process: procedureMatch?.application? JSON.parse(procedureMatch.application).join(', ') : 'No especificado',
+
         };
       }
     });
@@ -733,7 +793,7 @@ const dataURLtoBlob = (dataURL) => {
       ...prevFindings,
       [type]: [
         ...(prevFindings[type] || []),
-        { id: newFindingId, place: '', description: '', photo: null },
+        { id: newFindingId, place: '', description: '', photo: null, faseLavado: null }
       ],
     }));
   
@@ -780,17 +840,23 @@ const dataURLtoBlob = (dataURL) => {
   const handleProductChange = (type, field, value) => {
     setProductsByType((prevProducts) => {
       const updatedProduct = { ...prevProducts[type] };
+      const baseType = type.replace(/[0-9]+$/, '');
+      const procedureMatch = procedures.find(proc => proc.category === baseType);
   
       if (field === 'product') {
         const selectedProduct = availableProducts.find((product) => product.name === value);
+  
         updatedProduct.product = value;
-        updatedProduct.id = selectedProduct ? selectedProduct.id : null;
-        updatedProduct.active_ingredient = selectedProduct ? selectedProduct.active_ingredient : null;
-        updatedProduct.batch = selectedProduct ? selectedProduct.batch : null;
-        updatedProduct.dosage = selectedProduct ? selectedProduct.dosage : null;
-        updatedProduct.unity = selectedProduct ? selectedProduct.unity : null;
-        updatedProduct.category = selectedProduct ? selectedProduct.category : null;
-        updatedProduct.residual_duration = selectedProduct ? selectedProduct.residual_duration : null;
+        updatedProduct.id = selectedProduct?.id || null;
+        updatedProduct.active_ingredient = selectedProduct?.active_ingredient || '';
+        updatedProduct.batch = selectedProduct?.batch || '';
+        updatedProduct.dosage = selectedProduct?.dosage || '';
+        updatedProduct.expiration_date = selectedProduct?.expiration_date || 'No especificado';
+        updatedProduct.unity = selectedProduct?.unity || 'No especificado';
+        updatedProduct.category = selectedProduct?.category || 'No especificado';
+        updatedProduct.residual_duration = selectedProduct?.residual_duration || 'No especificado';
+        updatedProduct.tipo = baseType;
+        updatedProduct.process = procedureMatch?.application? JSON.parse(procedureMatch.application).join(', '): 'No especificado'; // ✅ Aplicación del formato legible
       } else {
         updatedProduct[field] = value;
       }
@@ -804,7 +870,7 @@ const dataURLtoBlob = (dataURL) => {
     // Marcar cambios detectados
     setHasUnsavedChanges(true);
     setUnsavedRoute(location.pathname);
-  };  
+  };   
 
   const getFilteredProducts = (type) => {
     if (!availableProducts || !type) {
@@ -1191,6 +1257,8 @@ const handleDeleteFinding = () => {
       ...inspection_type.split(",").map((type) => type.trim())
     ]
   : [];
+
+  const isLocked = techSignaturePreview && clientSignaturePreview && userRol === 'Técnico';
 
   return (
     <div className="container mt-4">
@@ -1969,48 +2037,65 @@ const handleDeleteFinding = () => {
                           />
                         </div>
                         <div className="col-md-8">
-                          <label
-                            htmlFor={`description-${type}-${idx}`}
-                            className="form-label"
-                          >
-                            Descripción
-                          </label>
-                          <textarea
-                            id={`description-${type}-${idx}`}
-                            className="form-control table-textarea"
-                            rows="2"
-                            value={finding.description}
-                            onChange={(e) =>
-                              handleFindingChange(type, idx, "description", e.target.value)
-                            }
-                            placeholder="Descripción"
-                            disabled={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
-                          ></textarea>
-                        </div>
-                        <div className="col-md-2">
-                          <label className="form-label">Foto</label>
-                          <div className="image-upload-container">
-                            {finding.photo ? (
-                              <img
-                                src={finding.photo}
-                                alt={`Preview ${idx}`}
-                                className="image-preview"
-                              />
-                            ) : (
-                              <div className="drag-drop-area">
-                                <span>Arrastra o selecciona una imagen</span>
-                              </div>
-                            )}
-                            <input
-                              type="file"
-                              className="image-input"
-                              disabled={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
-                              onChange={(e) =>
-                                handleFindingPhotoChange(type, idx, e.target.files[0])
-                              }
-                            />
+                        <label htmlFor={`description-${type}-${idx}`} className="form-label">Descripción</label>
+                        <textarea
+                          id={`description-${type}-${idx}`}
+                          className="form-control table-textarea"
+                          rows="2"
+                          value={finding.description}
+                          onChange={(e) =>
+                            handleFindingChange(type, idx, "description", e.target.value)
+                          }
+                          placeholder="Descripción"
+                          disabled={isLocked}
+                        ></textarea>
+                      </div>
+
+                      <div className="col-md-2">
+                      <label className="form-label">Foto</label>
+                      <div className="image-upload-container">
+                        {finding.photo ? (
+                          <img
+                            src={finding.photo}
+                            alt={`Preview ${idx}`}
+                            className="image-preview"
+                          />
+                        ) : (
+                          <div className="drag-drop-area">
+                            <span>Arrastra o selecciona una imagen</span>
                           </div>
-                        </div>
+                        )}
+                        <input
+                          type="file"
+                          className="image-input"
+                          disabled={isLocked}
+                          onChange={(e) =>
+                            handleFindingPhotoChange(type, idx, e.target.files[0])
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* ✅ Botón exclusivo para Lavado de tanque */}
+                    {type.trim().toLowerCase() === "lavado de tanque" && (
+                    <div className="col-md-12 mt-3 text-center">
+                      <label className="form-label d-block mb-2">Fase del Lavado</label>
+                      <div className="d-flex justify-content-center gap-2">
+                        {["Antes", "Durante", "Después"].map((fase) => (
+                          <button
+                            key={fase}
+                            type="button"
+                            className={`btn ${finding.faseLavado === fase ? "btn-primary" : "btn-outline-primary"}`}
+                            onClick={() => handleFindingChange(type, idx, "faseLavado", fase)}
+                            disabled={isLocked}
+                          >
+                            {fase}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                       </div>
                     </div>
                   )}
@@ -2052,20 +2137,28 @@ const handleDeleteFinding = () => {
 
                           if (!selectedProduct) return;
 
-                          setProductsByType((prevState) => ({
-                            ...prevState,
-                            [`${type}${index}`]: {
-                              ...prevState[`${type}${index}`], // Mantiene los valores previos del producto
-                              id: selectedProduct.id,
-                              product: selectedProductName,
-                              unity: selectedProduct.unity || 'Unidad no definida',
-                              dosage: prevState[`${type}${index}`]?.dosage || '',
-                              active_ingredient: selectedProduct.active_ingredient || 'No especificado', // Almacena el ingrediente activo
-                              batch: selectedProduct.batch || 'No especificado', // Almacena el lote
-                              category: selectedProduct.category || 'No especificado', //Almacena la categoría
-                              residual_duration: selectedProduct.residual_duration || 'No especificado', //Almacena el tiempo de espera
-                            },
-                          }));                          
+                          setProductsByType((prevState) => {
+                            const baseType = type.replace(/[0-9]+$/, '');
+                            const procedureMatch = procedures.find(proc => proc.category === baseType);
+                          
+                            return {
+                              ...prevState,
+                              [`${type}${index}`]: {
+                                ...prevState[`${type}${index}`], // Mantiene los valores previos del producto
+                                id: selectedProduct.id,
+                                product: selectedProductName,
+                                unity: selectedProduct.unity || 'Unidad no definida',
+                                dosage: prevState[`${type}${index}`]?.dosage || '',
+                                expiration_date: selectedProduct.expiration_date || 'No especificado',
+                                active_ingredient: selectedProduct.active_ingredient || 'No especificado',
+                                batch: selectedProduct.batch || 'No especificado',
+                                category: selectedProduct.category || 'No especificado',
+                                residual_duration: selectedProduct.residual_duration || 'No especificado',
+                                tipo: baseType,
+                                process: procedureMatch?.application? JSON.parse(procedureMatch.application).join(', '): 'No especificado', // ✅ Formato legible aplicado aquí
+                              },
+                            };
+                          });                                                   
                         }}
                         disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
                       >
@@ -2143,9 +2236,12 @@ const handleDeleteFinding = () => {
                   type="button"
                   onClick={() => {
                     const newIndex = Object.keys(productsByType).filter((key) => key.startsWith(type)).length;
+                    const baseType = type.replace(/[0-9]+$/, '');
+                    const procedureMatch = procedures.find(proc => proc.category === baseType);
+                    const readableProcess = procedureMatch?.application? JSON.parse(procedureMatch.application).join(', '): 'No especificado';
                     setProductsByType((prevProducts) => ({
                       ...prevProducts,
-                      [`${type}${newIndex}`]: { residual_duration: '', batch: '', active_ingredient: '', product: '', dosage: '', unity: '', id: null },
+                      [`${type}${newIndex}`]: { expiration_date: '', residual_duration: '', batch: '', active_ingredient: '', product: '', dosage: '', unity: '', id: null, tipo: baseType, process: readableProcess, },
                     }));                    
                   }}
                 >
