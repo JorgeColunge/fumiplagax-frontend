@@ -623,6 +623,164 @@ function ServiceList() {
     }
   };
 
+  const handleDocumentClick = (documentUrl) => {
+    setSelectedDocument(documentUrl);
+    setDocumentModalOpen(true);
+  };
+
+  // Abrir el modal
+  const handleOpenConvertToPdfModal = () => {
+    setConvertToPdfModalOpen(true);
+  };
+
+  // Cerrar el modal
+  const handleCloseConvertToPdfModal = () => {
+    setConvertToPdfModalOpen(false);
+    setSelectedDocForPdf(null);
+  };
+
+  // Realizar la conversión a PDF
+  const handleConvertToPdf = async () => {
+    setLoadingConvertToPdf(true); // Mostrar spinner
+    try {
+      console.log("Enviando solicitud para convertir a PDF...");
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/convert-to-pdf`, {
+        generatedDocumentId: selectedDocForPdf.id,
+      });
+
+      console.log("Respuesta recibida del backend:", response.data);
+
+      if (response.data.success) {
+        console.log("Conversión exitosa. Datos del nuevo documento:", response.data.newDocument);
+        setConvertToPdfModalOpen(false);
+        console.log("Actualizando lista de documentos...");
+        await fetchDocuments();
+      } else {
+        console.error("Error en la conversión del documento:", response.data.message);
+        alert(response.data.message || "Ocurrió un error al convertir el documento.");
+      }
+    } catch (error) {
+      console.error("Error al conectar con el servidor:", error);
+      alert("Error de conexión con el servidor al intentar convertir el documento.");
+    } finally {
+      setLoadingConvertToPdf(false); // Ocultar spinner
+    }
+  };
+
+  const handleActionClick = async (configurationId) => {
+    if (isExecuting) return;
+    setIsExecuting(true);
+
+    try {
+      const payload = {
+        idEntity: selectedService.id,
+        id: configurationId,
+        uniqueId: Date.now(),
+      };
+
+      console.log("📤 Enviando payload a /api/create-document-service:", payload);
+
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/create-document-service`,
+        payload
+      );
+
+      console.log("✅ Respuesta del backend:", response);
+      console.log("📦 response.data:", response.data);
+
+      if (response.data?.success === true) {
+        console.log("🎉 Acción ejecutada correctamente");
+        showNotification("Acción ejecutada con éxito.");
+        await fetchDocuments(selectedService.id); // asegúrate de pasar el ID
+      } else {
+        console.warn("⚠️ El backend no devolvió 'success: true'");
+        showNotification("Error al ejecutar la acción.");
+      }
+    } catch (error) {
+      console.error("❌ Error al ejecutar la acción:", error);
+      if (error.response) {
+        console.error("📄 error.response.data:", error.response.data);
+        console.error("📄 error.response.status:", error.response.status);
+      }
+      showNotification("Error al ejecutar la acción.");
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/PrefirmarArchivos`, { url: selectedDocument.document_url });
+      if (response.data.signedUrl) {
+        const preSignedUrl = response.data.signedUrl;
+        const link = document.createElement('a');
+        link.href = preSignedUrl;
+        link.download = 'document'; // Cambia el nombre del archivo si es necesario
+        link.click();
+      } else {
+        alert('No se pudo obtener la URL prefirmada.');
+      }
+    } catch (error) {
+      console.error('Error al obtener la URL prefirmada para descargar:', error);
+      alert('Hubo un error al procesar la solicitud.');
+    }
+  };
+
+  const handleEditGoogleDrive = async () => {
+    setLoadingGoogleDrive(true); // Mostrar el spinner
+    try {
+      console.log("Iniciando pre-firmado del documento:", selectedDocument);
+
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/PrefirmarArchivos`, { url: selectedDocument.document_url });
+      console.log("Respuesta de pre-firmado:", response.data);
+
+      if (response.data.signedUrl) {
+        const preSignedUrl = response.data.signedUrl;
+        console.log("URL prefirmada obtenida:", preSignedUrl);
+
+        console.log("Enviando solicitud para editar en Google Drive...");
+        const googleDriveResponse = await axios.post(`${process.env.REACT_APP_API_URL}/api/edit-googledrive`, { s3Url: preSignedUrl });
+        console.log("Respuesta de edición en Google Drive:", googleDriveResponse.data);
+
+        if (googleDriveResponse.data.success && googleDriveResponse.data.fileId) {
+          const googleDriveEditUrl = `https://docs.google.com/document/d/${googleDriveResponse.data.fileId}/edit`;
+          console.log("URL de edición en Google Drive:", googleDriveEditUrl);
+
+          // Abrir Google Drive en una nueva pestaña
+          window.open(googleDriveEditUrl, "_blank", "noopener,noreferrer");
+
+          // Pasar información al nuevo componente
+          const documentInfo = {
+            id: selectedDocument.id,
+            entity_id: selectedDocument.entity_id,
+            document_url: selectedDocument.document_url,
+            google_drive_url: googleDriveEditUrl,
+            google_drive_id: googleDriveResponse.data.fileId,
+          };
+
+          console.log("Información del documento que se pasa al componente:", documentInfo);
+
+          navigate("/edit-google-drive", {
+            state: {
+              documentInfo,
+            },
+          });
+        } else {
+          console.error("No se pudo obtener el archivo en Google Drive:", googleDriveResponse.data);
+          alert("No se pudo obtener el archivo en Google Drive.");
+        }
+      } else {
+        console.error("No se pudo obtener la URL prefirmada.");
+        alert("No se pudo obtener la URL prefirmada.");
+      }
+    } catch (error) {
+      console.error("Error al procesar la solicitud de Google Drive:", error);
+      alert("Hubo un error al procesar la solicitud.");
+    } finally {
+      setLoadingGoogleDrive(false); // Ocultar el spinner
+    }
+  };
+
   const handleEditLocal = () => {
     navigate("/edit-local-file", { state: { documentId: selectedDocument.id } });
   };
@@ -959,7 +1117,7 @@ function ServiceList() {
                         <div className="flex-grow-1 text-truncate">
                           <span
                             className={`fw-bold px-1 py-1 rounded text-white ${service.company === "Fumiplagax" ? "bg-success" :
-                                service.company === "Control" ? "bg-primary" : "bg-warning"
+                              service.company === "Control" ? "bg-primary" : "bg-warning"
                               }`}
                           >
                             {service.company === "Fumiplagax" ? "F" :
