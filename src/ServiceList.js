@@ -3,13 +3,13 @@ import axios from 'axios';
 import moment from 'moment-timezone';
 import { useMemo } from "react";
 import { useNavigate, useLocation } from 'react-router-dom'; // Asegúrate de tener configurado react-router
-import { Calendar, Person, Bag, Building, PencilSquare, Trash, Bug, Diagram3, GearFill, Clipboard, PlusCircle, InfoCircle, FileText, GeoAlt, Calendar2Check } from 'react-bootstrap-icons';
+import { Calendar, Person, Bag, Building, PencilSquare, Trash, Bug, Diagram3, GearFill, Clipboard, PlusCircle, InfoCircle, FileText, GeoAlt, Calendar2Check, FileEarmarkWord, FileEarmarkExcel, FileEarmarkPdf, FileEarmarkImage, FileEarmarkArrowDown, EnvelopePaper, Whatsapp, Radioactive } from 'react-bootstrap-icons';
 import { Card, Col, Row, Collapse, Button, Table, Modal, Form, CardFooter, ModalTitle } from 'react-bootstrap';
 import ClientInfoModal from './ClientInfoModal'; // Ajusta la ruta según la ubicación del componente
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ServiceList.css'
 
-function ServiceList() { 
+function ServiceList() {
   const [services, setServices] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +29,15 @@ function ServiceList() {
   const [clientNames, setClientNames] = useState({});
   const [showPestOptions, setShowPestOptions] = useState(false);
   const [showInterventionAreasOptions, setShowInterventionAreasOptions] = useState(false);
+  const [documents, setDocuments] = useState([]);
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [documentModalOpen, setDocumentModalOpen] = useState(false);
+  const [loadingGoogleDrive, setLoadingGoogleDrive] = useState(false);
+  const [convertToPdfModalOpen, setConvertToPdfModalOpen] = useState(false);
+  const [selectedDocForPdf, setSelectedDocForPdf] = useState(null);
+  const [loadingConvertToPdf, setLoadingConvertToPdf] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [actions, setActions] = useState([]);
   const [newInspection, setNewInspection] = useState({
     inspection_type: [], // Tipos de inspección seleccionados
     inspection_sub_type: "", // Opcional, para subtipos como en Desratización
@@ -124,14 +133,14 @@ function ServiceList() {
 
   // Si el estado contiene un serviceId, selecciona automáticamente ese servicio y abre el modal.
   useEffect(() => {
-      if (serviceIdFromState) {
-          const service = services.find(s => s.id === serviceIdFromState);
-          if (service) {
-              setSelectedService(service);
-              fetchInspections(service.id);
-              setShowDetailsModal(true);
-          }
+    if (serviceIdFromState) {
+      const service = services.find(s => s.id === serviceIdFromState);
+      if (service) {
+        setSelectedService(service);
+        fetchInspections(service.id);
+        setShowDetailsModal(true);
       }
+    }
   }, [serviceIdFromState, services]);
 
   useEffect(() => {
@@ -158,20 +167,20 @@ function ServiceList() {
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search); // Extrae los parámetros de la URL
     const dataParam = queryParams.get("data"); // Obtén el parámetro "data"
-    
+
     if (dataParam) {
       try {
         const serviceData = JSON.parse(decodeURIComponent(dataParam)); // Decodifica y convierte el JSON
-        
+
         console.log("Datos extraídos de la URL:", serviceData); // Log para verificar los datos
-        
+
         // Actualiza el estado del nuevo servicio con los datos extraídos
         setNewService((prevService) => ({
           ...prevService,
           ...serviceData,
           created_by: serviceData.created_by || prevService.created_by,
         }));
-  
+
         setShowAddServiceModal(true); // Abre el modal automáticamente
       } catch (error) {
         console.error("Error al procesar los datos de la URL:", error);
@@ -179,7 +188,7 @@ function ServiceList() {
     } else {
       console.log("No se encontró el parámetro 'data' en la URL.");
     }
-  }, [location.search]);  
+  }, [location.search]);
 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
@@ -207,84 +216,84 @@ function ServiceList() {
     "Diagnostico"
   ];
 
-    // Estado para las opciones visibles de "Plaga a Controlar"
-    const [visiblePestOptions, setVisiblePestOptions] = useState([]);
+  // Estado para las opciones visibles de "Plaga a Controlar"
+  const [visiblePestOptions, setVisiblePestOptions] = useState([]);
 
   // Opciones de plagas para cada tipo de servicio
   const pestOptions = {
-  "Desinsectación": ["Moscas", "Zancudos", "Cucarachas", "Hormigas", "Pulgas", "Gorgojos", "Escarabajos"],
-  "Desratización": ["Rata de alcantarilla", "Rata de techo", "Rata de campo"],
-  "Desinfección": ["Virus", "Hongos", "Bacterias"],
-  "Roceria": [],
-  "Limpieza y aseo de archivos": [],
-  "Lavado shut basura": [],
-  "Encarpado": [],
-  "Lavado de tanque": [],
-  "Inspección": [],
-  "Diagnostico": []
+    "Desinsectación": ["Moscas", "Zancudos", "Cucarachas", "Hormigas", "Pulgas", "Gorgojos", "Escarabajos"],
+    "Desratización": ["Rata de alcantarilla", "Rata de techo", "Rata de campo"],
+    "Desinfección": ["Virus", "Hongos", "Bacterias"],
+    "Roceria": [],
+    "Limpieza y aseo de archivos": [],
+    "Lavado shut basura": [],
+    "Encarpado": [],
+    "Lavado de tanque": [],
+    "Inspección": [],
+    "Diagnostico": []
   };
 
   const [showInterventionAreas, setShowInterventionAreas] = useState(false);
 
-// Estado para controlar si el dropdown está abierto o cerrado
-const [showDropdown, setShowDropdown] = useState(false);
+  // Estado para controlar si el dropdown está abierto o cerrado
+  const [showDropdown, setShowDropdown] = useState(false);
 
   // Opciones de Áreas de Intervención ordenadas alfabéticamente
-const interventionAreaOptions = [
-  "Área caja",
-  "Área de lavado",
-  "Baños",
-  "Bodega",
-  "Cajas eléctricas",
-  "Cocina",
-  "Comedor",
-  "Cubierta",
-  "Cuartos de residuos",
-  "Entretechos",
-  "Equipos",
-  "Exteriores",
-  "Lokers",
-  "Muebles",
-  "Necera",
-  "Oficinas",
-  "Producción",
-  "Servicio al cliente",
-  "Shot de basuras",
-  "Otro"
-];
+  const interventionAreaOptions = [
+    "Área caja",
+    "Área de lavado",
+    "Baños",
+    "Bodega",
+    "Cajas eléctricas",
+    "Cocina",
+    "Comedor",
+    "Cubierta",
+    "Cuartos de residuos",
+    "Entretechos",
+    "Equipos",
+    "Exteriores",
+    "Lokers",
+    "Muebles",
+    "Necera",
+    "Oficinas",
+    "Producción",
+    "Servicio al cliente",
+    "Shot de basuras",
+    "Otro"
+  ];
 
 
-const handleInterventionAreasChange = (e) => {
-  const { value, checked } = e.target;
+  const handleInterventionAreasChange = (e) => {
+    const { value, checked } = e.target;
 
-  setNewService((prevService) => {
-    // Si la opción seleccionada es "Otro"
-    if (value === "Otro") {
-      setShowInterventionAreas(checked); // Muestra u oculta la casilla de texto personalizada
-    }
+    setNewService((prevService) => {
+      // Si la opción seleccionada es "Otro"
+      if (value === "Otro") {
+        setShowInterventionAreas(checked); // Muestra u oculta la casilla de texto personalizada
+      }
 
-    // Actualiza las áreas seleccionadas
-    return {
+      // Actualiza las áreas seleccionadas
+      return {
+        ...prevService,
+        intervention_areas: checked
+          ? [...prevService.intervention_areas, value] // Agrega la opción seleccionada
+          : prevService.intervention_areas.filter((area) => area !== value), // Remueve la opción deseleccionada
+      };
+    });
+  };
+
+  const handleCustomInterventionAreaChange = (e) => {
+    setNewService((prevService) => ({
       ...prevService,
-      intervention_areas: checked
-        ? [...prevService.intervention_areas, value] // Agrega la opción seleccionada
-        : prevService.intervention_areas.filter((area) => area !== value), // Remueve la opción deseleccionada
-    };
-  });
-};
+      customInterventionArea: e.target.value,
+    }));
+  };
 
-const handleCustomInterventionAreaChange = (e) => {
-  setNewService((prevService) => ({
-    ...prevService,
-    customInterventionArea: e.target.value,
-  }));
-};
+  const navigate = useNavigate();
 
- const navigate = useNavigate();
-  
- const handleSchedule = (serviceId) => {
+  const handleSchedule = (serviceId) => {
     navigate(`/services-calendar?serviceId=${serviceId}`); // Navega a la ruta con el id del servicio
- };
+  };
 
   const handleInspectionClick = (inspection) => {
     console.log("Clicked inspection:", inspection);
@@ -314,7 +323,7 @@ const handleCustomInterventionAreaChange = (e) => {
     const interventionAreas = parseField(service.intervention_areas);
 
     const customArea = interventionAreas.includes("Otro")
-      ? interventionAreas.filter((area) => area !== "Otro").join(", ") 
+      ? interventionAreas.filter((area) => area !== "Otro").join(", ")
       : "";
 
     setEditService({
@@ -338,23 +347,23 @@ const handleCustomInterventionAreaChange = (e) => {
 
   const handleCompanyChange = (e) => {
     const selectedCompany = e.target.value;
-  
+
     setNewService((prevService) => ({
       ...prevService,
       company: selectedCompany,
       customCompany: selectedCompany === "Otro" ? prevService.customCompany : "", // Borra el campo personalizado si no es "Otro"
     }));
-  }; 
-  
+  };
+
   const handleEditCompanyChange = (e) => {
     const selectedCompany = e.target.value;
-  
+
     setEditService((prevService) => ({
       ...prevService,
       company: selectedCompany,
       customCompany: selectedCompany === "Otro" ? prevService.customCompany || "" : "", // ✅ Asegura que si no es "Otro", el campo se vacía
     }));
-  };  
+  };
 
   const handleServiceTypeChange = (e) => {
     const { value, checked } = e.target;
@@ -362,16 +371,16 @@ const handleCustomInterventionAreaChange = (e) => {
       const updatedServiceType = checked
         ? [...prevService.service_type, value]
         : prevService.service_type.filter((type) => type !== value);
-  
+
       // Combina las plagas de todos los tipos de servicio seleccionados
       const combinedPestOptions = Array.from(
         new Set(
           updatedServiceType.flatMap((type) => pestOptions[type] || [])
         )
       );
-  
+
       setVisiblePestOptions(combinedPestOptions);
-  
+
       return {
         ...prevService,
         service_type: updatedServiceType,
@@ -382,45 +391,45 @@ const handleCustomInterventionAreaChange = (e) => {
 
   const handleSaveChanges = async () => {
     try {
-        const interventionAreas = editService.intervention_areas.filter(
-            (area) => area !== "Otro"
+      const interventionAreas = editService.intervention_areas.filter(
+        (area) => area !== "Otro"
+      );
+
+      if (editService.customInterventionArea.trim()) {
+        interventionAreas.push(editService.customInterventionArea.trim());
+      }
+
+      const formattedEditService = {
+        ...editService,
+        responsible: editService.responsible || "", // ✅ Evita valores `null`
+        intervention_areas: `{${interventionAreas.map((a) => `"${a}"`).join(",")}}`,
+        pest_to_control: `{${editService.pest_to_control.map((p) => `"${p}"`).join(",")}}`,
+        service_type: `{${editService.service_type.map((s) => `"${s}"`).join(",")}}`,
+        companion: `{${editService.companion.map((c) => `"${c}"`).join(",")}}`,
+        customInterventionArea: "",
+      };
+
+      const response = await axios.put(
+        `${process.env.REACT_APP_API_URL}/api/services/${editService.id}`,
+        formattedEditService
+      );
+
+      if (response.data.success) {
+        setServices((prevServices) =>
+          prevServices.map((service) =>
+            service.id === editService.id
+              ? { ...formattedEditService, id: editService.id }
+              : service
+          )
         );
 
-        if (editService.customInterventionArea.trim()) {
-            interventionAreas.push(editService.customInterventionArea.trim());
-        }
-
-        const formattedEditService = {
-            ...editService,
-            responsible: editService.responsible || "", // ✅ Evita valores `null`
-            intervention_areas: `{${interventionAreas.map((a) => `"${a}"`).join(",")}}`,
-            pest_to_control: `{${editService.pest_to_control.map((p) => `"${p}"`).join(",")}}`,
-            service_type: `{${editService.service_type.map((s) => `"${s}"`).join(",")}}`,
-            companion: `{${editService.companion.map((c) => `"${c}"`).join(",")}}`,
-            customInterventionArea: "",
-        };
-
-        const response = await axios.put(
-            `${process.env.REACT_APP_API_URL}/api/services/${editService.id}`,
-            formattedEditService
-        );
-
-        if (response.data.success) {
-            setServices((prevServices) =>
-                prevServices.map((service) =>
-                    service.id === editService.id
-                        ? { ...formattedEditService, id: editService.id }
-                        : service
-                )
-            );
-
-            handleCloseEditModal();
-        }
+        handleCloseEditModal();
+      }
     } catch (error) {
-        console.error("Error updating service:", error);
+      console.error("Error updating service:", error);
     }
-};
-  
+  };
+
   const handleDeleteClick = async (serviceId) => {
     try {
       const response = await axios.delete(`${process.env.REACT_APP_API_URL}/api/services/${serviceId}`);
@@ -430,7 +439,7 @@ const handleCustomInterventionAreaChange = (e) => {
     } catch (error) {
       console.error("Error deleting service:", error);
     }
-  };  
+  };
 
   const fetchTechnicians = async () => {
     try {
@@ -439,7 +448,7 @@ const handleCustomInterventionAreaChange = (e) => {
     } catch (error) {
       console.error("Error fetching technicians:", error);
     }
-  };  
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -449,7 +458,7 @@ const handleCustomInterventionAreaChange = (e) => {
         const techniciansResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/users?role=Technician`);
 
         // Ordenar los servicios de forma descendente por created_at
-        const sortedServices = servicesResponse.data.sort((a, b) => 
+        const sortedServices = servicesResponse.data.sort((a, b) =>
           new Date(b.created_at) - new Date(a.created_at)
         );
 
@@ -471,12 +480,12 @@ const handleCustomInterventionAreaChange = (e) => {
       try {
         const servicesResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/services`);
         const clientsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/clients`);
-        
+
         const clientData = {};
         clientsResponse.data.forEach(client => {
           clientData[client.id] = client.name;
         });
-  
+
         setClientNames(clientData);
         setServices(servicesResponse.data);
         setFilteredServices(servicesResponse.data);
@@ -485,7 +494,7 @@ const handleCustomInterventionAreaChange = (e) => {
         console.error("Error fetching data:", error);
       }
     };
-  
+
     const fetchTechnicians = async () => {
       try {
         const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/users?role=Technician`);
@@ -494,7 +503,7 @@ const handleCustomInterventionAreaChange = (e) => {
         console.error("Error fetching technicians:", error);
       }
     };
-  
+
     // Llama a las funciones sin duplicación
     fetchServicesAndClients();
     fetchTechnicians();
@@ -503,7 +512,7 @@ const handleCustomInterventionAreaChange = (e) => {
   useEffect(() => {
     console.log("Estado actualizado de filteredServices:", filteredServices);
   }, [filteredServices]);
-  
+
   useEffect(() => {
     // Preprocesar los tipos de servicio una sola vez
     const preprocessedServices = services.map((service) => ({
@@ -512,9 +521,9 @@ const handleCustomInterventionAreaChange = (e) => {
         ? service.service_type.replace(/[\{\}"]/g, "").toLowerCase()
         : "",
     }));
-  
+
     let filtered = preprocessedServices;
-  
+
     if (searchServiceText) {
       filtered = filtered.filter((service) =>
         service.id.toString().includes(searchServiceText) ||
@@ -524,11 +533,11 @@ const handleCustomInterventionAreaChange = (e) => {
         service.company.toLowerCase().includes(searchServiceText)
       );
     }
-  
+
     if (selectedClient) {
       filtered = filtered.filter((service) => service.client_id === parseInt(selectedClient));
     }
-  
+
     if (selectedUser) {
       filtered = filtered.filter((service) => service.responsible === selectedUser);
     }
@@ -541,7 +550,7 @@ const handleCustomInterventionAreaChange = (e) => {
         return service.company === selectedCompany;
       });
     }
-  
+
     setFilteredServices(filtered);
   }, [searchServiceText, selectedClient, selectedUser, selectedCompany, services, clients, technicians]);
 
@@ -551,7 +560,7 @@ const handleCustomInterventionAreaChange = (e) => {
     setSelectedClientId(clientId);
     setShowClientModal(true);
   };
-  
+
   const handleCloseClientModal = () => {
     setShowClientModal(false);
     setSelectedClientId(null);
@@ -560,10 +569,10 @@ const handleCustomInterventionAreaChange = (e) => {
   const handleServiceSearchChange = (e) => {
     const input = e.target.value.toLowerCase();
     setSearchServiceText(input);
-  
+
     console.log("Texto de búsqueda:", input);
-  
-  };  
+
+  };
 
   const handleSearchChange = (e) => {
     const input = e.target.value;
@@ -583,8 +592,203 @@ const handleCustomInterventionAreaChange = (e) => {
   const handleServiceClick = (service) => {
     setSelectedService(service); // Establece el servicio seleccionado
     fetchInspections(service.id); // Pasa el `service.id` a la función para filtrar las inspecciones
+    fetchActions();
+    fetchDocuments(service.id);
     setShowDetailsModal(true); // Abre el modal
-  };    
+  };
+
+  const fetchActions = async () => {
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/actions-services`);
+      setActions(response.data.actions || []); // Asume que el backend devuelve un array de acciones
+    } catch (error) {
+      console.error('Error fetching actions:', error);
+    }
+  };
+
+  const fetchDocuments = async (service) => {
+    try {
+      console.log("📦 fetchDocuments - Iniciando con service:", service);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/get-documents`, {
+        params: { entity_type: 'services', entity_id: service },
+      });
+      if (response.data.documents && response.data.documents.length > 0) {
+        console.log("📄 Documentos encontrados:", response.data.documents);
+      } else {
+        console.warn("⚠️ No se encontraron documentos para el servicio:", service);
+      }
+      setDocuments(response.data.documents || []);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    }
+  };
+
+  const handleDocumentClick = (documentUrl) => {
+    setSelectedDocument(documentUrl);
+    setDocumentModalOpen(true);
+  };
+
+  // Abrir el modal
+  const handleOpenConvertToPdfModal = () => {
+    setConvertToPdfModalOpen(true);
+  };
+
+  // Cerrar el modal
+  const handleCloseConvertToPdfModal = () => {
+    setConvertToPdfModalOpen(false);
+    setSelectedDocForPdf(null);
+  };
+
+  // Realizar la conversión a PDF
+  const handleConvertToPdf = async () => {
+    setLoadingConvertToPdf(true); // Mostrar spinner
+    try {
+      console.log("Enviando solicitud para convertir a PDF...");
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/convert-to-pdf`, {
+        generatedDocumentId: selectedDocForPdf.id,
+      });
+
+      console.log("Respuesta recibida del backend:", response.data);
+
+      if (response.data.success) {
+        console.log("Conversión exitosa. Datos del nuevo documento:", response.data.newDocument);
+        setConvertToPdfModalOpen(false);
+        console.log("Actualizando lista de documentos...");
+        await fetchDocuments();
+      } else {
+        console.error("Error en la conversión del documento:", response.data.message);
+        alert(response.data.message || "Ocurrió un error al convertir el documento.");
+      }
+    } catch (error) {
+      console.error("Error al conectar con el servidor:", error);
+      alert("Error de conexión con el servidor al intentar convertir el documento.");
+    } finally {
+      setLoadingConvertToPdf(false); // Ocultar spinner
+    }
+  };
+
+  const handleActionClick = async (configurationId) => {
+    if (isExecuting) return;
+    setIsExecuting(true);
+
+    try {
+      const payload = {
+        idEntity: selectedService.id,
+        id: configurationId,
+        uniqueId: Date.now(),
+      };
+
+      console.log("📤 Enviando payload a /api/create-document-service:", payload);
+
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/create-document-service`,
+        payload
+      );
+
+      console.log("✅ Respuesta del backend:", response);
+      console.log("📦 response.data:", response.data);
+
+      if (response.data?.success === true) {
+        console.log("🎉 Acción ejecutada correctamente");
+        showNotification("Acción ejecutada con éxito.");
+        await fetchDocuments(selectedService.id); // asegúrate de pasar el ID
+      } else {
+        console.warn("⚠️ El backend no devolvió 'success: true'");
+        showNotification("Error al ejecutar la acción.");
+      }
+    } catch (error) {
+      console.error("❌ Error al ejecutar la acción:", error);
+      if (error.response) {
+        console.error("📄 error.response.data:", error.response.data);
+        console.error("📄 error.response.status:", error.response.status);
+      }
+      showNotification("Error al ejecutar la acción.");
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/PrefirmarArchivos`, { url: selectedDocument.document_url });
+      if (response.data.signedUrl) {
+        const preSignedUrl = response.data.signedUrl;
+        const link = document.createElement('a');
+        link.href = preSignedUrl;
+        link.download = 'document'; // Cambia el nombre del archivo si es necesario
+        link.click();
+      } else {
+        alert('No se pudo obtener la URL prefirmada.');
+      }
+    } catch (error) {
+      console.error('Error al obtener la URL prefirmada para descargar:', error);
+      alert('Hubo un error al procesar la solicitud.');
+    }
+  };
+
+  const handleEditGoogleDrive = async () => {
+    setLoadingGoogleDrive(true); // Mostrar el spinner
+    try {
+      console.log("Iniciando pre-firmado del documento:", selectedDocument);
+
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/PrefirmarArchivos`, { url: selectedDocument.document_url });
+      console.log("Respuesta de pre-firmado:", response.data);
+
+      if (response.data.signedUrl) {
+        const preSignedUrl = response.data.signedUrl;
+        console.log("URL prefirmada obtenida:", preSignedUrl);
+
+        console.log("Enviando solicitud para editar en Google Drive...");
+        const googleDriveResponse = await axios.post(`${process.env.REACT_APP_API_URL}/api/edit-googledrive`, { s3Url: preSignedUrl });
+        console.log("Respuesta de edición en Google Drive:", googleDriveResponse.data);
+
+        if (googleDriveResponse.data.success && googleDriveResponse.data.fileId) {
+          const googleDriveEditUrl = `https://docs.google.com/document/d/${googleDriveResponse.data.fileId}/edit`;
+          console.log("URL de edición en Google Drive:", googleDriveEditUrl);
+
+          // Abrir Google Drive en una nueva pestaña
+          window.open(googleDriveEditUrl, "_blank", "noopener,noreferrer");
+
+          // Pasar información al nuevo componente
+          const documentInfo = {
+            id: selectedDocument.id,
+            entity_id: selectedDocument.entity_id,
+            document_url: selectedDocument.document_url,
+            google_drive_url: googleDriveEditUrl,
+            google_drive_id: googleDriveResponse.data.fileId,
+          };
+
+          console.log("Información del documento que se pasa al componente:", documentInfo);
+
+          navigate("/edit-google-drive", {
+            state: {
+              documentInfo,
+            },
+          });
+        } else {
+          console.error("No se pudo obtener el archivo en Google Drive:", googleDriveResponse.data);
+          alert("No se pudo obtener el archivo en Google Drive.");
+        }
+      } else {
+        console.error("No se pudo obtener la URL prefirmada.");
+        alert("No se pudo obtener la URL prefirmada.");
+      }
+    } catch (error) {
+      console.error("Error al procesar la solicitud de Google Drive:", error);
+      alert("Hubo un error al procesar la solicitud.");
+    } finally {
+      setLoadingGoogleDrive(false); // Ocultar el spinner
+    }
+  };
+
+  const handleEditLocal = () => {
+    navigate("/edit-local-file", { state: { documentId: selectedDocument.id } });
+  };
+
+  const closeDocumentModal = () => {
+    setSelectedDocument(null);
+    setDocumentModalOpen(false);
+  };
 
   const handleShowModal = () => {
     setNewInspection({
@@ -623,48 +827,48 @@ const handleCustomInterventionAreaChange = (e) => {
   const handleSaveInspection = async () => {
     if (!Array.isArray(newInspection.inspection_type) || newInspection.inspection_type.length === 0) {
       showNotification("Debe seleccionar al menos un tipo de inspección.");
-        return;
+      return;
     }
 
     if (
-        newInspection.inspection_type.includes("Desratización") &&
-        !newInspection.inspection_sub_type
+      newInspection.inspection_type.includes("Desratización") &&
+      !newInspection.inspection_sub_type
     ) {
       showNotification("Debe seleccionar un Sub tipo para Desratización.");
-        return;
+      return;
     }
 
     const inspectionData = {
-        inspection_type: newInspection.inspection_type,
-        inspection_sub_type: newInspection.inspection_type.includes("Desratización")
+      inspection_type: newInspection.inspection_type,
+      inspection_sub_type: newInspection.inspection_type.includes("Desratización")
         ? newInspection.inspection_sub_type
         : null, // Enviar null si no aplica
-        service_id: selectedService.id,
-        date: moment().format("YYYY-MM-DD"), // Fecha actual
-        time: moment().format("HH:mm:ss"), // Hora actual
-        createdBy: userId,
+      service_id: selectedService.id,
+      date: moment().format("YYYY-MM-DD"), // Fecha actual
+      time: moment().format("HH:mm:ss"), // Hora actual
+      createdBy: userId,
     };
 
     try {
-        const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/inspections`, inspectionData);
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/inspections`, inspectionData);
 
-        if (response.data.success) {
-        showNotification("Error","Inspección guardada con éxito");
+      if (response.data.success) {
+        showNotification("Error", "Inspección guardada con éxito");
         fetchInspections(selectedService.id);
         handleCloseAddInspectionModal();
 
         // Redirigir al componente de inspección con el ID
         navigate(`/inspection/${response.data.inspection.id}`);
-        } else {
+      } else {
         console.error(
-            "Error: No se pudo guardar la inspección correctamente.",
-            response.data.message
+          "Error: No se pudo guardar la inspección correctamente.",
+          response.data.message
         );
-        }
+      }
     } catch (error) {
-        console.error("Error saving inspection:", error);
+      console.error("Error saving inspection:", error);
     }
-    };  
+  };
 
   const handleShowAddServiceModal = () => {
     setNewService((prevService) => ({
@@ -683,7 +887,7 @@ const handleCustomInterventionAreaChange = (e) => {
   const filteredTechniciansForEdit = technicians.filter(
     (technician) => technician.id !== editService.responsible
   );
-  
+
 
   const handleCloseAddServiceModal = () => {
     setNewService({
@@ -704,7 +908,7 @@ const handleCustomInterventionAreaChange = (e) => {
       created_at: moment().format('DD-MM-YYYY'),
     });
     setShowAddServiceModal(false);
-  };  
+  };
 
   const handleCloseEditModal = () => {
     setEditService({
@@ -722,7 +926,7 @@ const handleCustomInterventionAreaChange = (e) => {
       created_at: moment().format('DD-MM-YYYY'),
     });
     setShowEditModal(false);
-  };  
+  };
 
   const handleNewServiceChange = (e) => {
     const { name, value } = e.target;
@@ -733,11 +937,11 @@ const handleCustomInterventionAreaChange = (e) => {
     const interventionAreas = newService.intervention_areas.filter(
       (area) => area !== "Otro" // Excluye la opción "Otro"
     );
-  
+
     if (newService.customInterventionArea.trim()) {
       interventionAreas.push(newService.customInterventionArea.trim());
     }
-  
+
     const serviceData = {
       ...newService,
       intervention_areas: interventionAreas,
@@ -748,7 +952,7 @@ const handleCustomInterventionAreaChange = (e) => {
       quantity_per_month: newService.quantity_per_month || null, // Validación para cantidad
       company: newService.company === "" || newService.company === null ? "Fumiplagax" : newService.company === "Otro" ? newService.customCompany : newService.company, // Guarda el nombre correcto de la empresa
     };
-  
+
     try {
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/services`, serviceData);
       if (response.data.success) {
@@ -763,7 +967,7 @@ const handleCustomInterventionAreaChange = (e) => {
       console.error("Error saving new service:", error);
       showNotification("Error", "Error: Hubo un problema al guardar el servicio");
     }
-  };   
+  };
 
   const handlePestToControlChange = (e) => {
     const { value, checked } = e.target;
@@ -774,7 +978,7 @@ const handleCustomInterventionAreaChange = (e) => {
         : prevService.pest_to_control.filter((pest) => pest !== value),
     }));
   };
-  
+
 
   if (loading) {
     return (
@@ -785,7 +989,7 @@ const handleCustomInterventionAreaChange = (e) => {
       </div>
     );
   }
-  
+
 
   const handleCompanionChange = (e) => {
     const { value, checked } = e.target;
@@ -795,28 +999,28 @@ const handleCustomInterventionAreaChange = (e) => {
         ? [...prevService.companion, value] // Agrega el ID si está seleccionado
         : prevService.companion.filter((companionId) => companionId !== value) // Elimina el ID si se deselecciona
     }));
-  };  
+  };
 
   const handleEditCompanionChange = (e) => {
     const { value, checked } = e.target;
 
     setEditService((prevService) => {
-        let updatedCompanions = checked
-            ? [...prevService.companion, value] // Agregar el ID si está seleccionado
-            : prevService.companion.filter((companionId) => companionId !== value); // Eliminar el ID si se deselecciona
+      let updatedCompanions = checked
+        ? [...prevService.companion, value] // Agregar el ID si está seleccionado
+        : prevService.companion.filter((companionId) => companionId !== value); // Eliminar el ID si se deselecciona
 
-        // Filtra valores vacíos o nulos
-        updatedCompanions = updatedCompanions.filter((id) => id.trim() !== "");
+      // Filtra valores vacíos o nulos
+      updatedCompanions = updatedCompanions.filter((id) => id.trim() !== "");
 
-        return {
-            ...prevService,
-            companion: updatedCompanions.length > 0 ? updatedCompanions : [], // Mantiene [] si no hay acompañantes
-        };
+      return {
+        ...prevService,
+        companion: updatedCompanions.length > 0 ? updatedCompanions : [], // Mantiene [] si no hay acompañantes
+      };
     });
   };
 
   return (
-      <div className="container mt-4">
+    <div className="container mt-4">
       <Row className="align-items-center mb-4" style={{ minHeight: 0, height: 'auto' }}>
         {/* Campo de búsqueda */}
         <Col xs={12} md={4}>
@@ -911,14 +1115,13 @@ const handleCustomInterventionAreaChange = (e) => {
                     <Card.Body>
                       <div className="d-flex align-items-center justify-content-between">
                         <div className="flex-grow-1 text-truncate">
-                         <span 
-                            className={`fw-bold px-1 py-1 rounded text-white ${
-                              service.company === "Fumiplagax" ? "bg-success" : 
+                          <span
+                            className={`fw-bold px-1 py-1 rounded text-white ${service.company === "Fumiplagax" ? "bg-success" :
                               service.company === "Control" ? "bg-primary" : "bg-warning"
-                            }`}
+                              }`}
                           >
-                            {service.company === "Fumiplagax" ? "F" : 
-                            service.company === "Control" ? "C" : "O"}
+                            {service.company === "Fumiplagax" ? "F" :
+                              service.company === "Control" ? "C" : "O"}
                           </span>
                           <span className="fw-bold"> {service.id}</span>
                           <span className="text-muted mx-2">|</span>
@@ -927,93 +1130,92 @@ const handleCustomInterventionAreaChange = (e) => {
                       </div>
                       <hr />
                       <div>
-                      <Bug className="text-success me-2" />     
-                      <span className="text-secondary">
-                        {(() => {
-                          const pestMatches = typeof service.pest_to_control === "string" 
-                          ? service.pest_to_control.match(/"([^"]+)"/g)
-                          : null;
-                          const pests = pestMatches ? pestMatches.map(item => item.replace(/"/g, '')).join(', ') : "No especificado";
-                          return pests.length > 20 ? `${pests.slice(0, 20)}...` : pests;
-                        })()}
-                      </span>
+                        <Bug className="text-success me-2" />
+                        <span className="text-secondary">
+                          {(() => {
+                            const pestMatches = typeof service.pest_to_control === "string"
+                              ? service.pest_to_control.match(/"([^"]+)"/g)
+                              : null;
+                            const pests = pestMatches ? pestMatches.map(item => item.replace(/"/g, '')).join(', ') : "No especificado";
+                            return pests.length > 20 ? `${pests.slice(0, 20)}...` : pests;
+                          })()}
+                        </span>
                       </div>
                       <div className="mt-2">
-                      <Diagram3 className="text-warning me-2" /> 
-                      <span className="text-secondary">
-                        {(() => {
-                          const areaMatches = typeof service.intervention_areas === "string" 
-                          ? service.intervention_areas.match(/"([^"]+)"/g)
-                          : null;                  
-                          const areas = areaMatches ? areaMatches.map(item => item.replace(/"/g, '')).join(', ') : "No especificadas";
-                          return areas.length > 20 ? `${areas.slice(0, 20)}...` : areas;
-                        })()}
-                      </span>
-                        </div>
-                        <div className="mt-3">
-                          <h6 >
-                            <Building /> {clientNames[service.client_id] || "Cliente Desconocido"}
-                          </h6>
-                        </div>
-                        <div className="mt-3">
-                          <h6>
-                            <Person />{" "}
-                            {technicians.find((tech) => tech.id === service.responsible)?.name || "No asignado"}
-                          </h6>
+                        <Diagram3 className="text-warning me-2" />
+                        <span className="text-secondary">
+                          {(() => {
+                            const areaMatches = typeof service.intervention_areas === "string"
+                              ? service.intervention_areas.match(/"([^"]+)"/g)
+                              : null;
+                            const areas = areaMatches ? areaMatches.map(item => item.replace(/"/g, '')).join(', ') : "No especificadas";
+                            return areas.length > 20 ? `${areas.slice(0, 20)}...` : areas;
+                          })()}
+                        </span>
+                      </div>
+                      <div className="mt-3">
+                        <h6 >
+                          <Building /> {clientNames[service.client_id] || "Cliente Desconocido"}
+                        </h6>
+                      </div>
+                      <div className="mt-3">
+                        <h6>
+                          <Person />{" "}
+                          {technicians.find((tech) => tech.id === service.responsible)?.name || "No asignado"}
+                        </h6>
                       </div>
                     </Card.Body>
                     <Card.Footer
-                    className="text-center position-relative"
-                    style={{ background: "#f9f9f9", cursor: "pointer" }}
-                    onClick={(e) => {
-                      e.stopPropagation(); // Evita redirigir al hacer clic en el botón
-                      toggleActions(service.id);
-                    }}
-                    ref={expandedCardId === service.id ? dropdownRef : null} // Solo asigna la referencia al desplegable abierto
-                  >
-                    <small className="text-success">
-                      {expandedCardId === service.id ? "Cerrar Acciones" : "Acciones"}
-                    </small>
-                    {expandedCardId === service.id && (
-                      <div
-                        className={`menu-actions ${
-                          expandedCardId === service.id ? "expand" : "collapse"
-                        }`}
-                      >
-                        <button
-                          className="btn d-block"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedService(service); // Asegúrate de seleccionar el servicio
-                            handleShowModal();
-                          }}
+                      className="text-center position-relative"
+                      style={{ background: "#f9f9f9", cursor: "pointer" }}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Evita redirigir al hacer clic en el botón
+                        toggleActions(service.id);
+                      }}
+                      ref={expandedCardId === service.id ? dropdownRef : null} // Solo asigna la referencia al desplegable abierto
+                    >
+                      <small className="text-success">
+                        {expandedCardId === service.id ? "Cerrar Acciones" : "Acciones"}
+                      </small>
+                      {expandedCardId === service.id && (
+                        <div
+                          className={`menu-actions ${expandedCardId === service.id ? "expand" : "collapse"
+                            }`}
                         >
-                          <PlusCircle size={18} className="me-2" />
-                          Añadir Inspección
-                        </button>
-                        <button
-                          className="btn d-block"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditClick(service);
-                          }}
-                        >
-                          <PencilSquare size={18} className="me-2" />
-                          Editar
-                        </button>
-                        <button
-                          className="btn d-block"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteClick(service.id);
-                          }}
-                        >
-                          <Trash size={18} className="me-2" />
-                          Eliminar
-                        </button>
-                      </div>
-                    )}
-                  </Card.Footer>
+                          <button
+                            className="btn d-block"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedService(service); // Asegúrate de seleccionar el servicio
+                              handleShowModal();
+                            }}
+                          >
+                            <PlusCircle size={18} className="me-2" />
+                            Añadir Inspección
+                          </button>
+                          <button
+                            className="btn d-block"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditClick(service);
+                            }}
+                          >
+                            <PencilSquare size={18} className="me-2" />
+                            Editar
+                          </button>
+                          <button
+                            className="btn d-block"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteClick(service.id);
+                            }}
+                          >
+                            <Trash size={18} className="me-2" />
+                            Eliminar
+                          </button>
+                        </div>
+                      )}
+                    </Card.Footer>
                   </Card>
                 </Col>
               ))}
@@ -1021,7 +1223,7 @@ const handleCustomInterventionAreaChange = (e) => {
           </div>
         </Col>
       </Row>
-  
+
       {/* Modal para añadir una nueva inspección */}
       <Modal show={showModal} onHide={handleCloseModal}>
         <Modal.Header closeButton>
@@ -1089,7 +1291,7 @@ const handleCustomInterventionAreaChange = (e) => {
 
       <Modal show={showAddServiceModal} onHide={() => setShowAddServiceModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title><PlusCircle/> Añadir Servicio</Modal.Title>
+          <Modal.Title><PlusCircle /> Añadir Servicio</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
@@ -1540,20 +1742,20 @@ const handleCustomInterventionAreaChange = (e) => {
 
               {/* Acompañante */}
               <Form.Group className="mt-3">
-                    <Form.Label style={{ fontWeight: "bold" }}>Acompañante</Form.Label>
-                    <div className="d-flex flex-wrap">
-                      {filteredTechniciansForEdit.map((technician, index) => (
-                        <div key={index} className="col-4 mb-2">
-                          <Form.Check
-                            type="checkbox"
-                            label={<span style={{ fontSize: "0.8rem" }}>{technician.name}</span>}
-                            value={technician.id}
-                            checked={editService.companion.includes(technician.id)}
-                            onChange={handleEditCompanionChange}
-                          />
-                        </div>
-                      ))}
+                <Form.Label style={{ fontWeight: "bold" }}>Acompañante</Form.Label>
+                <div className="d-flex flex-wrap">
+                  {filteredTechniciansForEdit.map((technician, index) => (
+                    <div key={index} className="col-4 mb-2">
+                      <Form.Check
+                        type="checkbox"
+                        label={<span style={{ fontSize: "0.8rem" }}>{technician.name}</span>}
+                        value={technician.id}
+                        checked={editService.companion.includes(technician.id)}
+                        onChange={handleEditCompanionChange}
+                      />
                     </div>
+                  ))}
+                </div>
               </Form.Group>
 
               {/* Campos Ocultos */}
@@ -1600,9 +1802,9 @@ const handleCustomInterventionAreaChange = (e) => {
                   e.stopPropagation();
                   handleSchedule(selectedService.id);
                 }}
-                >
+              >
                 <Calendar2Check size={18} className="me-2" />
-                  Agendar Servicio
+                Agendar Servicio
               </button>
               {/* Detalles del servicio */}
               <div className="bg-white shadow-sm rounded p-3">
@@ -1625,7 +1827,7 @@ const handleCustomInterventionAreaChange = (e) => {
                     {selectedService.client_id && (
                       <Building
                         className='ms-2 mt-1'
-                        style={{cursor: "pointer"}}
+                        style={{ cursor: "pointer" }}
                         size={22}
                         onClick={(e) => {
                           e.stopPropagation(); // Evita que se activen otros eventos del Card
@@ -1637,21 +1839,21 @@ const handleCustomInterventionAreaChange = (e) => {
                   <p className='my-1'><strong>Responsable:</strong> {technicians.find((tech) => tech.id === selectedService.responsible)?.name || "No asignado"}</p>
                   {selectedService.companion && selectedService.companion !== "{}" && selectedService.companion !== '{""}' && (
                     <p>
-                        <strong>Acompañante(s):</strong>{' '}
-                        {(() => {
-                            // Convierte la cadena de IDs en un array
-                            const companionIds = selectedService.companion
-                                .replace(/[\{\}"]/g, '') // Limpia los caracteres `{}`, `"`
-                                .split(',')
-                                .map((id) => id.trim()); // Divide y recorta espacios
-                            // Mapea los IDs a nombres usando el estado `users`
-                            const companionNames = companionIds.map((id) => {
-                                const tech = technicians.find((tech) => tech.id === id); // Encuentra el usuario por ID
-                                return tech ? `${tech.name} ${tech.lastname || ''}`.trim() : `Desconocido (${id})`;
-                            });
-                            // Devuelve la lista de nombres como texto
-                            return companionNames.join(', ');
-                        })()}
+                      <strong>Acompañante(s):</strong>{' '}
+                      {(() => {
+                        // Convierte la cadena de IDs en un array
+                        const companionIds = selectedService.companion
+                          .replace(/[\{\}"]/g, '') // Limpia los caracteres `{}`, `"`
+                          .split(',')
+                          .map((id) => id.trim()); // Divide y recorta espacios
+                        // Mapea los IDs a nombres usando el estado `users`
+                        const companionNames = companionIds.map((id) => {
+                          const tech = technicians.find((tech) => tech.id === id); // Encuentra el usuario por ID
+                          return tech ? `${tech.name} ${tech.lastname || ''}`.trim() : `Desconocido (${id})`;
+                        });
+                        // Devuelve la lista de nombres como texto
+                        return companionNames.join(', ');
+                      })()}
                     </p>
                   )}
                   {selectedService.category === "Periódico" && (
@@ -1678,9 +1880,9 @@ const handleCustomInterventionAreaChange = (e) => {
                   </h5>
                   <p>
                     {(() => {
-                      const pestMatches = typeof selectedService.pest_to_control === "string" 
-                      ? selectedService.pest_to_control.match(/"([^"]+)"/g)
-                      : null;                  
+                      const pestMatches = typeof selectedService.pest_to_control === "string"
+                        ? selectedService.pest_to_control.match(/"([^"]+)"/g)
+                        : null;
                       return pestMatches
                         ? pestMatches.map((item) => item.replace(/"/g, "")).join(", ")
                         : "No especificado";
@@ -1695,9 +1897,9 @@ const handleCustomInterventionAreaChange = (e) => {
                   </h5>
                   <p>
                     {(() => {
-                      const areaMatches = typeof selectedService.intervention_areas === "string" 
-                      ? selectedService.intervention_areas.match(/"([^"]+)"/g)
-                      : null;                  
+                      const areaMatches = typeof selectedService.intervention_areas === "string"
+                        ? selectedService.intervention_areas.match(/"([^"]+)"/g)
+                        : null;
                       return areaMatches
                         ? areaMatches.map((item) => item.replace(/"/g, "")).join(", ")
                         : "No especificadas";
@@ -1756,6 +1958,120 @@ const handleCustomInterventionAreaChange = (e) => {
                   Añadir Inspección
                 </Button>
               </div>
+
+              {/* Documentos */}
+              <div className="bg-white shadow-sm rounded p-3">
+                <h5 className="text-secondary mb-3">
+                  <FileEarmarkArrowDown className="me-2" /> Documentos
+                </h5>
+                {documents.length > 0 ? (
+                  <div className="row" style={{ minHeight: 0, height: 'auto' }}>
+                    {documents.map((doc, index) => {
+                      let Icon;
+                      switch (doc.document_type) {
+                        case "doc":
+                          Icon = <FileEarmarkWord size={40} color="blue" title="Word" />;
+                          break;
+                        case "xlsx":
+                          Icon = <FileEarmarkExcel size={40} color="green" title="Excel" />;
+                          break;
+                        case "pdf":
+                          Icon = <FileEarmarkPdf size={40} color="red" title="PDF" />;
+                          break;
+                        case "jpg":
+                        case "jpeg":
+                        case "png":
+                          Icon = <FileEarmarkImage size={40} color="orange" title="Imagen" />;
+                          break;
+                        default:
+                          Icon = <FileEarmarkArrowDown size={40} color="gray" title="Archivo" />;
+                      }
+
+                      return (
+                        <div className="col-6 col-md-3 text-center mb-3" key={index}>
+                          <button
+                            className="btn p-0"
+                            style={{ background: "none", border: "none", cursor: "pointer" }}
+                            onClick={() => handleDocumentClick(doc)}
+                          >
+                            {Icon}
+                            <div className="mt-2">
+                              <small className="text-muted">{doc.document_name}</small>
+                            </div>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-muted">No se encontraron documentos relacionados con este servicio.</p>
+                )}
+              </div>
+
+              {/* Acciones */}
+              <div className="bg-white shadow-sm rounded p-3 mt-4">
+                <h5 className="text-secondary mb-3">
+                  <GearFill className="me-2" /> Acciones
+                </h5>
+                {actions.length > 0 ? (
+                  <div className="row" style={{ minHeight: 0, height: 'auto' }}>
+                    {actions.map((action, index) => {
+                      let IconComponent, color;
+                      switch (action.action_type) {
+                        case "generate_doc":
+                          IconComponent = FileEarmarkWord;
+                          color = "blue";
+                          break;
+                        case "generate_xlsm":
+                          IconComponent = FileEarmarkExcel;
+                          color = "green";
+                          break;
+                        case "generate_pdf":
+                          IconComponent = FileEarmarkPdf;
+                          color = "red";
+                          break;
+                        case "generate_img":
+                          IconComponent = FileEarmarkImage;
+                          color = "orange";
+                          break;
+                        case "send_email":
+                          IconComponent = EnvelopePaper;
+                          color = "black";
+                          break;
+                        case "send_whatsapp":
+                          IconComponent = Whatsapp;
+                          color = "green";
+                          break;
+                        default:
+                          IconComponent = Radioactive;
+                          color = "gray";
+                          break;
+                      }
+
+                      return (
+                        <div className="col-6 col-md-3 text-center mb-3" key={index}>
+                          <button
+                            className="btn p-0"
+                            style={{ background: "none", border: "none", cursor: "pointer" }}
+                            onClick={() =>
+                              action.action_type === "generate_pdf" && action.configuration_id === 0
+                                ? handleOpenConvertToPdfModal()
+                                : handleActionClick(action.configuration_id)
+                            }
+                          >
+                            <IconComponent size={40} color={color} title={action.action_name} />
+                            <div className="mt-2">
+                              <small className="text-muted">{action.action_name}</small>
+                            </div>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-muted">No se encontraron acciones configuradas para este servicio.</p>
+                )}
+              </div>
             </div>
           )}
         </Modal.Body>
@@ -1768,13 +2084,13 @@ const handleCustomInterventionAreaChange = (e) => {
 
       <Modal
         show={notification.show}
-        onHide={() => setNotification({ show: false, title:'', message: '' })}
+        onHide={() => setNotification({ show: false, title: '', message: '' })}
         centered
         backdrop="static"
         keyboard={false}
       >
         <ModalTitle>
-        <p className="m-0">{notification.title}</p>
+          <p className="m-0">{notification.title}</p>
         </ModalTitle>
         <Modal.Body className="text-center">
           <p className="m-0">{notification.message}</p>
@@ -1787,8 +2103,115 @@ const handleCustomInterventionAreaChange = (e) => {
         onClose={handleCloseClientModal}
       />
 
+      <Modal show={documentModalOpen} onHide={closeDocumentModal}>
+        <Modal.Header closeButton>
+          <Modal.Title>Acciones del Documento</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Button
+            variant="primary"
+            className="mb-3 w-100"
+            onClick={async () => {
+              try {
+                const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/PrefirmarArchivos`, { url: selectedDocument.document_url });
+                if (response.data.signedUrl) {
+                  const preSignedUrl = response.data.signedUrl;
+
+                  if (selectedDocument.document_type === "pdf") {
+                    // Abrir la URL prefirmada en una nueva pestaña si es un PDF
+                    window.open(preSignedUrl, "_blank", "noopener,noreferrer");
+                  } else {
+                    // Navegar a la lógica actual para otros tipos de documentos
+                    navigate(`/view-document?url=${encodeURIComponent(preSignedUrl)}`);
+                  }
+                } else {
+                  alert("No se pudo obtener la URL prefirmada.");
+                }
+              } catch (error) {
+                console.error("Error al obtener la URL prefirmada:", error);
+                alert("Hubo un error al procesar la solicitud.");
+              }
+            }}
+          >
+            Ver
+          </Button>
+          <Button variant="secondary" className="mb-3 w-100" onClick={handleDownload}>
+            Descargar
+          </Button>
+          <Button
+            variant="success"
+            className="mb-3 w-100"
+            onClick={handleEditGoogleDrive}
+            disabled={loadingGoogleDrive} // Deshabilitar el botón mientras se procesa
+          >
+            {loadingGoogleDrive ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Procesando...
+              </>
+            ) : (
+              "Editar en Google Drive"
+            )}
+          </Button>
+          <Button variant="warning" className="w-100" onClick={handleEditLocal}>
+            Editar Localmente
+          </Button>
+        </Modal.Body>
+      </Modal>
+
+      <Modal
+        show={convertToPdfModalOpen}
+        onHide={handleCloseConvertToPdfModal}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Convertir Documento a PDF</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>Selecciona un documento en formato DOC para convertirlo a PDF:</p>
+          <ul className="list-group">
+            {documents
+              .filter((doc) => doc.document_type === "doc")
+              .map((doc) => (
+                <li
+                  key={doc.id}
+                  className={`list-group-item ${selectedDocForPdf?.id === doc.id ? "active" : ""
+                    }`}
+                  onClick={() => setSelectedDocForPdf(doc)}
+                  style={{ cursor: "pointer" }}
+                >
+                  {doc.document_name}
+                </li>
+              ))}
+          </ul>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="dark" onClick={handleCloseConvertToPdfModal}>
+            Cancelar
+          </Button>
+          <Button
+            variant="success"
+            onClick={handleConvertToPdf}
+            disabled={!selectedDocForPdf || loadingConvertToPdf} // Deshabilitado si está cargando
+          >
+            {loadingConvertToPdf ? (
+              <>
+                <span
+                  className="spinner-border spinner-border-sm me-2"
+                  role="status"
+                  aria-hidden="true"
+                ></span>
+                Convirtiendo...
+              </>
+            ) : (
+              "Convertir a PDF"
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
     </div>
-    
+
   );
 }
 export default ServiceList;
