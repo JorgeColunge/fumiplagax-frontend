@@ -35,20 +35,18 @@
 
 /* Estilo para los nombres de los días (LUN, MAR, etc.) */
 .custom-calendar .day-name {
-    font-size: 12px;
-    font-weight: 400;
-    color: #888;
-    text-decoration: none !important;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #444;
+    text-transform: uppercase;
 }
 
 /* Estilo para los números de los días */
 .custom-calendar .day-number {
-    font-size: 24px; /* Ajustar tamaño del número */
+    font-size: 0.8rem;
     font-weight: bold;
     color: #000;
-    text-decoration: none !important;
 }
-
 
 /* Quitar subrayado por completo */
 .custom-calendar .fc-daygrid-day-top {
@@ -84,9 +82,12 @@
 /* Quitar subrayado en los encabezados de los días (LUN, MAR, etc.) */
 .custom-calendar .fc .fc-col-header-cell-cushion {
     text-decoration: none !important;
-    border: none !important; /* También elimina cualquier borde si es necesario */
-    font-weight: 400; /* Ajusta el grosor del texto */
-    color: #888; /* Personaliza el color del texto */
+    border: none !important;
+    font-weight: 400;
+    color: #888;
+    font-size: 0.65rem; /* agregado */
+    padding: 2px 4px;   /* agregado */
+    white-space: nowrap; /* agregado */
 }
 
 
@@ -296,9 +297,9 @@ a {
 
 /* Contenedor de eventos */
 .event-container {
-    font-family: 'Roboto', sans-serif; /* Fuente similar a Google Calendar */
-    font-size: 14px; /* Tamaño del texto */
-    
+    font-family: 'Roboto', sans-serif;
+    font-size: 12px;
+    word-break: break-word; /* nuevo */
 }
 
 /* Estilo del ID del evento */
@@ -321,9 +322,11 @@ a {
 .fc-event {
     border-radius: 10px;
     overflow: hidden; /* Asegura que el contenido respete el radio */
-    padding-left: 8px; /* Espaciado interno */
-    border-radius: 10px; /* Bordes redondeados */
+    padding-left: 4px; /* Espaciado interno reducido */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); /* Sombra suave */
+    white-space: normal !important; /* Permitir saltos de línea */
+    word-break: break-word; /* Romper palabras largas si es necesario */
+    font-size: 0.75rem; /* Ajustar tamaño general del texto */
 }
 
 .user-list {
@@ -456,4 +459,81 @@ a {
 .spinner-border2 {
     width: 1rem;
     height: 1rem;
+}
+
+/* 📱 Ajustes solo en móviles */
+@media screen and (max-width: 768px) {
+    .custom-calendar .fc .fc-col-header-cell-cushion {
+        font-size: 0.6rem;
+        padding: 1px 2px;
+    }
+
+    .custom-calendar .day-name {
+        font-size: 0.65rem;
+    }
+
+    .custom-calendar .day-number {
+        font-size: 0.75rem;
+    }
+
+    .custom-calendar .fc-timegrid-slot-label {
+        font-size: 0.6rem;
+    }
+
+    .custom-calendar .fc-event {
+        font-size: 0.6rem;
+        padding: 2px;
+        white-space: normal;
+    }
+
+    .event-container {
+        font-size: 0.6rem;
+        line-height: 1rem;
+    }
+
+    .event-id,
+    .event-time {
+        font-size: 0.6rem;
+    }
+}
+
+
+/* 🖥️ Ajustes solo para escritorio */
+@media screen and (min-width: 769px) {
+  .custom-calendar .fc .fc-col-header-cell-cushion {
+    font-size: 1rem;       /* Tamaño adecuado */
+    padding: 6px 10px;     /* Espaciado cómodo */
+    white-space: nowrap;
+  }
+
+  .custom-calendar .day-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+    text-transform: uppercase;
+  }
+
+  .custom-calendar .day-number {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #000;
+  }
+
+  .fc-event {
+    font-size: 0.75rem;
+    padding-left: 8px;
+  }
+
+  .event-container {
+    font-size: 0.75rem;
+  }
+
+  .event-id,
+  .event-time {
+    font-size: 0.75rem;
+  }
+
+  .custom-calendar .fc-timegrid-slot-label {
+    font-size: 0.9rem;
+  }
 }

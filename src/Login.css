@@ -55,3 +55,12 @@ form .btn-primary:hover {
   font-size: 1.2rem;
   margin-top: 0.5rem;
 }
+
+
+.login-logo {
+  max-width: 220px;
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto 1rem auto;
+}

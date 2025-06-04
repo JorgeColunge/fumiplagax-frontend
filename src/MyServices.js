@@ -189,7 +189,12 @@ function MyServices() {
               if (service.client_id && !clientData[service.client_id]) {
                   try {
                       const clientResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/clients/${service.client_id}`);
-                      clientData[service.client_id] = clientResponse.data.name; // Asegurar que solo se almacene el nombre como string
+                      clientData[service.client_id] = {
+                        name: clientResponse.data.name,
+                        address: clientResponse.data.address,
+                        phone: clientResponse.data.phone
+                      };
+                      // Asegurar que solo se almacene el nombre como string
                   } catch (error) {
                       console.error(`⚠️ Error obteniendo cliente ${service.client_id}:`, error);
                   }
@@ -626,10 +631,10 @@ useEffect(() => {
 
                         {/* Cliente */}
                         <div className="mt-3">
-                          <h6>
-                            <Building className="me-2" />
-                            {clientNames[service.client_id] || "Cliente Desconocido"}
-                          </h6>
+                        <h6>
+                          <Building className="me-2" />
+                          {clientNames[service.client_id]?.name || "Cliente Desconocido"}
+                        </h6>
                         </div>
 
                         {/* Responsable */}
@@ -712,20 +717,25 @@ useEffect(() => {
                     {selectedService.service_type.replace(/[\{\}"]/g, "").split(",").join(", ")}
                   </p>
                   <p className="my-1"><strong>Categoría:</strong> {selectedService.category}</p>
-                  <div className='p-0 m-0 d-flex'>
-                    <p className="my-1"><strong>Empresa:</strong> {clientNames[selectedService.client_id] || "Cliente Desconocido"}</p>
-                    {selectedService.client_id && (
-                      <Building
-                        className='ms-2 mt-1'
-                        style={{cursor: "pointer"}}
-                        size={22}
-                        onClick={(e) => {
-                          e.stopPropagation(); // Evita que se activen otros eventos del Card
-                          handleShowClientModal(selectedService.client_id);
-                        }}
-                      />
-                    )}
+                  <div className='p-0 m-0'>
+                    <div className="d-flex align-items-center">
+                      <p className="my-1"><strong>Empresa:</strong> {clientNames[selectedService.client_id]?.name || "Cliente Desconocido"}</p>
+                      {selectedService.client_id && (
+                        <Building
+                          className='ms-2 mt-1'
+                          style={{cursor: "pointer"}}
+                          size={22}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShowClientModal(selectedService.client_id);
+                          }}
+                        />
+                      )}
+                    </div>
+                    <p className="my-1"><strong>Dirección:</strong> {clientNames[selectedService.client_id]?.address || "No especificada"}</p>
+                    <p className="my-1"><strong>Teléfono:</strong> {clientNames[selectedService.client_id]?.phone || "No especificado"}</p>
                   </div>
+
                   <p className="my-1"><strong>Responsable:</strong> {technicians.find((tech) => tech.id === selectedService.responsible)?.name || "No asignado"}</p>
                   {selectedService.companion && selectedService.companion !== "{}" && selectedService.companion !== '{""}' && (
                     <p>

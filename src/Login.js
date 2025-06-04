@@ -39,7 +39,7 @@ function Login({ onLogin }) {
       <div className="row w-100">
         <div className="col-md-6 bg-light p-5 rounded-start shadow-lg">
           <div className="text-center mb-4">
-            <img src="/images/Logo FumiPlagax.png" alt="Logo" width="300" />
+            <img src="/images/Logo FumiPlagax.png" alt="Logo" className="login-logo img-fluid" />
           </div>
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
@@ -74,14 +74,16 @@ function Login({ onLogin }) {
           </form>
         </div>
         <div
-          className="col-md-6 rounded-end"
+          className="col-12 col-md-6 rounded-end"
           style={{
             backgroundImage: `url("/Fondo 1.jpg")`,
-            backgroundSize: '230%',
+            backgroundSize: window.innerWidth < 768 ? 'cover' : '230%',
             backgroundPosition: 'center',
-            height: '100%',
+            minHeight: window.innerWidth < 768 ? '200px' : '100%',
+            borderRadius: window.innerWidth < 768 ? '0 0 8px 8px' : '0 8px 8px 0',
           }}
         ></div>
+
       </div>
     </div>
   );

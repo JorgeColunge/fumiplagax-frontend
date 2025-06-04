@@ -854,16 +854,7 @@ const handleSaveNewAirStation = async () => {
           <Button
             variant="success"
             onClick={handleAddOrEditClient}
-            disabled={
-              !newClient.name ||
-              !newClient.address ||
-              !newClient.department ||
-              !newClient.city ||
-              !newClient.phone ||
-              !newClient.email ||
-              !newClient.document_type ||
-              !newClient.document_number
-            }
+
           >
             {editingClient ? "Guardar Cambios" : "Registrar Cliente"}
           </Button>

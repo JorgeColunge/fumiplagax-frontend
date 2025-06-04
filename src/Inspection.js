@@ -2208,11 +2208,12 @@ const handleDeleteFinding = () => {
                       />
                     </div>
 
-                    {/* Botón de Eliminar - Se mantiene en col-md-2 */}
-                    <div className="col-md-1 d-flex align-items-center justify-content-center">
-                    <XCircle
+                      {/* Botón de Eliminar */}
+                      {isMobile ? (
+                        <div className="col-12 mt-2 text-center">
+                          <XCircle
                             className="text-danger"
-                            size={18}
+                            size={22}
                             style={{ cursor: "pointer" }}
                             title="Eliminar producto"
                             onClick={() => {
@@ -2224,7 +2225,25 @@ const handleDeleteFinding = () => {
                             }}
                             disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
                           />
-                    </div>
+                        </div>
+                      ) : (
+                          <div className="col-md-1 d-flex align-items-center justify-content-center">
+                            <XCircle
+                              className="text-danger"
+                              size={18}
+                              style={{ cursor: "pointer" }}
+                              title="Eliminar producto"
+                              onClick={() => {
+                                setProductsByType((prevState) => {
+                                  const updatedProducts = { ...prevState };
+                                  delete updatedProducts[key]; // Elimina el producto actual
+                                  return updatedProducts;
+                                });
+                              }}
+                              disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                            />
+                          </div>
+                        )}
 
                   </div>
                 ))}
