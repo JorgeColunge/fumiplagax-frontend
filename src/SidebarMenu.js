@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUnsavedChanges } from './UnsavedChangesContext';
-import { List, Person, People, Calendar3, JournalBookmarkFill, FileText, BarChart, ClipboardCheck, BoxArrowRight, Search, Megaphone, CurrencyDollar, Gear, CalendarDate, CalendarEvent, Eyedropper, PersonFillGear, GraphUp, ChatLeftDots, BoxArrowInUpRight } from 'react-bootstrap-icons';
+import { List, Person, People, Calendar3, JournalBookmarkFill, FileText, BarChart, ClipboardCheck, BoxArrowRight, Search, Megaphone, CurrencyDollar, Gear, CalendarDate, CalendarEvent, Eyedropper, PersonFillGear, GraphUp, ChatLeftDots, BoxArrowInUpRight, Backpack3, Film } from 'react-bootstrap-icons';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './SidebarMenu.css';
@@ -32,15 +32,15 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
 
   useEffect(() => {
     if (!userInfo?.id_usuario) return;
-  
+
     const fetchUserOrClient = async () => {
       try {
         console.log("Iniciando fetchUserOrClient para userInfo:", userInfo);
-    
+
         // Intenta obtener la información del usuario
         console.log("Intentando obtener información del usuario desde /api/users...");
         const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/users/${userInfo.id_usuario}`);
-        
+
         if (response.data && Object.keys(response.data).length > 0) {
           console.log("Usuario encontrado en /api/users:", response.data);
           setUser(response.data);
@@ -62,9 +62,9 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
         }
       }
     };
-    
-    fetchUserOrClient();       
-  }, [userInfo?.id_usuario, userInfo]);  
+
+    fetchUserOrClient();
+  }, [userInfo?.id_usuario, userInfo]);
 
   const [activePath, setActivePath] = useState(""); // Estado para la ruta activa
 
@@ -79,13 +79,13 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
     if (isOpen) {
       toggleMenu(); // Colapsa la barra si está abierta
     }
-  };  
+  };
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
     onToggle(!isOpen); // Llama a la función pasada como prop
   };
-  
+
 
   const [profilePic, setProfilePic] = useState('/'); // Imagen predeterminada
 
@@ -94,7 +94,7 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
       label: "Perfil",
       icon: <Person size={20} />,
       path: "/profile",
-      roles: ["Técnico", "Comercial", "Supervisor Técnico", "Administrador", "Superadministrador","SST"],
+      roles: ["Técnico", "Comercial", "Supervisor Técnico", "Administrador", "Superadministrador", "SST"],
     },
     {
       label: "Perfil",
@@ -106,7 +106,7 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
       label: "Usuarios",
       icon: <PersonFillGear size={20} />,
       path: "/users",
-      roles: ["Administrador", "Superadministrador","SST"],
+      roles: ["Administrador", "Superadministrador", "SST"],
     },
     {
       label: "Clientes",
@@ -118,7 +118,7 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
       label: "Calendario",
       icon: <Calendar3 size={20} />,
       path: "/services-calendar",
-      roles: ["Comercial", "Supervisor Técnico", "Administrador", "Superadministrador","SST"],
+      roles: ["Comercial", "Supervisor Técnico", "Administrador", "Superadministrador", "SST"],
     },
     {
       label: "Mi Calendario",
@@ -136,7 +136,7 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
       label: "Servicios",
       icon: <ClipboardCheck size={20} />,
       path: "/services",
-      roles: ["Comercial", "Supervisor Técnico", "Administrador", "Superadministrador","SST"],
+      roles: ["Comercial", "Supervisor Técnico", "Administrador", "Superadministrador", "SST"],
     },
     {
       label: "Servicios",
@@ -154,13 +154,13 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
       label: "Inspecciones",
       icon: <FileText size={20} />,
       path: "/inspections",
-      roles: ["Supervisor Técnico", "Administrador", "Superadministrador","SST"],
+      roles: ["Supervisor Técnico", "Administrador", "Superadministrador", "SST"],
     },
     {
       label: "Productos",
       icon: <Eyedropper size={20} />,
       path: "/products",
-      roles: ["Supervisor Técnico", "Administrador", "Superadministrador","SST"],
+      roles: ["Supervisor Técnico", "Administrador", "Superadministrador", "SST"],
     },
     {
       label: "Facturación",
@@ -181,18 +181,29 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
       roles: ["Administrador", "Superadministrador"],
     },
     {
+      label: "Acciones",
+      icon: <Film size={20} />,
+      path: "/actions",
+      roles: ["Administrador", "Superadministrador"],
+    },
+    {
+      label: "Tutoriales",
+      icon: <Backpack3 size={20} />,
+      path: "/tutoriales",
+      roles: ["Operario Hogar", "Operario", "Supervisor Técnico", "Administrador", "Superadministrador"],
+    },
+    {
       label: "Cerrar Sesión",
       icon: <BoxArrowRight size={20} />,
       action: handleLogout,
-      roles: ["Técnico", "Cliente", "Comercial", "Supervisor Técnico", "Administrador", "Superadministrador","SST"],
+      roles: ["Técnico", "Cliente", "Comercial", "Supervisor Técnico", "Administrador", "Superadministrador", "SST"],
     },
   ];
 
   return (
     <div
-      className={`sidebar ${isSidebarVisible ? "visible" : "hidden"} ${
-        isOpen ? "open" : "collapsed"
-      }`}
+      className={`sidebar ${isSidebarVisible ? "visible" : "hidden"} ${isOpen ? "open" : "collapsed"
+        }`}
     >
       <div className="menu-toggle" onClick={toggleMenu}>
         <List size={30} />
@@ -213,28 +224,28 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
         )}
       </div>
       {menuItems
-  .filter((item) => item.roles.includes(user?.rol))
-  .map((item, index) => (
-    <div
-      key={index}
-      className={`nav-item ${activePath === item.path ? "active" : ""}`} // Añade la clase "active"
-    >
-      {item.action ? (
-        <button className="nav-link btn btn-link" onClick={item.action}>
-          {item.icon}
-          {isOpen && <span>{item.label}</span>}
-        </button>
-      ) : (
-        <button
-          className="nav-link btn btn-link"
-          onClick={() => handleNavigation(item.path)}
-        >
-          {item.icon}
-          {isOpen && <span>{item.label}</span>}
-        </button>
-      )}
-    </div>
-  ))}
+        .filter((item) => item.roles.includes(user?.rol))
+        .map((item, index) => (
+          <div
+            key={index}
+            className={`nav-item ${activePath === item.path ? "active" : ""}`} // Añade la clase "active"
+          >
+            {item.action ? (
+              <button className="nav-link btn btn-link" onClick={item.action}>
+                {item.icon}
+                {isOpen && <span>{item.label}</span>}
+              </button>
+            ) : (
+              <button
+                className="nav-link btn btn-link"
+                onClick={() => handleNavigation(item.path)}
+              >
+                {item.icon}
+                {isOpen && <span>{item.label}</span>}
+              </button>
+            )}
+          </div>
+        ))}
     </div>
   );
 }

@@ -1,14 +1,14 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useParams,useLocation } from 'react-router-dom';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { Button, Table, InputGroup, FormControl, Modal, Form } from 'react-bootstrap';
 import api from './Api'; // Usa el archivo de API con lógica offline integrada
 import { saveRequest, isOffline } from './offlineHandler';
-import { initUsersDB, saveUsers, getUsers, getInspectionById, saveInspections } from './indexedDBHandler';
+import { initUsersDB, saveUsers, getUsers, getInspectionById, saveInspections, saveProducts, getProducts, getServiceById, getClientById, getStationsByClient, saveStations } from './indexedDBHandler';
 import SignatureCanvas from 'react-signature-canvas';
 import "./Inspection.css";
 import { ArrowDownSquare, ArrowUpSquare, Eye, FileEarmarkArrowDown, FileEarmarkPlus, EnvelopePaper, Whatsapp, Radioactive, FileEarmarkExcel, FileEarmarkImage, FileEarmarkPdf, FileEarmarkWord, PencilSquare, QrCodeScan, XCircle } from 'react-bootstrap-icons';
-import  {useUnsavedChanges} from './UnsavedChangesContext'
+import { useUnsavedChanges } from './UnsavedChangesContext'
 import QrScannerComponent from './QrScannerComponent';
 import moment from 'moment';
 import { useSocket } from './SocketContext';
@@ -32,17 +32,25 @@ function Inspection() {
   const [procedures, setProcedures] = useState([]);
   const [stationFinding, setStationFinding] = useState({
     category: 'Roedores',
-    purpose: 'Consumo', // Valor predeterminado
-    consumptionAmount: 'Nada', // Valor predeterminado
+    purpose: 'Consumo',
+    consumptionAmount: 1,
     captureQuantity: '',
-    marked: 'Si', // Valor predeterminado
-    physicalState: 'Buena', // Valor predeterminado
+    marked: 'Si',
+    physicalState: 'Buena',
     damageLocation: '',
-    requiresChange: 'No', // Valor predeterminado
-    changePriority: 'No', // Valor predeterminado
-    description: '', // Nuevo campo
+    requiresChange: 'No',
+    changePriority: 'No',
+    doseConsumed: 0,
+    doseReplaced: 0,
+    consumerType: '',             // ← Nuevo: quién consumió
+    otherConsumer: '',            // ← Nuevo: cuál otro
+    replacementProduct: '',       // ← Nuevo: producto de reposición
+    replacementAmount: '',        // ← Nuevo: cantidad en cebos
+    activity: 'Cambio de producto', // ← Nuevo: actividad realizada
+    description: '',
     photo: null,
-  });  
+    photoBlob: null
+  });
   const [stationModalOpenDesinsectacion, setStationModalOpenDesinsectacion] = useState(false);
   const [currentStationIdDesinsectacion, setCurrentStationIdDesinsectacion] = useState(null);
   const [stationFindingDesinsectacion, setStationFindingDesinsectacion] = useState({
@@ -89,61 +97,88 @@ function Inspection() {
   const [selectedDocForPdf, setSelectedDocForPdf] = useState(null);
   const [loadingConvertToPdf, setLoadingConvertToPdf] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [clientData, setClientData] = useState(null);
+  const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
+  const [loadingCorreo, setLoadingCorreo] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
   const navigate = useNavigate();
 
   const socket = useSocket(); // Obtenemos el socket
 
-useEffect(() => {
-  if (socket) {
-    socket.on("inspection_synced", ({ oldId, newId }) => {
-      console.log(`🔄 La inspección ${oldId} ha sido actualizada a ${newId}`);
+  useEffect(() => {
+    if (socket) {
+      socket.on("inspection_synced", ({ oldId, newId }) => {
+        console.log(`🔄 La inspección ${oldId} ha sido actualizada a ${newId}`);
 
-      if (inspectionId === oldId) {
-        console.log(`✅ Actualizando ID de la inspección actual: ${oldId} → ${newId}`);
+        if (inspectionId === oldId) {
+          console.log(`✅ Actualizando ID de la inspección actual: ${oldId} → ${newId}`);
 
-        // Actualizamos la URL sin recargar la página
-        navigate(`/inspection/${newId}`, { replace: true });
+          // Actualizamos la URL sin recargar la página
+          navigate(`/inspection/${newId}`, { replace: true });
 
-        // Actualizamos el estado para reflejar el nuevo ID
-        setInspectionData((prevData) => ({
-          ...prevData,
-          id: newId, // Reemplazamos el ID viejo con el nuevo
-        }));
+          // Actualizamos el estado para reflejar el nuevo ID
+          setInspectionData((prevData) => ({
+            ...prevData,
+            id: newId, // Reemplazamos el ID viejo con el nuevo
+          }));
 
-        // Reemplazamos en los hallazgos y firmas si es necesario
-        setFindingsByType((prevFindings) => {
-          const updatedFindings = { ...prevFindings };
-          for (const type in updatedFindings) {
-            updatedFindings[type] = updatedFindings[type].map(finding =>
-              finding.inspection_id === oldId ? { ...finding, inspection_id: newId } : finding
-            );
-          }
-          return updatedFindings;
-        });
-
-        setClientStations((prevStations) => {
-          const updatedStations = { ...prevStations };
-          for (const stationId in updatedStations) {
-            if (updatedStations[stationId].inspection_id === oldId) {
-              updatedStations[stationId].inspection_id = newId;
+          // Reemplazamos en los hallazgos y firmas si es necesario
+          setFindingsByType((prevFindings) => {
+            const updatedFindings = { ...prevFindings };
+            for (const type in updatedFindings) {
+              updatedFindings[type] = updatedFindings[type].map(finding =>
+                finding.inspection_id === oldId ? { ...finding, inspection_id: newId } : finding
+              );
             }
-          }
-          return updatedStations;
-        });
+            return updatedFindings;
+          });
 
-        setActions((prevActions) =>
-          prevActions.map((action) =>
-            action.inspection_id === oldId ? { ...action, inspection_id: newId } : action
-          )
-        );
-      }
-    });
+          setClientStations((prevStations) => {
+            const updatedStations = { ...prevStations };
+            for (const stationId in updatedStations) {
+              if (updatedStations[stationId].inspection_id === oldId) {
+                updatedStations[stationId].inspection_id = newId;
+              }
+            }
+            return updatedStations;
+          });
 
-    return () => {
-      socket.off("inspection_synced");
-    };
-  }
-}, [socket, inspectionId, navigate]);
+          setActions((prevActions) =>
+            prevActions.map((action) =>
+              action.inspection_id === oldId ? { ...action, inspection_id: newId } : action
+            )
+          );
+        }
+      });
+
+      return () => {
+        socket.off("inspection_synced");
+      };
+    }
+  }, [socket, inspectionId, navigate]);
+
+  useEffect(() => {
+    const selectedProduct = getFilteredProducts('Desratización').find(p => p.name === stationFinding.product);
+    const replacementProduct = getFilteredProducts('Desratización').find(p => p.name === stationFinding.replacementProduct);
+
+    const dose = selectedProduct?.dose || 0;
+    const replacementDose = replacementProduct?.dose || 0;
+
+    const doseConsumed = dose * (parseFloat(stationFinding.consumptionAmount) || 0);
+    const doseReplaced = replacementDose * (parseFloat(stationFinding.replacementAmount) || 0);
+
+    setStationFinding(prev => ({
+      ...prev,
+      doseConsumed,
+      doseReplaced,
+    }));
+  }, [
+    stationFinding.product,
+    stationFinding.replacementProduct,
+    stationFinding.consumptionAmount,
+    stationFinding.replacementAmount,
+  ]);
 
   // Abrir el modal
   const handleOpenConvertToPdfModal = () => {
@@ -164,9 +199,9 @@ useEffect(() => {
       const response = await api.post("/convert-to-pdf", {
         generatedDocumentId: selectedDocForPdf.id,
       });
-  
+
       console.log("Respuesta recibida del backend:", response.data);
-  
+
       if (response.data.success) {
         console.log("Conversión exitosa. Datos del nuevo documento:", response.data.newDocument);
         setConvertToPdfModalOpen(false);
@@ -191,7 +226,7 @@ useEffect(() => {
       alert("No se ha seleccionado un documento válido.");
       return;
     }
-  
+
     try {
       const response = await api.post('/PrefirmarArchivos', { url: selectedDocument.document_url });
       if (response.data.signedUrl) {
@@ -205,7 +240,7 @@ useEffect(() => {
       alert('Hubo un error al procesar la solicitud.');
     }
   };
-  
+
 
   const handleDownload = async () => {
     try {
@@ -229,25 +264,25 @@ useEffect(() => {
     setLoadingGoogleDrive(true); // Mostrar el spinner
     try {
       console.log("Iniciando pre-firmado del documento:", selectedDocument);
-  
+
       const response = await api.post("/PrefirmarArchivos", { url: selectedDocument.document_url });
       console.log("Respuesta de pre-firmado:", response.data);
-  
+
       if (response.data.signedUrl) {
         const preSignedUrl = response.data.signedUrl;
         console.log("URL prefirmada obtenida:", preSignedUrl);
-  
+
         console.log("Enviando solicitud para editar en Google Drive...");
         const googleDriveResponse = await api.post("/edit-googledrive", { s3Url: preSignedUrl });
         console.log("Respuesta de edición en Google Drive:", googleDriveResponse.data);
-  
+
         if (googleDriveResponse.data.success && googleDriveResponse.data.fileId) {
           const googleDriveEditUrl = `https://docs.google.com/document/d/${googleDriveResponse.data.fileId}/edit`;
           console.log("URL de edición en Google Drive:", googleDriveEditUrl);
-  
+
           // Abrir Google Drive en una nueva pestaña
           window.open(googleDriveEditUrl, "_blank", "noopener,noreferrer");
-  
+
           // Pasar información al nuevo componente
           const documentInfo = {
             id: selectedDocument.id,
@@ -256,9 +291,9 @@ useEffect(() => {
             google_drive_url: googleDriveEditUrl,
             google_drive_id: googleDriveResponse.data.fileId,
           };
-  
+
           console.log("Información del documento que se pasa al componente:", documentInfo);
-  
+
           navigate("/edit-google-drive", {
             state: {
               documentInfo,
@@ -279,10 +314,10 @@ useEffect(() => {
       setLoadingGoogleDrive(false); // Ocultar el spinner
     }
   };
-  
+
 
   const handleEditLocal = () => {
-    navigate("/edit-local-file", { state: {documentId: selectedDocument.id}});
+    navigate("/edit-local-file", { state: { documentId: selectedDocument.id } });
   };
 
   const handleDocumentClick = (documentUrl) => {
@@ -332,7 +367,7 @@ useEffect(() => {
       setClientSignaturePreview(dataURL); // Guardar la previsualización
     }
   };
-  
+
 
   const handleSignModalCancel = () => {
     setSignModalOpen(false);
@@ -344,7 +379,7 @@ useEffect(() => {
   const handleSignModalClose = () => {
     setSignModalOpen(false);
   };
-  
+
 
   const handleSignDataChange = (field, value) => {
     setSignData((prevData) => ({
@@ -368,22 +403,22 @@ useEffect(() => {
         return null; // Retorna null si hay un error
       }
     };
-  
+
     const fetchInspectionData = async () => {
       try {
         console.log('🔍 Verificando modo de conexión...');
-    
+
         let inspectionData;
-    
+
         if (isOffline()) {
           console.log('📴 Modo offline activado. Consultando IndexedDB...');
           inspectionData = await getInspectionById(inspectionId);
-    
+
           if (!inspectionData) {
             console.warn(`⚠️ Inspección ${inspectionId} no encontrada en IndexedDB.`);
             return setLoading(false);
           }
-    
+
           console.log('✅ Inspección cargada desde IndexedDB:', inspectionData);
 
           // 🔥 Convertir `inspection_type` de array a string separado por comas
@@ -394,39 +429,41 @@ useEffect(() => {
           console.log('🌐 Modo online. Consultando API...');
           const response = await api.get(`${process.env.REACT_APP_API_URL}/api/inspections/${inspectionId}`);
           inspectionData = response.data;
-    
+
           console.log('✅ Inspección obtenida desde API:', inspectionData);
-    
+
           // Guardar en IndexedDB para acceso offline en el futuro
           await saveInspections({ [inspectionData.service_id]: [inspectionData] });
           console.log('📥 Inspección almacenada en IndexedDB.');
         }
-    
+
         setInspectionData(inspectionData);
-    
+
         // Cargar observaciones generales
         setGeneralObservations(inspectionData.observations || '');
-    
+
         // Procesar hallazgos
         const initialFindings = inspectionData.findings?.findingsByType || {};
         for (const type of Object.keys(initialFindings)) {
           initialFindings[type] = await Promise.all(
             initialFindings[type].map(async (finding) => {
               if (!finding.photo) return { ...finding, photo: null, photoRelative: null, photoBlob: null };
-    
+
               let signedUrl = null;
               try {
                 signedUrl = await preSignUrl(finding.photo);
               } catch (error) {
                 console.error(`❌ Error al pre-firmar la URL del hallazgo ${finding.id}:`, error);
               }
-    
+
               return { ...finding, photo: signedUrl, photoRelative: finding.photo || null, photoBlob: null };
             })
           );
         }
         setFindingsByType(initialFindings);
-    
+
+        setProductsByType(inspectionData.findings?.productsByType || {});
+
         // Cargar firmas y pre-firmar URLs
         const signatures = inspectionData.findings?.signatures || {};
         if (signatures.technician?.signature) {
@@ -435,7 +472,7 @@ useEffect(() => {
         if (signatures.client?.signature) {
           setClientSignaturePreview(await preSignUrl(signatures.client.signature) || signatures.client.signature);
         }
-        
+
         // Cargar datos del cliente
         if (signatures.client) {
           setSignData({
@@ -444,44 +481,78 @@ useEffect(() => {
             position: signatures.client.position || '',
           });
         }
-    
+
         // Procesar hallazgos en estaciones
         const clientStationsData = {};
         for (const finding of inspectionData.findings?.stationsFindings || []) {
           try {
             const signedUrl = finding.photo ? await preSignUrl(finding.photo) : null;
             if (!finding.stationId) continue;
-    
+
             clientStationsData[finding.stationId] = { ...finding, photo: signedUrl, photoRelative: finding.photo || null, photoBlob: null };
           } catch (error) {
             console.error(`❌ Error procesando hallazgo en estación ${finding.stationId}:`, error);
           }
         }
         setClientStations(clientStationsData);
-    
-        // Cargar estaciones relacionadas
-        if (!isOffline() && inspectionData.service_id) {
-          const serviceResponse = await api.get(`${process.env.REACT_APP_API_URL}/api/services/${inspectionData.service_id}`);
-          const clientId = serviceResponse.data.client_id;
-    
-          if (clientId) {
-            const stationsResponse = await api.get(`${process.env.REACT_APP_API_URL}/api/stations/client/${clientId}`);
-            setStations(stationsResponse.data);
+
+        /* ---------- Cargar estaciones relacionadas ---------- */
+        if (inspectionData.service_id) {
+          let clientId, stationsArr = [];
+
+          if (isOffline()) {
+            /* 📴 OFFLINE: todo sale de IndexedDB */
+            const service = await getServiceById(inspectionData.service_id);
+            clientId = service?.client_id;
+
+            if (clientId) {
+              const client = await getClientById(clientId);
+              setClientData(client);                  // <– info básica del cliente
+
+              stationsArr = await getStationsByClient(clientId);
+              console.log(`📂 ${stationsArr.length} estaciones offline cargadas`);
+            }
+          } else {
+            /* 🌐 ONLINE: peticiones a la API + cache local */
+            const { data: service } = await api.get(
+              `${process.env.REACT_APP_API_URL}/api/services/${inspectionData.service_id}`
+            );
+            clientId = service.client_id;
+
+            const { data: client } = await api.get(`${process.env.REACT_APP_API_URL}/api/clients/${clientId}`);
+            setClientData(client);
+
+            const { data: stations } = await api.get(
+              `${process.env.REACT_APP_API_URL}/api/stations/client/${clientId}`
+            );
+            stationsArr = stations;
+
+            /* guarda las estaciones para uso offline futuro */
+            await saveStations(clientId, stationsArr);
           }
-        }
-    
-        // Cargar productos disponibles
-        if (!isOffline()) {
-          const productsResponse = await api.get(`${process.env.REACT_APP_API_URL}/api/products`);
-          setAvailableProducts(productsResponse.data);
+
+          setStations(stationsArr);
         }
 
-        // 🔥 Cargar productos utilizados en la inspección
-        if (inspectionData.findings?.productsByType) {
-          console.log('🛠 Cargando productos desde la inspección:', inspectionData.findings.productsByType);
-          setProductsByType(inspectionData.findings.productsByType);
+        // Cargar productos disponibles
+        try {
+          if (isOffline()) {
+            console.log('📴 Offline: leyendo productos desde IndexedDB...');
+            const offlineProducts = await getProducts();
+            setAvailableProducts(offlineProducts);
+          } else {
+            console.log('🌐 Online: descargando productos...');
+            const { data: productsFromServer } = await api.get(`${process.env.REACT_APP_API_URL}/api/products`);
+            setAvailableProducts(productsFromServer);
+
+            // Cachear para el futuro
+            await saveProducts(productsFromServer);
+          }
+        } catch (prodErr) {
+          console.error('❌ Error al cargar productos:', prodErr);
+          setAvailableProducts([]);               // evita crashes de UI
         }
-    
+
         setLoading(false);
         console.log('✅ Carga de datos de inspección completada.');
       } catch (error) {
@@ -503,28 +574,28 @@ useEffect(() => {
 
     fetchDocuments();
     fetchActions();
-  
+
     fetchInspectionData();
-  }, []); 
+  }, []);
 
   useEffect(() => {
     const fetchProcedures = async () => {
       try {
         console.log('📄 Consultando procedimientos desde el backend...');
-  
+
         const response = await api.get(`${process.env.REACT_APP_API_URL}/api/procedures`);
         const procedures = response.data;
-  
+
         console.log('✅ Procedimientos cargados:', procedures);
         setProcedures(procedures); // Asegúrate de tener este estado definido con `useState`
       } catch (error) {
         console.error('❌ Error al consultar los procedimientos:', error);
       }
     };
-  
+
     fetchProcedures();
-  }, []);  
-  
+  }, []);
+
   const fetchDocuments = async () => {
     try {
       const response = await api.get(`${process.env.REACT_APP_API_URL}/api/get-documents`, {
@@ -539,7 +610,7 @@ useEffect(() => {
   const handleQrScan = (scannedValue) => {
     console.log("Valor recibido del escáner QR:", scannedValue);
     const normalizedValue = scannedValue.toLowerCase();
-  
+
     if (currentQrStationType === "Desratización") {
       setSearchTermDesratizacion(normalizedValue);
       console.log("Estado de búsqueda actualizado (Desratización):", normalizedValue);
@@ -547,15 +618,15 @@ useEffect(() => {
       setSearchTermDesinsectacion(normalizedValue);
       console.log("Estado de búsqueda actualizado (Desinsectación):", normalizedValue);
     }
-  
+
     setQrScannerOpen(false); // Cierra el modal
-  };  
-  
+  };
+
   const handleOpenQrScanner = (type) => {
     setCurrentQrStationType(type); // Define el tipo antes de abrir el escáner
     setQrScannerOpen(true); // Abre el modal de escáner QR
   };
-    
+
   useEffect(() => {
     return () => {
       if (stationFinding.photo) {
@@ -572,211 +643,221 @@ useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768); // Ancho típico para dispositivos móviles
     };
-  
+
     // Escuchar cambios en el tamaño de la ventana
     window.addEventListener('resize', handleResize);
-  
+
     // Ejecutar al montar el componente
     handleResize();
-  
+
     return () => {
       window.removeEventListener('resize', handleResize);
     };
   }, []);
 
   const detectChanges = () => {
-  const changes = {
-    generalObservations: generalObservations !== inspectionData?.observations,
-    findingsByType: JSON.stringify(findingsByType) !== JSON.stringify(inspectionData?.findings?.findingsByType),
-    productsByType: JSON.stringify(productsByType) !== JSON.stringify(inspectionData?.findings?.productsByType),
-    stationsFindings: JSON.stringify(clientStations) !== JSON.stringify(
-      inspectionData?.findings?.stationsFindings.reduce((acc, finding) => {
-        acc[finding.stationId] = finding;
-        return acc;
-      }, {})
-    ),
+    const changes = {
+      generalObservations: generalObservations !== inspectionData?.observations,
+      findingsByType: JSON.stringify(findingsByType) !== JSON.stringify(inspectionData?.findings?.findingsByType),
+      productsByType: JSON.stringify(productsByType) !== JSON.stringify(inspectionData?.findings?.productsByType),
+      stationsFindings: JSON.stringify(clientStations) !== JSON.stringify(
+        inspectionData?.findings?.stationsFindings.reduce((acc, finding) => {
+          acc[finding.stationId] = finding;
+          return acc;
+        }, {})
+      ),
+    };
+
+    console.log('Cambios detectados:', changes);
+    return Object.values(changes).some((change) => change); // Retorna true si hay algún cambio
   };
 
-  console.log('Cambios detectados:', changes);
-  return Object.values(changes).some((change) => change); // Retorna true si hay algún cambio
-};
+  const handleSaveChanges = async () => {
+    if (isExecuting) return;
+    setIsExecuting(true);
+    try {
+      const formData = new FormData();
 
-const handleSaveChanges = async () => {
-  try {
-    const formData = new FormData();
+      // Información básica
+      formData.append("inspectionId", inspectionId);
+      formData.append("generalObservations", generalObservations);
 
-    // Información básica
-    formData.append("inspectionId", inspectionId);
-    formData.append("generalObservations", generalObservations);
+      // Incluir el ID del usuario explícitamente
+      formData.append("userId", storedUserInfo?.id_usuario || null);
+      formData.append("exitTime", moment().format("HH:mm"));
 
-    // Incluir el ID del usuario explícitamente
-    formData.append("userId", storedUserInfo?.id_usuario || null);
-    formData.append("exitTime", moment().format("HH:mm"));
+      // Procesar findingsByType
+      const findingsByTypeProcessed = {};
+      Object.keys(findingsByType).forEach((type) => {
+        findingsByTypeProcessed[type] = findingsByType[type].map((finding) => {
+          const base = {
+            id: finding.id,
+            faseLavado: finding.faseLavado || null,
+            date: finding.date || getFormattedDateWithSlashes(),
+            time: finding.time || new Date().toLocaleTimeString('es-CO', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+            }).replace(/\u00A0/g, ' '),
+          };
 
-    // Procesar findingsByType
-    const findingsByTypeProcessed = {};
-    Object.keys(findingsByType).forEach((type) => {
-      findingsByTypeProcessed[type] = findingsByType[type].map((finding) => {
-        const base = {
-          id: finding.id,
-          faseLavado: finding.faseLavado || null,
-        };
-    
-        const photoUrl = finding.photoBlob ? null : finding.photoRelative || null;
-    
-        switch (finding.faseLavado) {
-          case "Antes":
-            return {
-              ...base,
-              placeAn: finding.place || '',
-              descriptionAn: finding.description || '',
-              photoAn: photoUrl,
-            };
-          case "Durante":
-            return {
-              ...base,
-              placeDu: finding.place || '',
-              descriptionDu: finding.description || '',
-              photoDu: photoUrl,
-            };
-          case "Después":
-            return {
-              ...base,
-              placeDe: finding.place || '',
-              descriptionDe: finding.description || '',
-              photoDe: photoUrl,
-            };
-          default:
-            return {
-              ...base,
-              place: finding.place || '',
-              description: finding.description || '',
-              photo: photoUrl,
-            };
+          const photoUrl = finding.photoBlob ? null : finding.photoRelative || null;
+
+          switch (finding.faseLavado) {
+            case "Antes":
+              return {
+                ...base,
+                placeAn: finding.place || '',
+                descriptionAn: finding.description || '',
+                photoAn: photoUrl,
+              };
+            case "Durante":
+              return {
+                ...base,
+                placeDu: finding.place || '',
+                descriptionDu: finding.description || '',
+                photoDu: photoUrl,
+              };
+            case "Después":
+              return {
+                ...base,
+                placeDe: finding.place || '',
+                descriptionDe: finding.description || '',
+                photoDe: photoUrl,
+              };
+            default:
+              return {
+                ...base,
+                place: finding.place || '',
+                description: finding.description || '',
+                photo: photoUrl,
+              };
+          }
+        });
+      });
+
+      formData.append("findingsByType", JSON.stringify(findingsByTypeProcessed));
+
+      // Procesar productsByType con ID
+      const productsByTypeProcessed = {};
+      Object.keys(productsByType).forEach((type) => {
+        const productData = productsByType[type];
+        const baseType = type.replace(/[0-9]+$/, ''); // ← extrae solo el tipo
+        const procedureMatch = procedures.find(proc => proc.category === baseType);
+        if (productData) {
+          productsByTypeProcessed[type] = {
+            id: productData.id || null, // Incluir el ID
+            product: productData.product || '',
+            dosage: productData.dosage || '',
+            activeIngredient: productData.active_ingredient || '',
+            batch: productData.batch || '',
+            unity: productData.unity || 'No especificado', // Evita valores nulos
+            category: productData.category || 'No especificado',
+            residualDuration: productData.residual_duration || 'No especificado',
+            expirationDate: productData.expiration_date || 'No especificado',
+            tipo: baseType,
+            process: procedureMatch?.application ? JSON.parse(procedureMatch.application).join(', ') : 'No especificado',
+
+          };
         }
       });
-    });    
 
-    formData.append("findingsByType", JSON.stringify(findingsByTypeProcessed));
-    
-    // Procesar productsByType con ID
-    const productsByTypeProcessed = {};
-    Object.keys(productsByType).forEach((type) => {
-      const productData = productsByType[type];
-      const baseType = type.replace(/[0-9]+$/, ''); // ← extrae solo el tipo
-      const procedureMatch = procedures.find(proc => proc.category === baseType);
-      if (productData) {
-        productsByTypeProcessed[type] = {
-          id: productData.id || null, // Incluir el ID
-          product: productData.product || '',
-          dosage: productData.dosage || '',
-          activeIngredient: productData.active_ingredient || '',
-          batch: productData.batch || '',
-          unity: productData.unity || 'No especificado', // Evita valores nulos
-          category: productData.category || 'No especificado',
-          residualDuration: productData.residual_duration ||  'No especificado',
-          expirationDate: productData.expiration_date || 'No especificado',
-          tipo: baseType,
-          process: procedureMatch?.application? JSON.parse(procedureMatch.application).join(', ') : 'No especificado',
+      formData.append("productsByType", JSON.stringify(productsByTypeProcessed));
 
-        };
+      // Procesar stationsFindings
+      const stationsFindingsArray = Object.entries(clientStations).map(([stationId, finding]) => ({
+        ...finding,
+        stationId,
+        photo: finding.photoBlob ? null : finding.photoRelative, // Enviar la URL relativa si no hay nueva imagen
+      }));
+
+      formData.append("stationsFindings", JSON.stringify(stationsFindingsArray));
+
+      // Ajuste en las firmas: eliminar el prefijo completo si existe
+      const removePrefix = (url) => {
+        const prefix = "";
+        return url && url.startsWith(prefix) ? url.replace(prefix, "") : url;
+      };
+
+      // Construir el objeto signatures
+      const signatures = {
+        client: {
+          id: signData.id,
+          name: signData.name,
+          position: signData.position,
+          signature: clientSignature instanceof Blob ? null : removePrefix(clientSignaturePreview), // Usar la URL si no hay nueva firma
+        },
+        technician: {
+          id: storedUserInfo?.id_usuario || null,
+          name: `${storedUserInfo?.name || ""} ${storedUserInfo?.lastname || ""}`.trim(),
+          role: userRol || "No disponible",
+          signature: techSignature instanceof Blob ? null : removePrefix(techSignaturePreview), // Usar la URL si no hay nueva firma
+        },
+      };
+
+      formData.append("signatures", JSON.stringify(signatures));
+
+      // Agregar imágenes como campos separados
+      if (techSignature instanceof Blob) {
+        formData.append("tech_signature", techSignature, "tech_signature.jpg");
       }
-    });
+      if (clientSignature instanceof Blob) {
+        formData.append("client_signature", clientSignature, "client_signature.jpg");
+      }
 
-    formData.append("productsByType", JSON.stringify(productsByTypeProcessed));
+      // Agregar imágenes de findings
+      Object.keys(findingsByType).forEach((type) => {
+        findingsByType[type].forEach((finding) => {
+          if (finding.photoBlob) {
+            formData.append("findingsImages", finding.photoBlob, `${finding.id}.jpg`);
+          }
+        });
+      });
 
-    // Procesar stationsFindings
-    const stationsFindingsArray = Object.entries(clientStations).map(([stationId, finding]) => ({
-      ...finding,
-      stationId,
-      photo: finding.photoBlob ? null : finding.photoRelative, // Enviar la URL relativa si no hay nueva imagen
-    }));
-
-    formData.append("stationsFindings", JSON.stringify(stationsFindingsArray));
-
-    // Ajuste en las firmas: eliminar el prefijo completo si existe
-    const removePrefix = (url) => {
-      const prefix = "";
-      return url && url.startsWith(prefix) ? url.replace(prefix, "") : url;
-    };
-
-    // Construir el objeto signatures
-    const signatures = {
-      client: {
-        id: signData.id,
-        name: signData.name,
-        position: signData.position,
-        signature: clientSignature instanceof Blob ? null : removePrefix(clientSignaturePreview), // Usar la URL si no hay nueva firma
-      },
-      technician: {
-        id: storedUserInfo?.id_usuario || null,
-        name: `${storedUserInfo?.name || ""} ${storedUserInfo?.lastname || ""}`.trim(),
-        role: userRol || "No disponible",
-        signature: techSignature instanceof Blob ? null : removePrefix(techSignaturePreview), // Usar la URL si no hay nueva firma
-      },
-    };
-
-    formData.append("signatures", JSON.stringify(signatures));
-
-    // Agregar imágenes como campos separados
-    if (techSignature instanceof Blob) {
-      formData.append("tech_signature", techSignature, "tech_signature.jpg");
-    }
-    if (clientSignature instanceof Blob) {
-      formData.append("client_signature", clientSignature, "client_signature.jpg");
-    }
-
-    // Agregar imágenes de findings
-    Object.keys(findingsByType).forEach((type) => {
-      findingsByType[type].forEach((finding) => {
+      // Agregar imágenes de stationsFindings
+      stationsFindingsArray.forEach((finding) => {
         if (finding.photoBlob) {
-          formData.append("findingsImages", finding.photoBlob, `${finding.id}.jpg`);
+          formData.append("stationImages", finding.photoBlob, `${finding.stationId}.jpg`);
         }
       });
-    });
 
-    // Agregar imágenes de stationsFindings
-    stationsFindingsArray.forEach((finding) => {
-      if (finding.photoBlob) {
-        formData.append("stationImages", finding.photoBlob, `${finding.stationId}.jpg`);
+      // Enviar datos al backend
+      await api.post(`/inspections/${inspectionId}/save`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      showNotification("Cambios guardados exitosamente.");
+
+      // Resetear el estado de cambios no guardados
+      setHasUnsavedChanges(false);
+      setUnsavedRoute(null); // Opcional: Resetear la ruta de cambios
+    } catch (error) {
+      console.error("Error guardando los cambios:", error);
+
+      if (error.message.includes("Offline")) {
+        showNotification(
+          "Cambios guardados localmente. Se sincronizarán automáticamente cuando vuelva la conexión."
+        );
+      } else {
+        showNotification("Hubo un error al guardar los cambios.");
       }
-    });
-
-    // Enviar datos al backend
-    await api.post(`/inspections/${inspectionId}/save`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-
-    showNotification("Cambios guardados exitosamente.");
-
-    // Resetear el estado de cambios no guardados
-    setHasUnsavedChanges(false);
-    setUnsavedRoute(null); // Opcional: Resetear la ruta de cambios
-  } catch (error) {
-    console.error("Error guardando los cambios:", error);
-
-    if (error.message.includes("Offline")) {
-      showNotification(
-        "Cambios guardados localmente. Se sincronizarán automáticamente cuando vuelva la conexión."
-      );
-    } else {
-      showNotification("Hubo un error al guardar los cambios.");
+    } finally {
+      setIsExecuting(false);
     }
-  }
-};
+  };
 
-const dataURLtoBlob = (dataURL) => {
-  const byteString = atob(dataURL.split(',')[1]);
-  const mimeString = dataURL.split(',')[0].split(':')[1].split(';')[0];
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
+  const dataURLtoBlob = (dataURL) => {
+    const byteString = atob(dataURL.split(',')[1]);
+    const mimeString = dataURL.split(',')[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
 
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
 
-  return new Blob([ab], { type: mimeString });
-};
+    return new Blob([ab], { type: mimeString });
+  };
 
   const handleStationChange = (stationId, field, value) => {
     setClientStations((prevStations) => ({
@@ -788,23 +869,40 @@ const dataURLtoBlob = (dataURL) => {
   const handleAddFinding = (type) => {
     const newFindingId = Date.now(); // ID único basado en el timestamp
     const newFindingKey = `${type}-${newFindingId}`; // Clave única para el hallazgo
-  
-    // Actualizar los hallazgos con el nuevo elemento
-    setFindingsByType((prevFindings) => ({
-      ...prevFindings,
-      [type]: [
-        ...(prevFindings[type] || []),
-        { id: newFindingId, place: '', description: '', photo: null, faseLavado: null }
-      ],
-    }));
-  
+
+    setFindingsByType((prevFindings) => {
+      const now = new Date();
+      const dateFinding = getFormattedDateWithSlashes();
+      const timeFinding = now.toLocaleTimeString('es-CO', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }).replace(/\u00A0/g, ' ');
+
+      return {
+        ...prevFindings,
+        [type]: [
+          ...(prevFindings[type] || []),
+          {
+            id: newFindingId,
+            place: '',
+            description: '',
+            photo: null,
+            faseLavado: null,
+            date: dateFinding,
+            time: timeFinding,
+          },
+        ],
+      };
+    });
+
     // Actualizar los estados de colapso para expandir el nuevo hallazgo
     setCollapseStates((prevStates) => ({
       ...prevStates,
       [newFindingKey]: true, // Expandir el nuevo hallazgo
     }));
-  };  
-  
+  };
+
   const handleFindingChange = (type, index, field, value) => {
     setFindingsByType((prevFindings) => {
       const updatedFindings = [...prevFindings[type]];
@@ -821,9 +919,9 @@ const dataURLtoBlob = (dataURL) => {
       showNotification('Seleccione un archivo válido de tipo imagen.');
       return;
     }
-  
+
     const photoURL = URL.createObjectURL(file);
-  
+
     setFindingsByType((prevFindings) => {
       const updatedFindings = [...prevFindings[type]];
       updatedFindings[index] = {
@@ -836,17 +934,17 @@ const dataURLtoBlob = (dataURL) => {
       setUnsavedRoute(location.pathname);
       return { ...prevFindings, [type]: updatedFindings };
     });
-  };    
+  };
 
   const handleProductChange = (type, field, value) => {
     setProductsByType((prevProducts) => {
       const updatedProduct = { ...prevProducts[type] };
       const baseType = type.replace(/[0-9]+$/, '');
       const procedureMatch = procedures.find(proc => proc.category === baseType);
-  
+
       if (field === 'product') {
         const selectedProduct = availableProducts.find((product) => product.name === value);
-  
+
         updatedProduct.product = value;
         updatedProduct.id = selectedProduct?.id || null;
         updatedProduct.active_ingredient = selectedProduct?.active_ingredient || '';
@@ -857,34 +955,34 @@ const dataURLtoBlob = (dataURL) => {
         updatedProduct.category = selectedProduct?.category || 'No especificado';
         updatedProduct.residual_duration = selectedProduct?.residual_duration || 'No especificado';
         updatedProduct.tipo = baseType;
-        updatedProduct.process = procedureMatch?.application? JSON.parse(procedureMatch.application).join(', '): 'No especificado'; // ✅ Aplicación del formato legible
+        updatedProduct.process = procedureMatch?.application ? JSON.parse(procedureMatch.application).join(', ') : 'No especificado'; // ✅ Aplicación del formato legible
       } else {
         updatedProduct[field] = value;
       }
-  
+
       return {
         ...prevProducts,
         [type]: updatedProduct,
       };
     });
-  
+
     // Marcar cambios detectados
     setHasUnsavedChanges(true);
     setUnsavedRoute(location.pathname);
-  };   
+  };
 
   const getFilteredProducts = (type) => {
     if (!availableProducts || !type) {
       console.log("No hay productos disponibles o el tipo de inspección está vacío.");
       return [];
     }
-  
+
     console.log("Filtrando productos para el tipo de inspección:", type);
     console.log("Productos disponibles antes del filtrado:", availableProducts);
-  
+
     return availableProducts.filter((product) => {
       console.log("Evaluando producto:", product);
-  
+
       if (!product.category) {
         console.warn(
           `Producto omitido (${product.name}) porque no tiene categoría definida.`,
@@ -892,26 +990,26 @@ const dataURLtoBlob = (dataURL) => {
         );
         return false; // Omitimos productos sin categoría
       }
-  
+
       try {
         // Convertir la categoría a string si es un array u objeto
-        let categoryStr = Array.isArray(product.category) 
+        let categoryStr = Array.isArray(product.category)
           ? product.category.join(", ") // Convierte array en string separado por comas
           : typeof product.category === "string"
             ? product.category
             : JSON.stringify(product.category); // Convierte objeto a string si es necesario
-  
+
         // Limpiar las categorías, eliminar corchetes y dividir en un array
         const cleanedCategory = categoryStr
           .replace(/[\{\}\[\]"]/g, "") // Elimina `{`, `}`, `[`, `]`, y comillas
           .split(",")
           .map((cat) => cat.trim().toLowerCase()); // Convierte a minúsculas para comparación
-  
+
         console.log(
           `Categorías procesadas del producto (${product.name}):`,
           cleanedCategory
         );
-  
+
         // Verificar si alguna categoría coincide con el tipo de inspección
         const match = cleanedCategory.some((category) => {
           const isMatch = category === type.toLowerCase();
@@ -921,12 +1019,12 @@ const dataURLtoBlob = (dataURL) => {
           );
           return isMatch;
         });
-  
+
         console.log(
           `Resultado del filtrado para el producto (${product.name}):`,
           match ? "Incluido" : "Excluido"
         );
-  
+
         return match;
       } catch (error) {
         console.error(
@@ -937,14 +1035,14 @@ const dataURLtoBlob = (dataURL) => {
         return false; // Omitir producto en caso de error
       }
     });
-  };  
-  
+  };
+
   const handleOpenStationModal = (stationId) => {
     setCurrentStationId(stationId);
 
     const station = stations.find((s) => s.id === stationId); // Encuentra la estación por su ID
     const stationCategory = station?.category || ''; // Obtén la categoría o un valor por defecto
-  
+
     if (clientStations[stationId]) {
       setStationFinding({
         ...clientStations[stationId], // Carga los datos existentes
@@ -956,33 +1054,40 @@ const dataURLtoBlob = (dataURL) => {
       setStationFinding({
         category: stationCategory,
         purpose: 'Consumo',
-        consumptionAmount: 'Nada',
+        consumptionAmount: 1,
         captureQuantity: '',
-        marked: 'No',
+        marked: 'Si',
         physicalState: 'Buena',
         damageLocation: '',
         requiresChange: 'No',
         changePriority: 'No',
+        doseConsumed: 0,
+        doseReplaced: 0,
+        consumerType: '',
+        otherConsumer: '',
+        replacementProduct: '',
+        replacementAmount: '',
+        activity: 'Cambio de producto',
         description: '',
         photo: null,
-        photoBlob: null,
+        photoBlob: null
       });
     }
-  
+
     setStationModalOpen(true);
   };
 
   const handleActionClick = async (configurationId) => {
     if (isExecuting) return;
     setIsExecuting(true);
-  
+
     try {
       const payload = { idEntity: inspectionId, id: configurationId, uniqueId: Date.now() };
       const response = await api.post(
         `${process.env.REACT_APP_API_URL}/api/create-document-inspeccion`,
         payload
       );
-  
+
       if (response.data.success) {
         showNotification("Acción ejecutada con éxito.");
         await fetchDocuments();
@@ -995,24 +1100,33 @@ const dataURLtoBlob = (dataURL) => {
     } finally {
       setIsExecuting(false);
     }
-  };  
-  
+  };
+
   const handleCloseStationModal = () => {
     setCurrentStationId(null);
     setStationModalOpen(false);
     setStationFinding({
       purpose: 'Consumo',
-      consumptionAmount: 'Nada',
+      consumptionAmount: 1,
       captureQuantity: '',
-      marked: 'No',
+      marked: 'Si',
       physicalState: 'Buena',
       damageLocation: '',
       requiresChange: 'No',
       changePriority: 'No',
+      doseConsumed: 0,
+      doseReplaced: 0,
+      consumerType: '',
+      otherConsumer: '',
+      replacementProduct: '',
+      replacementAmount: '',
+      activity: 'Cambio de producto',
+      description: '',
       photo: null,
+      photoBlob: null
     });
   };
-  
+
   const handleStationFindingChange = (field, value) => {
     setStationFinding((prevFinding) => {
       const updatedFinding = {
@@ -1027,8 +1141,8 @@ const dataURLtoBlob = (dataURL) => {
       return updatedFinding; // Retornar el nuevo estado
     });
   };
-  
-  
+
+
 
   const handleStationFindingPhotoChange = (file) => {
     if (!file || !file.type.startsWith('image/')) {
@@ -1036,16 +1150,16 @@ const dataURLtoBlob = (dataURL) => {
       showNotification('Seleccione un archivo válido de tipo imagen.');
       return;
     }
-  
+
     // Crear una URL temporal para la previsualización
     const photoURL = URL.createObjectURL(file);
-  
+
     setStationFinding((prevFinding) => {
       // Liberar la URL anterior si existía
       if (prevFinding.photo && prevFinding.photo.startsWith('blob:')) {
         URL.revokeObjectURL(prevFinding.photo);
       }
-  
+
       return {
         ...prevFinding,
         photo: photoURL, // Nueva URL para previsualización
@@ -1056,10 +1170,10 @@ const dataURLtoBlob = (dataURL) => {
     // Marcar cambios detectados
     setHasUnsavedChanges(true);
     setUnsavedRoute(location.pathname);
-  
+
     console.log('Nueva imagen seleccionada:', file);
-  };  
-  
+  };
+
   const handleSaveStationFinding = () => {
     setClientStations((prevStations) => ({
       ...prevStations,
@@ -1067,7 +1181,7 @@ const dataURLtoBlob = (dataURL) => {
     }));
     handleCloseStationModal();
   };
-  
+
   const handleSaveStationFindingDesinsectacion = () => {
     setClientStations((prevStations) => ({
       ...prevStations,
@@ -1075,14 +1189,14 @@ const dataURLtoBlob = (dataURL) => {
     }));
     handleCloseStationModalDesinsectacion();
   };
-   
+
 
   const handleOpenStationModalDesinsectacion = (stationId) => {
     setCurrentStationIdDesinsectacion(stationId);
 
     const station = stations.find((s) => s.id === stationId); // Encuentra la estación por su ID
     const stationCategory = station?.category || ''; // Obtén la categoría o un valor por defecto
-  
+
     if (clientStations[stationId]) {
       setStationFindingDesinsectacion({
         ...clientStations[stationId], // Carga los datos existentes
@@ -1103,11 +1217,11 @@ const dataURLtoBlob = (dataURL) => {
         photoBlob: null,
       });
     }
-  
+
     setStationModalOpenDesinsectacion(true);
   };
-  
-  
+
+
   const handleCloseStationModalDesinsectacion = () => {
     setCurrentStationIdDesinsectacion(null);
     setStationModalOpenDesinsectacion(false);
@@ -1121,7 +1235,7 @@ const dataURLtoBlob = (dataURL) => {
       photo: null,
     });
   };
-  
+
   const handleStationFindingChangeDesinsectacion = (field, value) => {
     setStationFindingDesinsectacion((prevFinding) => {
       const updatedFinding = {
@@ -1136,17 +1250,17 @@ const dataURLtoBlob = (dataURL) => {
       return updatedFinding; // Retornar el estado actualizado
     });
   };
-  
-  
+
+
   const handleStationFindingPhotoChangeDesinsectacion = (file) => {
     if (!file || !file.type.startsWith("image/")) {
       console.error("No se seleccionó un archivo válido o no es una imagen.");
       showNotification("Seleccione un archivo válido de tipo imagen.");
       return;
     }
-  
+
     const photoURL = URL.createObjectURL(file);
-  
+
     setStationFindingDesinsectacion((prevFinding) => ({
       ...prevFinding,
       photo: photoURL, // URL para previsualización
@@ -1158,91 +1272,110 @@ const dataURLtoBlob = (dataURL) => {
   };
 
   // Manejador de estado de colapso
-const handleCollapseToggle = (currentKey) => {
-  setCollapseStates({ [currentKey]: !collapseStates[currentKey] }); // Solo permite un hallazgo expandido
-};
+  const handleCollapseToggle = (currentKey) => {
+    setCollapseStates({ [currentKey]: !collapseStates[currentKey] }); // Solo permite un hallazgo expandido
+  };
 
-const handleViewStation = (stationId) => {
-  setViewStationData(clientStations[stationId] || {});
-  setViewStationModalOpen(true);
-};
+  const handleViewStation = (stationId) => {
+    setViewStationData(clientStations[stationId] || {});
+    setViewStationModalOpen(true);
+  };
 
-const handlePrefirmDocument = async (documentUrl) => {
-  try {
-    // Paso 1: Obtener la URL prefirmada
-    const prefirmResponse = await api.post('/PrefirmarArchivos', { url: documentUrl });
+  const handlePrefirmDocument = async (documentUrl) => {
+    try {
+      // Paso 1: Obtener la URL prefirmada
+      const prefirmResponse = await api.post('/PrefirmarArchivos', { url: documentUrl });
 
-    if (prefirmResponse.data.signedUrl) {
-      const preSignedUrl = prefirmResponse.data.signedUrl;
+      if (prefirmResponse.data.signedUrl) {
+        const preSignedUrl = prefirmResponse.data.signedUrl;
 
-      // Paso 2: Usar la URL prefirmada para subir a Google Drive
-      const googleDriveResponse = await api.post('/edit-googledrive', { s3Url: preSignedUrl });
+        // Paso 2: Usar la URL prefirmada para subir a Google Drive
+        const googleDriveResponse = await api.post('/edit-googledrive', { s3Url: preSignedUrl });
 
-      if (googleDriveResponse.data.success && googleDriveResponse.data.fileId) {
-        // Paso 3: Construir la URL de edición en Google Drive
-        const googleDriveEditUrl = `https://docs.google.com/document/d/${googleDriveResponse.data.fileId}/edit`;
+        if (googleDriveResponse.data.success && googleDriveResponse.data.fileId) {
+          // Paso 3: Construir la URL de edición en Google Drive
+          const googleDriveEditUrl = `https://docs.google.com/document/d/${googleDriveResponse.data.fileId}/edit`;
 
-        // Abrir el archivo en una nueva pestaña
-        window.open(googleDriveEditUrl, '_blank', 'noopener,noreferrer');
+          // Abrir el archivo en una nueva pestaña
+          window.open(googleDriveEditUrl, '_blank', 'noopener,noreferrer');
+        } else {
+          // Manejo de error si no se obtuvo el archivo en Google Drive
+          showNotification('No se pudo obtener el archivo en Google Drive.');
+        }
       } else {
-        // Manejo de error si no se obtuvo el archivo en Google Drive
-        showNotification('No se pudo obtener el archivo en Google Drive.');
+        // Manejo de error si no se pudo obtener la URL prefirmada
+        showNotification('No se pudo obtener la URL prefirmada.');
       }
-    } else {
-      // Manejo de error si no se pudo obtener la URL prefirmada
-      showNotification('No se pudo obtener la URL prefirmada.');
+    } catch (error) {
+      // Manejo de errores generales
+      console.error('Error en el proceso:', error.message);
+      showNotification('Hubo un error al intentar procesar el documento.');
     }
-  } catch (error) {
-    // Manejo de errores generales
-    console.error('Error en el proceso:', error.message);
-    showNotification('Hubo un error al intentar procesar el documento.');
-  }
-};
+  };
 
-const handleViewStationDesratizacion = (stationId) => {
-  setViewStationData(clientStations[stationId] || {});
-  setStationType('Desratización');
-  setViewStationModalOpen(true);
-};
+  const handleViewStationDesratizacion = (stationId) => {
+    setViewStationData(clientStations[stationId] || {});
+    setStationType('Desratización');
+    setViewStationModalOpen(true);
+  };
 
-const handleViewStationDesinsectacion = (stationId) => {
-  setViewStationData(clientStations[stationId] || {});
-  setStationType('Desinsectación');
-  setViewStationModalOpen(true);
-};
+  const handleViewStationDesinsectacion = (stationId) => {
+    setViewStationData(clientStations[stationId] || {});
+    setStationType('Desinsectación');
+    setViewStationModalOpen(true);
+  };
 
-const handleShowConfirmDelete = (type, index) => {
-  setConfirmDelete({ show: true, type, index });
-};
+  const handleShowConfirmDelete = (type, index) => {
+    setConfirmDelete({ show: true, type, index });
+  };
 
-const handleCloseConfirmDelete = () => {
-  setConfirmDelete({ show: false, type: null, index: null });
-};
+  const handleCloseConfirmDelete = () => {
+    setConfirmDelete({ show: false, type: null, index: null });
+  };
 
-const handleDeleteFinding = () => {
-  const { type, index } = confirmDelete;
+  const handleDeleteFinding = () => {
+    const { type, index } = confirmDelete;
 
-  if (!type || index === null || index === undefined) {
-    console.error(`El tipo ${type} o el índice ${index} no son válidos.`);
+    if (!type || index === null || index === undefined) {
+      console.error(`El tipo ${type} o el índice ${index} no son válidos.`);
+      handleCloseConfirmDelete();
+      return;
+    }
+
+    setFindingsByType((prevFindings) => {
+      const updatedFindings = { ...prevFindings };
+      updatedFindings[type].splice(index, 1);
+
+      if (updatedFindings[type].length === 0) {
+        delete updatedFindings[type];
+      }
+
+      return updatedFindings;
+    });
+
     handleCloseConfirmDelete();
-    return;
-  }
+  };
 
-  setFindingsByType((prevFindings) => {
-    const updatedFindings = { ...prevFindings };
-    updatedFindings[type].splice(index, 1);
-
-    if (updatedFindings[type].length === 0) {
-      delete updatedFindings[type];
-    }
-
-    return updatedFindings;
-  });
-
-  handleCloseConfirmDelete();
-};
-
-  if (loading) return <div>Cargando detalles de la inspección...</div>;
+  if (loading) return
+  <div
+    style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      zIndex: 1050,
+      width: "100vw",
+      height: "100vh",
+      backgroundColor: "rgba(255, 255, 255, 0.7)",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+    }}
+  >
+    <div className="spinner-border text-secondary" role="status" style={{ width: "5rem", height: "5rem" }}>
+      <span className="visually-hidden">Cargando datos de la Inspección...</span>
+    </div>
+  </div>
+    ;
 
   if (!inspectionData)
     return (
@@ -1251,15 +1384,40 @@ const handleDeleteFinding = () => {
       </div>
     );
 
+  const getFormattedDateWithSlashes = () => {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = String(now.getFullYear()).slice(-2);
+    return `${day}/${month}/${year}`; // formato con /
+  };
+
   const { inspection_type, inspection_sub_type, date, time, service_id, exit_time } = inspectionData;
 
   const parsedInspectionTypes = inspection_type
-  ? [
+    ? [
       ...inspection_type.split(",").map((type) => type.trim())
     ]
-  : [];
+    : [];
 
   const isLocked = techSignaturePreview && clientSignaturePreview && userRol === 'Técnico';
+
+
+  /* ← 1. categorías originales que vienen en la ficha */
+  const originalCategories = parsedInspectionTypes;
+
+  /* ← 2. ¿existe al menos un hallazgo con descripción en cada categoría? */
+  const hasFindingsInEveryOriginalCategory = originalCategories.every(cat =>
+    (findingsByType[cat] || []).some(
+      f => f.description && f.description.trim().length > 0
+    )
+  );
+
+  /* ← 3. ¿hay observación general? */
+  const hasGeneralObs = generalObservations.trim().length > 0;
+
+  /* ← 4. bandera final */
+  const canSign = hasGeneralObs && hasFindingsInEveryOriginalCategory;
 
   return (
     <div className="container mt-4">
@@ -1300,37 +1458,37 @@ const handleDeleteFinding = () => {
 
             {/* Columna 2: Documentos */}
             <div className="col-md-6">
-            <h5>Documentos</h5>
-            {documents.length > 0 ? (
-              <div className="row" style={{ minHeight: 0, height: 'auto' }}>
-                {documents.map((doc, index) => (
-                  <div className="col-6 col-md-3 text-center mb-3" key={index}>
-                    <button
-                      className="btn p-0"
-                      style={{ background: "none", border: "none", cursor: "pointer" }}
-                      onClick={() => handleDocumentClick(doc)}
-                    >
-                      {doc.document_type === "doc" ? (
-                        <FileEarmarkWord size={40} color="blue" title="Documento Word" />
-                      ) : doc.document_type === "xlsx" ? (
-                        <FileEarmarkExcel size={40} color="green" title="Hoja de cálculo Excel" />
-                      ) : doc.document_type === "pdf" ? (
-                        <FileEarmarkPdf size={40} color="red" title="Documento PDF" />
-                      ) : ["jpg", "jpeg", "png"].includes(doc.document_type) ? (
-                        <FileEarmarkImage size={40} color="orange" title="Imagen" />
-                      ) : (
-                        <FileEarmarkArrowDown size={40} color="gray" title="Archivo" />
-                      )}
-                      <div className="mt-2">
-                        <small>{doc.document_name}</small>
-                      </div>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p>No se encontraron documentos relacionados con esta inspección.</p>
-            )}
+              <h5>Documentos</h5>
+              {documents.length > 0 ? (
+                <div className="row" style={{ minHeight: 0, height: 'auto' }}>
+                  {documents.map((doc, index) => (
+                    <div className="col-6 col-md-3 text-center mb-3" key={index}>
+                      <button
+                        className="btn p-0"
+                        style={{ background: "none", border: "none", cursor: "pointer" }}
+                        onClick={() => handleDocumentClick(doc)}
+                      >
+                        {doc.document_type === "doc" ? (
+                          <FileEarmarkWord size={40} color="blue" title="Documento Word" />
+                        ) : doc.document_type === "xlsx" ? (
+                          <FileEarmarkExcel size={40} color="green" title="Hoja de cálculo Excel" />
+                        ) : doc.document_type === "pdf" ? (
+                          <FileEarmarkPdf size={40} color="red" title="Documento PDF" />
+                        ) : ["jpg", "jpeg", "png"].includes(doc.document_type) ? (
+                          <FileEarmarkImage size={40} color="orange" title="Imagen" />
+                        ) : (
+                          <FileEarmarkArrowDown size={40} color="gray" title="Archivo" />
+                        )}
+                        <div className="mt-2">
+                          <small>{doc.document_name}</small>
+                        </div>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p>No se encontraron documentos relacionados con esta inspección.</p>
+              )}
 
               {/* Mostrar las acciones debajo de los documentos */}
               <div className="mt-3">
@@ -1478,51 +1636,50 @@ const handleDeleteFinding = () => {
                               </div>
                             </div>
                             <div
-                              className={`finding-details ${
-                                collapseStates[currentKey] ? 'd-block' : 'd-none'
-                              } mt-2`}
+                              className={`finding-details ${collapseStates[currentKey] ? 'd-block' : 'd-none'
+                                } mt-2`}
                             >
-                          <>
-                            <p><strong>Finalidad:</strong> {clientStations[station.id]?.purpose || '-'}</p>
-
-                            {clientStations[station.id]?.purpose === 'Consumo' && (
-                              <p><strong>Cantidad Consumida:</strong> {clientStations[station.id]?.consumptionAmount || '-'}</p>
-                            )}
-
-                            {clientStations[station.id]?.purpose === 'Captura' && (
-                              <p><strong>Cantidad Capturada:</strong> {clientStations[station.id]?.captureQuantity || '-'}</p>
-                            )}
-
-                            <p><strong>Estado Físico:</strong> {clientStations[station.id]?.physicalState || '-'}</p>
-                            {clientStations[station.id]?.physicalState === 'Dañada' && (
                               <>
-                                <p><strong>Lugar del Daño:</strong> {clientStations[station.id]?.damageLocation || '-'}</p>
-                                <p><strong>Requiere Cambio:</strong> {clientStations[station.id]?.requiresChange || '-'}</p>
-                                {clientStations[station.id]?.requiresChange === 'Si' && (
-                                  <p><strong>Prioridad de Cambio:</strong> {clientStations[station.id]?.changePriority || '-'}</p>
+                                <p><strong>Finalidad:</strong> {clientStations[station.id]?.purpose || '-'}</p>
+
+                                {clientStations[station.id]?.purpose === 'Consumo' && (
+                                  <p><strong>Cantidad Consumida:</strong> {clientStations[station.id]?.consumptionAmount || '-'}</p>
                                 )}
+
+                                {clientStations[station.id]?.purpose === 'Captura' && (
+                                  <p><strong>Cantidad Capturada:</strong> {clientStations[station.id]?.captureQuantity || '-'}</p>
+                                )}
+
+                                <p><strong>Estado Físico:</strong> {clientStations[station.id]?.physicalState || '-'}</p>
+                                {clientStations[station.id]?.physicalState === 'Dañada' && (
+                                  <>
+                                    <p><strong>Lugar del Daño:</strong> {clientStations[station.id]?.damageLocation || '-'}</p>
+                                    <p><strong>Requiere Cambio:</strong> {clientStations[station.id]?.requiresChange || '-'}</p>
+                                    {clientStations[station.id]?.requiresChange === 'Si' && (
+                                      <p><strong>Prioridad de Cambio:</strong> {clientStations[station.id]?.changePriority || '-'}</p>
+                                    )}
+                                  </>
+                                )}
+                                <p><strong>Descripción:</strong> {clientStations[station.id]?.description || '-'}</p>
+                                <div className="mb-3">
+                                  {clientStations[station.id]?.photo ? (
+                                    <img
+                                      src={clientStations[station.id]?.photo}
+                                      alt="Foto"
+                                      style={{ width: '150px', objectFit: 'cover' }}
+                                    />
+                                  ) : (
+                                    <span>Sin Foto</span>
+                                  )}
+                                </div>
+                                <button
+                                  className="btn btn-outline-success"
+                                  onClick={() => handleOpenStationModal(station.id)}
+                                  disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                                >
+                                  Editar
+                                </button>
                               </>
-                            )}
-                            <p><strong>Descripción:</strong> {clientStations[station.id]?.description || '-'}</p>
-                            <div className="mb-3">
-                              {clientStations[station.id]?.photo ? (
-                                <img
-                                  src={clientStations[station.id]?.photo}
-                                  alt="Foto"
-                                  style={{ width: '150px', objectFit: 'cover' }}
-                                />
-                              ) : (
-                                <span>Sin Foto</span>
-                              )}
-                            </div>
-                            <button
-                              className="btn btn-outline-success"
-                              onClick={() => handleOpenStationModal(station.id)}
-                              disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-                            >
-                              Editar
-                            </button>
-                          </>
                             </div>
                           </div>
                         );
@@ -1541,103 +1698,103 @@ const handleDeleteFinding = () => {
                         </tr>
                       </thead>
                       <tbody>
-                      {stations.filter((station) => {
-                      console.log("Evaluando estación:", station);
+                        {stations.filter((station) => {
+                          console.log("Evaluando estación:", station);
 
-                      // Verificar categoría
-                      if (station.category !== "Roedores") {
-                        console.log(`Estación ${station.name || `ID: ${station.id}`} excluida por categoría:`, station.category);
-                        return false;
-                      }
+                          // Verificar categoría
+                          if (station.category !== "Roedores") {
+                            console.log(`Estación ${station.name || `ID: ${station.id}`} excluida por categoría:`, station.category);
+                            return false;
+                          }
 
-                      // Normalizamos el término de búsqueda
-                      const search = searchTermDesratizacion.trim().toLowerCase();
-                      console.log("Término de búsqueda utilizado:", search); // Log del término de búsqueda
+                          // Normalizamos el término de búsqueda
+                          const search = searchTermDesratizacion.trim().toLowerCase();
+                          console.log("Término de búsqueda utilizado:", search); // Log del término de búsqueda
 
-                      const stationPrefix = "station-";
-                      const isStationSearch = search.startsWith(stationPrefix);
+                          const stationPrefix = "station-";
+                          const isStationSearch = search.startsWith(stationPrefix);
 
-                      // Búsqueda por ID exacto usando el prefijo
-                      if (isStationSearch) {
-                        const stationId = Number(search.replace(stationPrefix, ""));
-                        console.log(`Buscando estación con ID ${stationId} en estación con ID:`, station.id);
-                        const match = !isNaN(stationId) && station.id === stationId;
-                        console.log(`Resultado de búsqueda exacta para estación ${station.id}:`, match ? "Coincide" : "No coincide");
-                        return match;
-                      }
+                          // Búsqueda por ID exacto usando el prefijo
+                          if (isStationSearch) {
+                            const stationId = Number(search.replace(stationPrefix, ""));
+                            console.log(`Buscando estación con ID ${stationId} en estación con ID:`, station.id);
+                            const match = !isNaN(stationId) && station.id === stationId;
+                            console.log(`Resultado de búsqueda exacta para estación ${station.id}:`, match ? "Coincide" : "No coincide");
+                            return match;
+                          }
 
-                      // Búsqueda general en nombre o descripción
-                      const stationName = station.name ? station.name.toLowerCase() : "";
-                      const stationDescription = station.description ? station.description.toLowerCase() : "";
-                      const matches = stationName.includes(search) || stationDescription.includes(search);
+                          // Búsqueda general en nombre o descripción
+                          const stationName = station.name ? station.name.toLowerCase() : "";
+                          const stationDescription = station.description ? station.description.toLowerCase() : "";
+                          const matches = stationName.includes(search) || stationDescription.includes(search);
 
-                      console.log(`Resultado del filtro general para estación ${station.name || `ID: ${station.id}`}:`, matches ? "Incluida" : "Excluida");
-                      return matches;
-                    })
+                          console.log(`Resultado del filtro general para estación ${station.name || `ID: ${station.id}`}:`, matches ? "Incluida" : "Excluida");
+                          return matches;
+                        })
                           .map((station) => (
                             <tr key={station.id}>
                               <td className='align-middle'>{station.name || `Estación ${station.description}`}</td>
                               {clientStations[station.id] ? (
-                              <>
-                                <td className='align-middle'>{clientStations[station.id].purpose || '-'}</td>
-                                <td className='align-middle'>{clientStations[station.id].physicalState || '-'}</td>
-                                <td className='align-middle'>{clientStations[station.id].description || '-'}</td>
-                                <td className='align-middle mx-1 px-1'>
-                                  {clientStations[station.id].photo ? (
-                                    <img
-                                      src={clientStations[station.id].photo}
-                                      alt="Foto"
-                                      style={{ width: '250px', objectFit: 'cover', margin: "0px", padding: "0px" }}
-                                    />
-                                  ) : (
-                                    '-'
-                                  )}
-                                </td>
-                                <td className='align-middle'>
-                                {!isMobile && (
-                                  <button
-                                    className="btn btn-link p-0"
-                                    onClick={() => handleViewStationDesratizacion(station.id)}
-                                    style={{ border: "none", background: "none" }}
+                                <>
+                                  <td className='align-middle'>{clientStations[station.id].purpose || '-'}</td>
+                                  <td className='align-middle'>{clientStations[station.id].physicalState || '-'}</td>
+                                  <td className='align-middle'>{clientStations[station.id].description || '-'}</td>
+                                  <td className='align-middle mx-1 px-1'>
+                                    {clientStations[station.id].photo ? (
+                                      <img
+                                        src={clientStations[station.id].photo}
+                                        alt="Foto"
+                                        style={{ width: '250px', objectFit: 'cover', margin: "0px", padding: "0px" }}
+                                      />
+                                    ) : (
+                                      '-'
+                                    )}
+                                  </td>
+                                  <td className='align-middle'>
+                                    {!isMobile && (
+                                      <button
+                                        className="btn btn-link p-0"
+                                        onClick={() => handleViewStationDesratizacion(station.id)}
+                                        style={{ border: "none", background: "none" }}
+                                      >
+                                        <Eye
+                                          className='mx-2'
+                                          size={"25px"}
+                                          color='blue'
+                                          type='button'
+                                        />
+                                      </button>
+                                    )}
+                                    <button
+                                      className="btn btn-link p-0"
+                                      onClick={() => handleOpenStationModal(station.id)}
+                                      disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'} // Bloquear si ya está firmado
+                                      style={{ border: "none", background: "none" }} // Estilo para eliminar apariencia de botón
                                     >
-                                    <Eye
-                                    className='mx-2'
-                                      size={"25px"}
-                                      color='blue'
-                                      type='button'
-                                    />
+                                      <PencilSquare
+                                        className="mx-2"
+                                        size={"20px"}
+                                        color={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico' ? "gray" : "green"} // Cambiar color si está bloqueado
+                                        type="button"
+                                        title={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico' ? "Inspección firmada, edición bloqueada" : "Editar"}
+                                      />
                                     </button>
-                                  )}
-                                  <button
-                                    className="btn btn-link p-0"
-                                    onClick={() => handleOpenStationModal(station.id)}
-                                    disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'} // Bloquear si ya está firmado
-                                    style={{ border: "none", background: "none" }} // Estilo para eliminar apariencia de botón
-                                  >
-                                    <PencilSquare
-                                      className="mx-2"
-                                      size={"20px"}
-                                      color={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico' ? "gray" : "green"} // Cambiar color si está bloqueado
-                                      type="button"
-                                      title={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico' ? "Inspección firmada, edición bloqueada" : "Editar"}
-                                    />
-                                  </button>
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td colSpan="4">Sin hallazgo reportado</td>
-                                <td>
-                                  <button
-                                    className="btn btn-outline-success"
-                                    onClick={() => handleOpenStationModal(station.id)}
-                                    disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-                                  >
-                                    +
-                                  </button>
-                                </td>
-                              </>
-                            )}
+                                  </td>
+                                </>
+                              ) : (
+                                <>
+                                  <td colSpan="4">Sin hallazgo reportado</td>
+                                  <td>
+                                    <button
+                                      className="btn btn-outline-success"
+                                      onClick={() => handleOpenStationModal(station.id)}
+                                      disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                                    >
+                                      +
+                                    </button>
+                                  </td>
+                                </>
+                              )}
                             </tr>
                           ))}
                       </tbody>
@@ -1716,9 +1873,8 @@ const handleDeleteFinding = () => {
                               </div>
                             </div>
                             <div
-                              className={`finding-details ${
-                                collapseStates[currentKey] ? 'd-block' : 'd-none'
-                              } mt-2`}
+                              className={`finding-details ${collapseStates[currentKey] ? 'd-block' : 'd-none'
+                                } mt-2`}
                             >
                               {clientStations[station.id] ? (
                                 <>
@@ -1822,35 +1978,35 @@ const handleDeleteFinding = () => {
                                     )}
                                   </td>
                                   <td className='align-middle'>
-                                  {!isMobile && (
+                                    {!isMobile && (
+                                      <button
+                                        className="btn btn-link p-0"
+                                        onClick={() => handleViewStationDesinsectacion(station.id)}
+                                        style={{ border: "none", background: "none" }}
+                                      >
+                                        <Eye
+                                          className='mx-2'
+                                          size={"25px"}
+                                          color='blue'
+                                          type='button'
+                                        />
+                                      </button>
+                                    )}
                                     <button
                                       className="btn btn-link p-0"
-                                      onClick={() => handleViewStationDesinsectacion(station.id)}
+                                      onClick={() => handleOpenStationModal(station.id)}
+                                      disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
                                       style={{ border: "none", background: "none" }}
                                     >
-                                      <Eye
-                                      className='mx-2'
-                                        size={"25px"}
-                                        color='blue'
+                                      <PencilSquare
+                                        className='mx-2'
+                                        size={"20px"}
+                                        color='green'
                                         type='button'
+                                        onClick={() => handleOpenStationModalDesinsectacion(station.id)}
+                                        disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
                                       />
                                     </button>
-                                  )}
-                                  <button
-                                    className="btn btn-link p-0"
-                                    onClick={() => handleOpenStationModal(station.id)}
-                                    disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-                                    style={{ border: "none", background: "none" }}
-                                  >
-                                    <PencilSquare
-                                    className='mx-2'
-                                      size={"20px"}
-                                      color='green'
-                                      type='button'
-                                      onClick={() => handleOpenStationModalDesinsectacion(station.id)}
-                                      disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-                                    />
-                                  </button>
                                   </td>
                                 </>
                               ) : (
@@ -1880,62 +2036,147 @@ const handleDeleteFinding = () => {
             <hr></hr>
             <h6 className='mt-2'>Hallazgos</h6>
             <div className="table-responsive findings-container">
-            {(findingsByType[type] || []).map((finding, idx) => {
-              const currentKey = `${type}-${finding.id}`; // Usar el ID único como clave
-              const findingTitle = finding.place && finding.place.trim() !== '' 
-                ? `Hallazgo ${finding.place}` 
-                : `Hallazgo ${idx + 1}`; // Mostrar 'Hallazgo' seguido del índice si 'place' está vacío
+              {(findingsByType[type] || []).map((finding, idx) => {
+                const currentKey = `${type}-${finding.id}`; // Usar el ID único como clave
+                const findingTitle = finding.place && finding.place.trim() !== ''
+                  ? `Hallazgo ${finding.place}`
+                  : `Hallazgo ${idx + 1}`; // Mostrar 'Hallazgo' seguido del índice si 'place' está vacío
 
-              return (
-                <div key={currentKey} className="finding-item mb-3 mx-1">
-                  {/* Para dispositivos móviles: función de colapso */}
-                  {isMobile ? (
-                    <>
-                      <div className="d-flex justify-content-between align-items-center" >
-                        <strong>{findingTitle}</strong>
-                        <div
-                          className="icon-toggle"
-                          onClick={() =>
-                            setCollapseStates({ [currentKey]: !collapseStates[currentKey] })
-                          }
-                          style={{ cursor: "pointer", display: "inline-block" }}
-                        >
-                          {collapseStates[currentKey] ? (
-                            <ArrowUpSquare title="Ocultar" />
-                          ) : (
-                            <ArrowDownSquare title="Expandir" />
-                          )}
+                return (
+                  <div key={currentKey} className="finding-item mb-3 mx-1">
+                    {/* Para dispositivos móviles: función de colapso */}
+                    {isMobile ? (
+                      <>
+                        <div className="d-flex justify-content-between align-items-center" >
+                          <strong>{findingTitle}</strong>
+                          <div
+                            className="icon-toggle"
+                            onClick={() =>
+                              setCollapseStates({ [currentKey]: !collapseStates[currentKey] })
+                            }
+                            style={{ cursor: "pointer", display: "inline-block" }}
+                          >
+                            {collapseStates[currentKey] ? (
+                              <ArrowUpSquare title="Ocultar" />
+                            ) : (
+                              <ArrowDownSquare title="Expandir" />
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      <div
-                        className={`finding-details ${
-                          collapseStates[currentKey] ? "d-block" : "d-none"
-                        }`} 
-                      >
+                        <div
+                          className={`finding-details ${collapseStates[currentKey] ? "d-block" : "d-none"
+                            }`}
+                        >
 
-                    <div className="col-md-2 mt-3 mb-0 ms-auto text-end">
-                      <XCircle
-                        size={"18px"}
-                        color={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico') ? "gray" : "red"} // Cambiar color si está bloqueado
-                        onClick={() => {
-                          if (( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')) {
-                            return;
-                          }
-                          handleShowConfirmDelete(type, idx);
-                        }}
-                        style={{
-                          cursor: ( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico') ? "not-allowed" : "pointer", // Cambiar cursor si está bloqueado
-                        }}
-                        title={
-                          ( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')
-                            ? "Inspección firmada, acción bloqueada"
-                            : "Eliminar hallazgo"
-                        }
-                      />
-                      </div>
+                          <div className="col-md-2 mt-3 mb-0 ms-auto text-end">
+                            <XCircle
+                              size={"18px"}
+                              color={(techSignaturePreview && clientSignaturePreview && userRol === 'Técnico') ? "gray" : "red"} // Cambiar color si está bloqueado
+                              onClick={() => {
+                                if ((techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')) {
+                                  return;
+                                }
+                                handleShowConfirmDelete(type, idx);
+                              }}
+                              style={{
+                                cursor: (techSignaturePreview && clientSignaturePreview && userRol === 'Técnico') ? "not-allowed" : "pointer", // Cambiar cursor si está bloqueado
+                              }}
+                              title={
+                                (techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')
+                                  ? "Inspección firmada, acción bloqueada"
+                                  : "Eliminar hallazgo"
+                              }
+                            />
+                          </div>
+                          <div className="row mt-3" style={{ minHeight: 0, height: 'auto' }}>
+                            <div className="col-md-2" >
+                              <label htmlFor={`place-${type}-${idx}`} className="form-label">
+                                Lugar
+                              </label>
+                              <input
+                                id={`place-${type}-${idx}`}
+                                type="text"
+                                className="form-control table-input"
+                                value={finding.place}
+                                onChange={(e) =>
+                                  handleFindingChange(type, idx, "place", e.target.value)
+                                }
+                                placeholder="Lugar"
+                                disabled={(techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
+                              />
+                            </div>
+                            <div className="col-md-8">
+                              <label
+                                htmlFor={`description-${type}-${idx}`}
+                                className="form-label"
+                              >
+                                Descripción
+                              </label>
+                              <textarea
+                                id={`description-${type}-${idx}`}
+                                className="form-control table-textarea"
+                                rows="2"
+                                value={finding.description}
+                                onChange={(e) =>
+                                  handleFindingChange(type, idx, "description", e.target.value)
+                                }
+                                placeholder="Descripción"
+                                disabled={(techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
+                              ></textarea>
+                            </div>
+                            <div className="col-md-2">
+                              <label className="form-label">Foto</label>
+                              <div className="image-upload-container">
+                                {finding.photo ? (
+                                  <img
+                                    src={finding.photo}
+                                    alt={`Preview ${idx}`}
+                                    className="image-preview"
+                                  />
+                                ) : (
+                                  <div className="drag-drop-area">
+                                    <span>Arrastra o selecciona una imagen</span>
+                                  </div>
+                                )}
+                                <input
+                                  type="file"
+                                  className="image-input"
+                                  disabled={(techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
+                                  onChange={(e) =>
+                                    handleFindingPhotoChange(type, idx, e.target.files[0])
+                                  }
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      // Para tablet y computadoras: mostrar todo expandido
+                      <div className="finding-details d-block">
+                        <div className="col-md-2 mt-0 mb-0 ms-auto text-end">
+                          <XCircle
+                            size={"20px"}
+                            color={(techSignaturePreview && clientSignaturePreview && userRol === 'Técnico') ? "gray" : "red"} // Cambiar color si está bloqueado
+                            onClick={() => {
+                              if ((techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')) {
+                                return;
+                              }
+                              handleShowConfirmDelete(type, idx);
+                            }}
+                            style={{
+                              cursor: (techSignaturePreview && clientSignaturePreview && userRol === 'Técnico') ? "not-allowed" : "pointer", // Cambiar cursor si está bloqueado
+                            }}
+                            title={
+                              (techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')
+                                ? "Inspección firmada, acción bloqueada"
+                                : "Eliminar hallazgo"
+                            }
+                          />
+                        </div>
                         <div className="row mt-3" style={{ minHeight: 0, height: 'auto' }}>
-                          <div className="col-md-2" >
+                          <div className="col-md-2">
                             <label htmlFor={`place-${type}-${idx}`} className="form-label">
                               Lugar
                             </label>
@@ -1948,16 +2189,11 @@ const handleDeleteFinding = () => {
                                 handleFindingChange(type, idx, "place", e.target.value)
                               }
                               placeholder="Lugar"
-                              disabled={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
+                              disabled={(techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
                             />
                           </div>
                           <div className="col-md-8">
-                            <label
-                              htmlFor={`description-${type}-${idx}`}
-                              className="form-label"
-                            >
-                              Descripción
-                            </label>
+                            <label htmlFor={`description-${type}-${idx}`} className="form-label">Descripción</label>
                             <textarea
                               id={`description-${type}-${idx}`}
                               className="form-control table-textarea"
@@ -1967,9 +2203,10 @@ const handleDeleteFinding = () => {
                                 handleFindingChange(type, idx, "description", e.target.value)
                               }
                               placeholder="Descripción"
-                              disabled={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
+                              disabled={isLocked}
                             ></textarea>
                           </div>
+
                           <div className="col-md-2">
                             <label className="form-label">Foto</label>
                             <div className="image-upload-container">
@@ -1987,227 +2224,145 @@ const handleDeleteFinding = () => {
                               <input
                                 type="file"
                                 className="image-input"
-                                disabled={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
+                                disabled={isLocked}
                                 onChange={(e) =>
                                   handleFindingPhotoChange(type, idx, e.target.files[0])
                                 }
                               />
                             </div>
                           </div>
+
+                          {/* ✅ Botón exclusivo para Lavado de tanque */}
+                          {type.trim().toLowerCase() === "lavado de tanque" && (
+                            <div className="col-md-12 mt-3 text-center">
+                              <label className="form-label d-block mb-2">Fase del Lavado</label>
+                              <div className="d-flex justify-content-center gap-2">
+                                {["Antes", "Durante", "Después"].map((fase) => (
+                                  <button
+                                    key={fase}
+                                    type="button"
+                                    className={`btn ${finding.faseLavado === fase ? "btn-primary" : "btn-outline-primary"}`}
+                                    onClick={() => handleFindingChange(type, idx, "faseLavado", fase)}
+                                    disabled={isLocked}
+                                  >
+                                    {fase}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                         </div>
                       </div>
-                    </>
-                  ) : (
-                    // Para tablet y computadoras: mostrar todo expandido
-                    <div className="finding-details d-block">
-                      <div className="col-md-2 mt-0 mb-0 ms-auto text-end">
-                      <XCircle
-                        size={"20px"}
-                        color={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico') ? "gray" : "red"} // Cambiar color si está bloqueado
-                        onClick={() => {
-                          if (( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')) {
-                            return;
-                          }
-                          handleShowConfirmDelete(type, idx);
-                        }}
-                        style={{
-                          cursor: ( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico') ? "not-allowed" : "pointer", // Cambiar cursor si está bloqueado
-                        }}
-                        title={
-                          ( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')
-                            ? "Inspección firmada, acción bloqueada"
-                            : "Eliminar hallazgo"
-                        }
-                      />
-                      </div>
-                      <div className="row mt-3" style={{ minHeight: 0, height: 'auto' }}>
-                        <div className="col-md-2">
-                          <label htmlFor={`place-${type}-${idx}`} className="form-label">
-                            Lugar
-                          </label>
-                          <input
-                            id={`place-${type}-${idx}`}
-                            type="text"
-                            className="form-control table-input"
-                            value={finding.place}
-                            onChange={(e) =>
-                              handleFindingChange(type, idx, "place", e.target.value)
-                            }
-                            placeholder="Lugar"
-                            disabled={( techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
-                          />
-                        </div>
-                        <div className="col-md-8">
-                        <label htmlFor={`description-${type}-${idx}`} className="form-label">Descripción</label>
-                        <textarea
-                          id={`description-${type}-${idx}`}
-                          className="form-control table-textarea"
-                          rows="2"
-                          value={finding.description}
-                          onChange={(e) =>
-                            handleFindingChange(type, idx, "description", e.target.value)
-                          }
-                          placeholder="Descripción"
-                          disabled={isLocked}
-                        ></textarea>
-                      </div>
-
-                      <div className="col-md-2">
-                      <label className="form-label">Foto</label>
-                      <div className="image-upload-container">
-                        {finding.photo ? (
-                          <img
-                            src={finding.photo}
-                            alt={`Preview ${idx}`}
-                            className="image-preview"
-                          />
-                        ) : (
-                          <div className="drag-drop-area">
-                            <span>Arrastra o selecciona una imagen</span>
-                          </div>
-                        )}
-                        <input
-                          type="file"
-                          className="image-input"
-                          disabled={isLocked}
-                          onChange={(e) =>
-                            handleFindingPhotoChange(type, idx, e.target.files[0])
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    {/* ✅ Botón exclusivo para Lavado de tanque */}
-                    {type.trim().toLowerCase() === "lavado de tanque" && (
-                    <div className="col-md-12 mt-3 text-center">
-                      <label className="form-label d-block mb-2">Fase del Lavado</label>
-                      <div className="d-flex justify-content-center gap-2">
-                        {["Antes", "Durante", "Después"].map((fase) => (
-                          <button
-                            key={fase}
-                            type="button"
-                            className={`btn ${finding.faseLavado === fase ? "btn-primary" : "btn-outline-primary"}`}
-                            onClick={() => handleFindingChange(type, idx, "faseLavado", fase)}
-                            disabled={isLocked}
-                          >
-                            {fase}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
             <button
               className="btn btn-outline-success mb-3"
               onClick={() => handleAddFinding(type)}
-              disabled= {(techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
+              disabled={(techSignaturePreview && clientSignaturePreview && userRol === 'Técnico')}
             >
               + Agregar Hallazgo
             </button>
-            
+
             {type !== 'Observaciones Cliente' && type !== 'Observaciones Inspector' && type !== 'Observaciones SST' && (
               <>
-              {/* Producto */}
-              <hr />
-              <h6 className="mt-2">Producto</h6>
-              {Object.entries(productsByType)
-                .filter(([key]) => key.startsWith(type))
-                .map(([key, productData], index) => (
-                  <div key={key} className="row align-items-end" style={{ minHeight: 0, height: 'auto' }}>
-                    
-                    {/* Selección de Producto - Aumentado a col-md-6 */}
-                    <div className="col-md-6">
-                      <label className="form-label">Producto</label>
-                      <select
-                        id={`product-${key}`}
-                        className="form-select"
-                        value={productData.product || ''}
-                        onChange={(e) => {
-                          const selectedProductName = e.target.value;
-                          const selectedProduct = getFilteredProducts(type).find(
-                            (product) => product.name === selectedProductName
-                          );
+                {/* Producto */}
+                <hr />
+                <h6 className="mt-2">Producto</h6>
+                {Object.entries(productsByType)
+                  .filter(([key]) => key.startsWith(type))
+                  .map(([key, productData], index) => (
+                    <div key={key} className="row align-items-end" style={{ minHeight: 0, height: 'auto' }}>
 
-                          if (!selectedProduct) return;
+                      {/* Selección de Producto - Aumentado a col-md-6 */}
+                      <div className="col-md-6">
+                        <label className="form-label">Producto</label>
+                        <select
+                          id={`product-${key}`}
+                          className="form-select"
+                          value={productData.product || ''}
+                          onChange={(e) => {
+                            const selectedProductName = e.target.value;
+                            const selectedProduct = getFilteredProducts(type).find(
+                              (product) => product.name === selectedProductName
+                            );
 
-                          setProductsByType((prevState) => {
-                            const baseType = type.replace(/[0-9]+$/, '');
-                            const procedureMatch = procedures.find(proc => proc.category === baseType);
-                          
-                            return {
+                            if (!selectedProduct) return;
+
+                            setProductsByType((prevState) => {
+                              const baseType = type.replace(/[0-9]+$/, '');
+                              const procedureMatch = procedures.find(proc => proc.category === baseType);
+
+                              return {
+                                ...prevState,
+                                [`${type}${index}`]: {
+                                  ...prevState[`${type}${index}`], // Mantiene los valores previos del producto
+                                  id: selectedProduct.id,
+                                  product: selectedProductName,
+                                  unity: selectedProduct.unity || 'Unidad no definida',
+                                  dosage: prevState[`${type}${index}`]?.dosage || '',
+                                  expiration_date: selectedProduct.expiration_date || 'No especificado',
+                                  active_ingredient: selectedProduct.active_ingredient || 'No especificado',
+                                  batch: selectedProduct.batch || 'No especificado',
+                                  category: selectedProduct.category || 'No especificado',
+                                  residual_duration: selectedProduct.residual_duration || 'No especificado',
+                                  tipo: baseType,
+                                  process: procedureMatch?.application ? JSON.parse(procedureMatch.application).join(', ') : 'No especificado', // ✅ Formato legible aplicado aquí
+                                },
+                              };
+                            });
+                          }}
+                          disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                        >
+                          <option value="">Seleccione un producto</option>
+                          {getFilteredProducts(type).map((product) => (
+                            <option key={product.id} value={product.name}>
+                              {product.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Entrada de Dosificación - Reducida a 90px */}
+                      <div className="col-md-3">
+                        <label className="form-label">Dosificación</label>
+                        <input
+                          id={`dosage-${key}`}
+                          type="number"
+                          className="form-control"
+                          style={{ width: '100%' }} // Ajuste de tamaño
+                          value={productData.dosage || ''}
+                          onChange={(e) => {
+                            setProductsByType((prevState) => ({
                               ...prevState,
-                              [`${type}${index}`]: {
-                                ...prevState[`${type}${index}`], // Mantiene los valores previos del producto
-                                id: selectedProduct.id,
-                                product: selectedProductName,
-                                unity: selectedProduct.unity || 'Unidad no definida',
-                                dosage: prevState[`${type}${index}`]?.dosage || '',
-                                expiration_date: selectedProduct.expiration_date || 'No especificado',
-                                active_ingredient: selectedProduct.active_ingredient || 'No especificado',
-                                batch: selectedProduct.batch || 'No especificado',
-                                category: selectedProduct.category || 'No especificado',
-                                residual_duration: selectedProduct.residual_duration || 'No especificado',
-                                tipo: baseType,
-                                process: procedureMatch?.application? JSON.parse(procedureMatch.application).join(', '): 'No especificado', // ✅ Formato legible aplicado aquí
+                              [key]: {
+                                ...prevState[key],
+                                dosage: e.target.value,
                               },
-                            };
-                          });                                                   
-                        }}
-                        disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-                      >
-                        <option value="">Seleccione un producto</option>
-                        {getFilteredProducts(type).map((product) => (
-                          <option key={product.id} value={product.name}>
-                            {product.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                            }));
+                          }}
+                          placeholder="Dosificación"
+                          disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                        />
+                      </div>
 
-                    {/* Entrada de Dosificación - Reducida a 90px */}
-                    <div className="col-md-3">
-                      <label className="form-label">Dosificación</label>
-                      <input
-                        id={`dosage-${key}`}
-                        type="number"
-                        className="form-control"
-                        style={{ width: '250px' }} // Ajuste de tamaño
-                        value={productData.dosage || ''}
-                        onChange={(e) => {
-                          setProductsByType((prevState) => ({
-                            ...prevState,
-                            [key]: {
-                              ...prevState[key],
-                              dosage: e.target.value,
-                            },
-                          }));
-                        }}
-                        placeholder="Dosificación"
-                        disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-                      />
-                    </div>
-
-                    {/* Unidad del Producto - Reducida a 70px */}
-                    <div className="col-md-2">
-                      <label className="form-label">Unidad</label>
-                      <input
-                        id={`unit-${key}`}
-                        type="text"
-                        className="form-control"
-                        style={{ width: '170px' }} // Ajuste de tamaño
-                        value={productData.unity || ''}
-                        readOnly
-                        placeholder="Unidad"
-                      />
-                    </div>
+                      {/* Unidad del Producto - Reducida a 70px */}
+                      <div className="col-md-2">
+                        <label className="form-label">Unidad</label>
+                        <input
+                          id={`unit-${key}`}
+                          type="text"
+                          className="form-control"
+                          style={{ width: '100%' }} // Ajuste de tamaño
+                          value={productData.unity || ''}
+                          readOnly
+                          placeholder="Unidad"
+                        />
+                      </div>
 
                       {/* Botón de Eliminar */}
                       {isMobile ? (
@@ -2228,51 +2383,51 @@ const handleDeleteFinding = () => {
                           />
                         </div>
                       ) : (
-                          <div className="col-md-1 d-flex align-items-center justify-content-center">
-                            <XCircle
-                              className="text-danger"
-                              size={18}
-                              style={{ cursor: "pointer" }}
-                              title="Eliminar producto"
-                              onClick={() => {
-                                setProductsByType((prevState) => {
-                                  const updatedProducts = { ...prevState };
-                                  delete updatedProducts[key]; // Elimina el producto actual
-                                  return updatedProducts;
-                                });
-                              }}
-                              disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-                            />
-                          </div>
-                        )}
+                        <div className="col-md-1 d-flex align-items-center justify-content-center">
+                          <XCircle
+                            className="text-danger"
+                            size={18}
+                            style={{ cursor: "pointer" }}
+                            title="Eliminar producto"
+                            onClick={() => {
+                              setProductsByType((prevState) => {
+                                const updatedProducts = { ...prevState };
+                                delete updatedProducts[key]; // Elimina el producto actual
+                                return updatedProducts;
+                              });
+                            }}
+                            disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                          />
+                        </div>
+                      )}
 
-                  </div>
-                ))}
+                    </div>
+                  ))}
 
-              {/* Botón para agregar nuevo producto */}
-              <div className="col-12 d-flex justify-content-center mt-3">
-                <button
-                  className="btn btn-outline-success"
-                  type="button"
-                  onClick={() => {
-                    const newIndex = Object.keys(productsByType).filter((key) => key.startsWith(type)).length;
-                    const baseType = type.replace(/[0-9]+$/, '');
-                    const procedureMatch = procedures.find(proc => proc.category === baseType);
-                    const readableProcess = procedureMatch?.application? JSON.parse(procedureMatch.application).join(', '): 'No especificado';
-                    setProductsByType((prevProducts) => ({
-                      ...prevProducts,
-                      [`${type}${newIndex}`]: { expiration_date: '', residual_duration: '', batch: '', active_ingredient: '', product: '', dosage: '', unity: '', id: null, tipo: baseType, process: readableProcess, },
-                    }));                    
-                  }}
-                >
-                  Agregar Producto
-                </button>
-              </div>
-            </>
+                {/* Botón para agregar nuevo producto */}
+                <div className="col-12 d-flex justify-content-center mt-3">
+                  <button
+                    className="btn btn-outline-success"
+                    type="button"
+                    onClick={() => {
+                      const newIndex = Object.keys(productsByType).filter((key) => key.startsWith(type)).length;
+                      const baseType = type.replace(/[0-9]+$/, '');
+                      const procedureMatch = procedures.find(proc => proc.category === baseType);
+                      const readableProcess = procedureMatch?.application ? JSON.parse(procedureMatch.application).join(', ') : 'No especificado';
+                      setProductsByType((prevProducts) => ({
+                        ...prevProducts,
+                        [`${type}${newIndex}`]: { expiration_date: '', residual_duration: '', batch: '', active_ingredient: '', product: '', dosage: '', unity: '', id: null, tipo: baseType, process: readableProcess, },
+                      }));
+                    }}
+                  >
+                    Agregar Producto
+                  </button>
+                </div>
+              </>
             )}
           </div>
         </div>
-      
+
       ))}
 
       {/* Sección de Firma */}
@@ -2280,14 +2435,18 @@ const handleDeleteFinding = () => {
         <div className="card-header">Firmas</div>
         <div className="card-body">
           {/* Mostrar solo el botón si no hay firmas */}
-          {!techSignaturePreview || !clientSignaturePreview? (
+          {!techSignaturePreview || !clientSignaturePreview ? (
             userRol !== 'Cliente' && userRol !== 'SST' && (
-            <div className="text-center">
-              <button className="btn btn-outline-success" onClick={() => setSignModalOpen(true)}>
-                Firmar
-              </button>
-            </div>
-          )
+              <div className="text-center">
+                <button
+                  className="btn btn-outline-success"
+                  onClick={() => setSignModalOpen(true)}
+                  disabled={!canSign}
+                >
+                  Firmar
+                </button>
+              </div>
+            )
           ) : (
             <>
               {/* Mostrar la información completa si hay firmas */}
@@ -2332,294 +2491,422 @@ const handleDeleteFinding = () => {
 
       <Modal show={stationModalOpen} onHide={handleCloseStationModal} size="lg">
         <Modal.Header closeButton>
-            <Modal.Title>Agregar Hallazgo para la Estación</Modal.Title>
+          <Modal.Title>Agregar Hallazgo para la Estación</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-        {/* Selección de Producto para la categoría Desratización */}
-        <div className="mb-3">
-            <label className="form-label">Producto</label>
-            <select
-                id="product-desratization"
-                className="form-select"
-                value={stationFinding.product || ''}
-                onChange={(e) => {
-                    const selectedProductName = e.target.value;
-                    const selectedProduct = getFilteredProducts('Desratización').find(
-                        (product) => product.name === selectedProductName
-                    );
+          {/* --- Extraer producto seleccionado --- */}
+          {(() => {
+            const selectedProduct = getFilteredProducts('Desratización').find(p => p.name === stationFinding.product);
+            const replacementProduct = getFilteredProducts('Desratización').find(p => p.name === stationFinding.replacementProduct);
 
-                    handleStationFindingChange('product', selectedProductName);
-                    handleStationFindingChange('unit', selectedProduct?.unity || ''); // Asegura que la unidad se actualiza
-                }}
-                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-            >
-                <option value="">Seleccione un producto</option>
-                {getFilteredProducts('Desratización').map((product) => (
-                    <option key={product.id} value={product.name}>
+            const doseConsumed = (selectedProduct?.dose || 0) * (parseFloat(stationFinding.consumptionAmount) || 0);
+            const doseReplaced = (replacementProduct?.dose || 0) * (parseFloat(stationFinding.replacementAmount) || 0);
+
+            return (
+              <>
+                {/* Selección de Producto para la categoría Desratización */}
+                <div className="mb-3">
+                  <label className="form-label">Producto</label>
+                  <select
+                    id="product-desratization"
+                    className="form-select"
+                    value={stationFinding.product || ''}
+                    onChange={(e) => {
+                      const selectedProductName = e.target.value;
+                      const selectedProduct = getFilteredProducts('Desratización').find(
+                        (product) => product.name === selectedProductName
+                      );
+
+                      handleStationFindingChange('product', selectedProductName);
+                      handleStationFindingChange('unit', selectedProduct?.unity || '');
+                    }}
+                    disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                  >
+                    <option value="">Seleccione un producto</option>
+                    {getFilteredProducts('Desratización').map((product) => (
+                      <option key={product.id} value={product.name}>
                         {product.name}
-                    </option>
-                ))}
-            </select>
-        </div>
-            <div className="mb-3">
-            <label className="form-label">Finalidad</label>
-            <select
-                className="form-select"
-                value={stationFinding.purpose}
-                onChange={(e) => handleStationFindingChange('purpose', e.target.value)}
-            >
-                <option value="Consumo">Consumo</option>
-                <option value="Captura">Captura</option>
-            </select>
-            </div>
-            {stationFinding.purpose === 'Consumo' && (
-            <div className="mb-3">
-                <label className="form-label">Cantidad de Consumo</label>
-                <select
-                className="form-select"
-                value={stationFinding.consumptionAmount}
-                onChange={(e) => handleStationFindingChange('consumptionAmount', e.target.value)}
-                >
-                <option value="Nada">Nada</option>
-                <option value="1/4">1/4</option>
-                <option value="1/2">1/2</option>
-                <option value="3/4">3/4</option>
-                <option value="Todo">Todo</option>
-                </select>
-            </div>
-            )}
-            {stationFinding.purpose === 'Captura' && (
-            <div className="mb-3">
-                <label className="form-label">Cantidad de Capturas</label>
-                <input
-                type="number"
-                className="form-control"
-                value={stationFinding.captureQuantity}
-                onChange={(e) => handleStationFindingChange('captureQuantity', e.target.value)}
-                />
-            </div>
-            )}
-            <div className="mb-3">
-            <label className="form-label">Señalizada</label>
-            <select
-                className="form-select"
-                value={stationFinding.marked}
-                onChange={(e) => handleStationFindingChange('marked', e.target.value)}
-            >
-                <option value="Si">Si</option>
-                <option value="No">No</option>
-            </select>
-            </div>
-            <div className="mb-3">
-            <label className="form-label">Estado Físico</label>
-            <select
-                className="form-select"
-                value={stationFinding.physicalState}
-                onChange={(e) => handleStationFindingChange('physicalState', e.target.value)}
-            >
-                <option value="Buena">Buena</option>
-                <option value="Dañada">Dañada</option>
-                <option value="Faltante">Faltante</option>
-            </select>
-            </div>
-            {stationFinding.physicalState === 'Dañada' && (
-            <>
-                <div className="mb-3">
-                <label className="form-label">Lugar del Daño</label>
-                <select
-                    className="form-select"
-                    value={stationFinding.damageLocation}
-                    onChange={(e) => handleStationFindingChange('damageLocation', e.target.value)}
-                >
-                    <option value="Cuerpo">Cuerpo</option>
-                    <option value="Tapa">Tapa</option>
-                    <option value="Sticker">Sticker</option>
-                    <option value="Tablero">Tablero</option>
-                </select>
+                      </option>
+                    ))}
+                  </select>
                 </div>
+
                 <div className="mb-3">
-                <label className="form-label">Requiere Cambio</label>
-                <select
+                  <label className="form-label">Finalidad</label>
+                  <select
                     className="form-select"
-                    value={stationFinding.requiresChange}
-                    onChange={(e) => handleStationFindingChange('requiresChange', e.target.value)}
-                >
-                    <option value="Si">Si</option>
-                    <option value="No">No</option>
-                </select>
+                    value={stationFinding.purpose}
+                    onChange={(e) => handleStationFindingChange('purpose', e.target.value)}
+                  >
+                    <option value="Consumo">Consumo</option>
+                    <option value="Captura">Captura</option>
+                  </select>
                 </div>
-                {stationFinding.requiresChange === 'Si' && (
-                <div className="mb-3">
-                    <label className="form-label">Prioridad de Cambio</label>
-                    <select
-                    className="form-select"
-                    value={stationFinding.changePriority}
-                    onChange={(e) => handleStationFindingChange('changePriority', e.target.value)}
-                    >
-                    <option value="Si">Si</option>
-                    <option value="No">No</option>
-                    </select>
-                </div>
+
+                {stationFinding.purpose === 'Consumo' && (
+                  <>
+                    <div className="mb-3">
+                      <label className="form-label">Cantidad de Consumo (cebos)</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        min="0"
+                        step="0.1"
+                        placeholder="Ej: 0.5, 1, 1.5..."
+                        value={stationFinding.consumptionAmount}
+                        onChange={(e) =>
+                          handleStationFindingChange('consumptionAmount', parseFloat(e.target.value))
+                        }
+                      />
+                    </div>
+
+                    <div className="mb-3 d-none">
+                      <label className="form-label">Dosis Total Consumida</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        name="doseConsumed"
+                        value={stationFinding.doseConsumed}
+                        onChange={(e) =>
+                          handleStationFindingChange('doseConsumed', parseFloat(e.target.value))
+                        }
+                      />
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label">¿Quién consumió?</label>
+                      <select
+                        className="form-select"
+                        value={
+                          stationFinding.consumerType === 'Roedor' || stationFinding.consumerType === 'Molusco'
+                            ? stationFinding.consumerType
+                            : 'Otro'
+                        }
+                        onChange={(e) => {
+                          const selected = e.target.value;
+                          if (selected === 'Roedor' || selected === 'Molusco') {
+                            handleStationFindingChange('consumerType', selected);
+                          } else {
+                            handleStationFindingChange('consumerType', '');
+                          }
+                        }}
+                      >
+                        <option value="">Seleccione</option>
+                        <option value="Roedor">Roedor</option>
+                        <option value="Molusco">Molusco</option>
+                        <option value="Otro">Otro</option>
+                      </select>
+                    </div>
+
+                    {stationFinding.consumerType !== 'Roedor' &&
+                      stationFinding.consumerType !== 'Molusco' && (
+                        <div className="mb-3">
+                          <label className="form-label">¿Cuál?</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={stationFinding.consumerType}
+                            onChange={(e) => handleStationFindingChange('consumerType', e.target.value)}
+                            placeholder="Ej: Insecto, Lagartija..."
+                          />
+                        </div>
+                      )}
+
+                    <div className="mb-3">
+                      <label className="form-label">Producto de Reposición</label>
+                      <select
+                        className="form-select"
+                        value={stationFinding.replacementProduct}
+                        onChange={(e) => handleStationFindingChange('replacementProduct', e.target.value)}
+                      >
+                        <option value="">Seleccione un producto</option>
+                        {getFilteredProducts('Desratización').map((product) => (
+                          <option key={product.id} value={product.name}>{product.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label">Cantidad de Reposición (cebos)</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        min="0"
+                        step="0.1"
+                        value={stationFinding.replacementAmount}
+                        onChange={(e) =>
+                          handleStationFindingChange('replacementAmount', parseFloat(e.target.value))
+                        }
+                      />
+                    </div>
+
+                    <div className="mb-3 d-none">
+                      <label className="form-label">Dosis Total Repuesta</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        name="doseReplaced"
+                        value={stationFinding.doseReplaced}
+                        onChange={(e) =>
+                          handleStationFindingChange('doseReplaced', parseFloat(e.target.value))
+                        }
+                      />
+                    </div>
+                  </>
                 )}
-            </>
-            )}
-            <div className="mb-3">
-            <label className="form-label">Descripción</label>
-            <textarea
-                className="form-control"
-                rows="3"
-                value={stationFinding.description || ''}
-                
-                onChange={(e) => handleStationFindingChange('description', e.target.value)}
-                placeholder="Ingrese una descripción del hallazgo"
-                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-            ></textarea>
-            </div>
-            <div className="mb-3">
-            <label className="form-label">Fotografía</label>
-            <div className="image-upload-container">
-              {stationFinding.photo ? (
-                <img
-                  src={stationFinding.photo}
-                  alt="Preview"
-                  className="image-preview"
-                />
-              ) : (
-                <div className="drag-drop-area">
-                  <span>Arrastra o selecciona una imagen</span>
+
+                {stationFinding.purpose === 'Captura' && (
+                  <div className="mb-3">
+                    <label className="form-label">Cantidad de Capturas</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={stationFinding.captureQuantity}
+                      onChange={(e) => handleStationFindingChange('captureQuantity', e.target.value)}
+                    />
+                  </div>
+                )}
+
+                <div className="mb-3">
+                  <label className="form-label">Señalizada</label>
+                  <select
+                    className="form-select"
+                    value={stationFinding.marked}
+                    onChange={(e) => handleStationFindingChange('marked', e.target.value)}
+                  >
+                    <option value="Si">Si</option>
+                    <option value="No">No</option>
+                  </select>
                 </div>
-              )}
-              <input
-                type="file"
-                className="image-input"
-                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (file) {
-                    handleStationFindingPhotoChange(file); // Se mantiene la lógica original
-                  }
-                }}
-              />
-            </div>
-          </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Estado Físico</label>
+                  <select
+                    className="form-select"
+                    value={stationFinding.physicalState}
+                    onChange={(e) => handleStationFindingChange('physicalState', e.target.value)}
+                  >
+                    <option value="Buena">Buena</option>
+                    <option value="Dañada">Dañada</option>
+                    <option value="Faltante">Faltante</option>
+                  </select>
+                </div>
+
+                {stationFinding.physicalState === 'Dañada' && (
+                  <>
+                    <div className="mb-3">
+                      <label className="form-label">Lugar del Daño</label>
+                      <select
+                        className="form-select"
+                        value={stationFinding.damageLocation}
+                        onChange={(e) => handleStationFindingChange('damageLocation', e.target.value)}
+                      >
+                        <option value="Cuerpo">Cuerpo</option>
+                        <option value="Tapa">Tapa</option>
+                        <option value="Sticker">Sticker</option>
+                        <option value="Tablero">Tablero</option>
+                      </select>
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label">Requiere Cambio</label>
+                      <select
+                        className="form-select"
+                        value={stationFinding.requiresChange}
+                        onChange={(e) => handleStationFindingChange('requiresChange', e.target.value)}
+                      >
+                        <option value="Si">Si</option>
+                        <option value="No">No</option>
+                      </select>
+                    </div>
+
+                    {stationFinding.requiresChange === 'Si' && (
+                      <div className="mb-3">
+                        <label className="form-label">Prioridad de Cambio</label>
+                        <select
+                          className="form-select"
+                          value={stationFinding.changePriority}
+                          onChange={(e) => handleStationFindingChange('changePriority', e.target.value)}
+                        >
+                          <option value="Si">Si</option>
+                          <option value="No">No</option>
+                        </select>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <div className="mb-3">
+                  <label className="form-label">Actividad Realizada</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={stationFinding.activity}
+                    onChange={(e) => handleStationFindingChange('activity', e.target.value)}
+                    placeholder="Ej: Cambio de producto, Revisión visual, Limpieza..."
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Descripción</label>
+                  <textarea
+                    className="form-control"
+                    rows="3"
+                    value={stationFinding.description || ''}
+                    onChange={(e) => handleStationFindingChange('description', e.target.value)}
+                    placeholder="Ingrese una descripción del hallazgo"
+                    disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                  ></textarea>
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Fotografía</label>
+                  <div className="image-upload-container">
+                    {stationFinding.photo ? (
+                      <img
+                        src={stationFinding.photo}
+                        alt="Preview"
+                        className="image-preview"
+                      />
+                    ) : (
+                      <div className="drag-drop-area">
+                        <span>Arrastra o selecciona una imagen</span>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      className="image-input"
+                      disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          handleStationFindingPhotoChange(file);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </Modal.Body>
         <Modal.Footer>
-            <button className="btn btn-secondary" onClick={handleCloseStationModal}>
+          <button className="btn btn-secondary" onClick={handleCloseStationModal}>
             Cancelar
-            </button>
-            <button className="btn btn-success" onClick={handleSaveStationFinding}>
+          </button>
+          <button className="btn btn-success" onClick={handleSaveStationFinding}>
             Guardar Hallazgo
-            </button>
+          </button>
         </Modal.Footer>
-        </Modal>
+      </Modal>
 
-        <Modal show={stationModalOpenDesinsectacion} onHide={handleCloseStationModalDesinsectacion} size="lg">
+      <Modal show={stationModalOpenDesinsectacion} onHide={handleCloseStationModalDesinsectacion} size="lg">
         <Modal.Header closeButton>
-            <Modal.Title>Agregar Hallazgo para la Estación</Modal.Title>
+          <Modal.Title>Agregar Hallazgo para la Estación</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-    {/* Selección de Producto para la categoría Desinsectación */}
-    <div className="mb-3">
-        <label className="form-label">Producto</label>
-        <select
-            id="product-desinsectacion"
-            className="form-select"
-            value={stationFindingDesinsectacion.product || ''}
-            onChange={(e) => {
+          {/* Selección de Producto para la categoría Desinsectación */}
+          <div className="mb-3">
+            <label className="form-label">Producto</label>
+            <select
+              id="product-desinsectacion"
+              className="form-select"
+              value={stationFindingDesinsectacion.product || ''}
+              onChange={(e) => {
                 const selectedProductName = e.target.value;
                 const selectedProduct = getFilteredProducts('Desinsectación').find(
-                    (product) => product.name === selectedProductName
+                  (product) => product.name === selectedProductName
                 );
 
                 handleStationFindingChangeDesinsectacion('product', selectedProductName);
                 handleStationFindingChangeDesinsectacion('unit', selectedProduct?.unity || ''); // Asegura que la unidad se actualiza
-            }}
-            disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
-        >
-            <option value="">Seleccione un producto</option>
-            {getFilteredProducts('Desinsectación').map((product) => (
+              }}
+              disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+            >
+              <option value="">Seleccione un producto</option>
+              {getFilteredProducts('Desinsectación').map((product) => (
                 <option key={product.id} value={product.name}>
-                    {product.name}
+                  {product.name}
                 </option>
-            ))}
-        </select>
-    </div>
+              ))}
+            </select>
+          </div>
 
-    {/* Cantidad de Capturas */}
-            <div className="mb-3">
+          {/* Cantidad de Capturas */}
+          <div className="mb-3">
             <label className="form-label">Cantidad de Capturas</label>
             <input
-                type="number"
-                className="form-control"
-                value={stationFindingDesinsectacion.captureQuantity}
-                onChange={(e) => handleStationFindingChangeDesinsectacion('captureQuantity', e.target.value)}
-                placeholder="Ingrese la cantidad de capturas"
+              type="number"
+              className="form-control"
+              value={stationFindingDesinsectacion.captureQuantity}
+              onChange={(e) => handleStationFindingChangeDesinsectacion('captureQuantity', e.target.value)}
+              placeholder="Ingrese la cantidad de capturas"
             />
-            </div>
-            <div className="mb-3">
+          </div>
+          <div className="mb-3">
             <label className="form-label">Estado Físico</label>
             <select
-                className="form-select"
-                value={stationFindingDesinsectacion.physicalState}
-                onChange={(e) => handleStationFindingChangeDesinsectacion('physicalState', e.target.value)}
+              className="form-select"
+              value={stationFindingDesinsectacion.physicalState}
+              onChange={(e) => handleStationFindingChangeDesinsectacion('physicalState', e.target.value)}
             >
-                <option value="Buena">Buena</option>
-                <option value="Dañada">Dañada</option>
-                <option value="Faltante">Faltante</option>
+              <option value="Buena">Buena</option>
+              <option value="Dañada">Dañada</option>
+              <option value="Faltante">Faltante</option>
             </select>
-            </div>
-            {stationFindingDesinsectacion.physicalState === 'Dañada' && (
+          </div>
+          {stationFindingDesinsectacion.physicalState === 'Dañada' && (
             <>
-                <div className="mb-3">
+              <div className="mb-3">
                 <label className="form-label">Lugar del Daño</label>
                 <select
-                    className="form-select"
-                    value={stationFindingDesinsectacion.damageLocation}
-                    onChange={(e) => handleStationFindingChangeDesinsectacion('damageLocation', e.target.value)}
+                  className="form-select"
+                  value={stationFindingDesinsectacion.damageLocation}
+                  onChange={(e) => handleStationFindingChangeDesinsectacion('damageLocation', e.target.value)}
                 >
-                    <option value="Marco">Marco</option>
-                    <option value="Estacas">Estacas</option>
-                    <option value="Lamina">Lámina</option>
+                  <option value="Marco">Marco</option>
+                  <option value="Estacas">Estacas</option>
+                  <option value="Lamina">Lámina</option>
                 </select>
-                </div>
-                <div className="mb-3">
+              </div>
+              <div className="mb-3">
                 <label className="form-label">Requiere Cambio</label>
                 <select
-                    className="form-select"
-                    value={stationFindingDesinsectacion.requiresChange}
-                    onChange={(e) => handleStationFindingChangeDesinsectacion('requiresChange', e.target.value)}
+                  className="form-select"
+                  value={stationFindingDesinsectacion.requiresChange}
+                  onChange={(e) => handleStationFindingChangeDesinsectacion('requiresChange', e.target.value)}
                 >
-                    <option value="Si">Si</option>
-                    <option value="No">No</option>
+                  <option value="Si">Si</option>
+                  <option value="No">No</option>
                 </select>
-                </div>
-                {stationFindingDesinsectacion.requiresChange === 'Si' && (
+              </div>
+              {stationFindingDesinsectacion.requiresChange === 'Si' && (
                 <div className="mb-3">
-                    <label className="form-label">Prioridad de Cambio</label>
-                    <select
+                  <label className="form-label">Prioridad de Cambio</label>
+                  <select
                     className="form-select"
                     value={stationFindingDesinsectacion.changePriority}
                     onChange={(e) => handleStationFindingChangeDesinsectacion('changePriority', e.target.value)}
-                    >
+                  >
                     <option value="Si">Si</option>
                     <option value="No">No</option>
-                    </select>
+                  </select>
                 </div>
-                )}
+              )}
             </>
-            )}
-            <div className="mb-3">
+          )}
+          <div className="mb-3">
             <label className="form-label">Descripción</label>
             <textarea
-                className="form-control"
-                rows="3"
-                value={stationFindingDesinsectacion.description}
-                onChange={(e) => handleStationFindingChangeDesinsectacion('description', e.target.value)}
-                placeholder="Ingrese una descripción del hallazgo"
-                disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
+              className="form-control"
+              rows="3"
+              value={stationFindingDesinsectacion.description}
+              onChange={(e) => handleStationFindingChangeDesinsectacion('description', e.target.value)}
+              placeholder="Ingrese una descripción del hallazgo"
+              disabled={techSignaturePreview && clientSignaturePreview && userRol === 'Técnico'}
             ></textarea>
-            </div>
-            <div className="mb-3">
+          </div>
+          <div className="mb-3">
             <label className="form-label">Fotografía</label>
             <div className="image-upload-container">
               {stationFindingDesinsectacion.photo ? (
@@ -2648,16 +2935,16 @@ const handleDeleteFinding = () => {
           </div>
         </Modal.Body>
         <Modal.Footer>
-            <button className="btn btn-secondary" onClick={handleCloseStationModalDesinsectacion}>
+          <button className="btn btn-secondary" onClick={handleCloseStationModalDesinsectacion}>
             Cancelar
-            </button>
-            <button className="btn btn-success" onClick={handleSaveStationFindingDesinsectacion}>
+          </button>
+          <button className="btn btn-success" onClick={handleSaveStationFindingDesinsectacion}>
             Guardar Hallazgo
-            </button>
+          </button>
         </Modal.Footer>
-        </Modal>
+      </Modal>
 
-        <Modal show={viewStationModalOpen} onHide={() => setViewStationModalOpen(false)} size="lg">
+      <Modal show={viewStationModalOpen} onHide={() => setViewStationModalOpen(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Detalles de la Estación</Modal.Title>
         </Modal.Header>
@@ -2708,8 +2995,8 @@ const handleDeleteFinding = () => {
         </Modal.Footer>
       </Modal>
 
-       {/* Modal de firma */}
-       <Modal show={signModalOpen} onHide={handleSignModalCancel} size="lg">
+      {/* Modal de firma */}
+      <Modal show={signModalOpen} onHide={handleSignModalCancel} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Firmar Inspección</Modal.Title>
         </Modal.Header>
@@ -2878,53 +3165,118 @@ const handleDeleteFinding = () => {
           <Modal.Title>Acciones del Documento</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Button
-            variant="primary"
-            className="mb-3 w-100"
-            onClick={async () => {
-              try {
-                const response = await api.post("/PrefirmarArchivos", { url: selectedDocument.document_url });
-                if (response.data.signedUrl) {
-                  const preSignedUrl = response.data.signedUrl;
+          {selectedDocument?.document_type === "pdf" && (
+            <Button
+              variant="primary"
+              className="mb-3 w-100"
+              onClick={async () => {
+                try {
+                  const response = await api.post("/PrefirmarArchivosPDF", {
+                    url: selectedDocument.document_url,
+                  });
 
-                  if (selectedDocument.document_type === "pdf") {
-                    // Abrir la URL prefirmada en una nueva pestaña si es un PDF
-                    window.open(preSignedUrl, "_blank", "noopener,noreferrer");
+                  if (response.data.signedUrl) {
+                    setPdfUrl(response.data.signedUrl);
+                    setShowModal(true);
                   } else {
-                    // Navegar a la lógica actual para otros tipos de documentos
-                    navigate(`/view-document?url=${encodeURIComponent(preSignedUrl)}`);
+                    showNotification("No se pudo obtener la URL prefirmada.");
                   }
-                } else {
-                  alert("No se pudo obtener la URL prefirmada.");
+                } catch (error) {
+                  console.error("Error al obtener la URL prefirmada:", error);
+                  showNotification("Hubo un error al procesar la solicitud.");
                 }
-              } catch (error) {
-                console.error("Error al obtener la URL prefirmada:", error);
-                alert("Hubo un error al procesar la solicitud.");
-              }
-            }}
-          >
-            Ver
-          </Button>
+              }}
+            >
+              Ver
+            </Button>
+          )}
           <Button variant="secondary" className="mb-3 w-100" onClick={handleDownload}>
             Descargar
+          </Button>
+          <Button variant="warning" className="mb-3 w-100" onClick={handleEditLocal}>
+            Actualizar
           </Button>
           <Button
             variant="success"
             className="mb-3 w-100"
-            onClick={handleEditGoogleDrive}
-            disabled={loadingGoogleDrive} // Deshabilitar el botón mientras se procesa
+            onClick={async () => {
+              try {
+                setLoadingWhatsApp(true);
+
+                console.log("Datos del Cliente: ", clientData)
+
+                const payload = {
+                  nombre: clientData?.name,
+                  telefono: `57${clientData?.phone}`,
+                  documento: selectedDocument.document_url,
+                  nombreDocumento: selectedDocument?.document_name || "Acta de servicio"
+                };
+
+                const sendResponse = await api.post("/enviar-botix-acta", payload);
+
+                if (sendResponse.data.success) {
+                  showNotification("Documento enviado por WhatsApp exitosamente.");
+                } else {
+                  showNotification("Error al enviar el documento por WhatsApp.");
+                }
+
+              } catch (error) {
+                console.error("Error al enviar documento por WhatsApp:", error);
+                showNotification("Hubo un error al enviar el documento.");
+              } finally {
+                setLoadingWhatsApp(false);
+              }
+            }}
           >
-            {loadingGoogleDrive ? (
+            {loadingWhatsApp ? (
               <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                Procesando...
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style={{ width: "1rem", height: "1rem" }}></span>
+                Enviando...
               </>
             ) : (
-              "Editar en Google Drive"
+              "Enviar por WhatsApp"
             )}
           </Button>
-          <Button variant="warning" className="w-100" onClick={handleEditLocal}>
-            Editar Localmente
+          <Button
+            variant="info"
+            className="mb-3 w-100"
+            onClick={async () => {
+              try {
+                setLoadingCorreo(true);
+                console.log("Datos del Cliente (Correo): ", clientData);
+
+                const payload = {
+                  nombre: clientData?.name,
+                  telefono: `57${clientData?.phone}`,
+                  correo: clientData?.email,
+                  documento: selectedDocument.document_url,
+                  nombreDocumento: selectedDocument?.document_name || "Acta de servicio"
+                };
+
+                const sendResponse = await api.post("/enviar-acta-por-correo", payload);
+
+                if (sendResponse.data.success) {
+                  showNotification("📧 Documento enviado por correo exitosamente.");
+                } else {
+                  showNotification("❌ Error al enviar el documento por correo.");
+                }
+
+              } catch (error) {
+                console.error("❌ Error al enviar documento por correo:", error);
+                showNotification("Hubo un error al enviar el documento por correo.");
+              } finally {
+                setLoadingCorreo(false);
+              }
+            }}
+          >
+            {loadingCorreo ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style={{ width: "1rem", height: "1rem" }}></span>
+                Enviando...
+              </>
+            ) : (
+              "Enviar por Correo"
+            )}
           </Button>
         </Modal.Body>
       </Modal>
@@ -2945,9 +3297,8 @@ const handleDeleteFinding = () => {
               .map((doc) => (
                 <li
                   key={doc.id}
-                  className={`list-group-item ${
-                    selectedDocForPdf?.id === doc.id ? "active" : ""
-                  }`}
+                  className={`list-group-item ${selectedDocForPdf?.id === doc.id ? "active" : ""
+                    }`}
                   onClick={() => setSelectedDocForPdf(doc)}
                   style={{ cursor: "pointer" }}
                 >
@@ -2980,6 +3331,52 @@ const handleDeleteFinding = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <Modal
+        show={showModal}
+        onHide={() => setShowModal(false)}
+        size="xl"
+        centered
+      >
+        <Modal.Body
+          style={{
+            height: "100vh",
+            overflow: "hidden",
+            padding: 0, // opcional: elimina padding si no lo necesitas
+          }}>
+          {pdfUrl && (
+            <iframe
+              src={pdfUrl}
+              title="Vista previa PDF"
+              width="100%"
+              height="100%"
+              style={{ border: "none" }}
+            ></iframe>
+          )}
+        </Modal.Body>
+      </Modal>
+
+      {isExecuting && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            zIndex: 1050,
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(255, 255, 255, 0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div className="spinner-border text-secondary" role="status" style={{ width: "5rem", height: "5rem" }}>
+            <span className="visually-hidden">Cargando...</span>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
