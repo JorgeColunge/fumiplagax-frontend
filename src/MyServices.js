@@ -322,18 +322,25 @@ function MyServices() {
     };
   }, []);
 
-
-
-
-  const today = moment().startOf('day');
-  const nextWeek = moment().add(7, 'days').endOf('day');
+  const today = moment().utc().startOf('day');
+  const nextWeek = moment().utc().add(7, 'days').endOf('day');
 
   const filteredScheduledServices = services
     .flatMap(service => {
       const serviceEvents = scheduledEvents
         .filter(event => event.service_id === service.id)
         .filter(event => {
-          const eventDate = moment(event.date);
+          const eventDate = moment.utc(event.date).startOf('day');
+
+          console.log({
+            event_id: event.id,
+            raw_date: event.date,
+            parsed_local: eventDate.format(),
+            today: today.format(),
+            nextWeek: nextWeek.format(),
+            isBetween: eventDate.isBetween(today, nextWeek, null, '[]')
+          });
+
           return eventDate.isBetween(today, nextWeek, null, '[]');
         });
 
@@ -345,16 +352,19 @@ function MyServices() {
     .sort((a, b) => moment(a.scheduledDate) - moment(b.scheduledDate));
 
   const groupedServicesByDate = filteredScheduledServices.reduce((acc, service) => {
-    const dateKey = moment(service.scheduledDate).format('YYYY-MM-DD');
+    const dateKey = moment.utc(service.scheduledDate).format('YYYY-MM-DD');
     if (!acc[dateKey]) acc[dateKey] = [];
     acc[dateKey].push(service);
     return acc;
   }, {});
 
-  const formatDate = (date) => {
-    const eventDate = moment(date);
+  const formatDate = (dateStr) => {
+    const eventDate = moment.utc(dateStr).startOf('day');
+    const today = moment().utc().startOf('day');
+    const tomorrow = moment().utc().add(1, 'days').startOf('day');
+
     if (eventDate.isSame(today, 'day')) return 'Hoy';
-    if (eventDate.isSame(moment().add(1, 'days'), 'day')) return 'Mañana';
+    if (eventDate.isSame(tomorrow, 'day')) return 'Mañana';
     return eventDate.format('DD-MM-YYYY');
   };
 
