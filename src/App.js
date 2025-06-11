@@ -37,6 +37,7 @@ import UnsavedChangesModal from './UnsavedChangesModal';
 import Consumption from './Consumption';
 import Actions from './Actions';
 import Tutorials from './Tutorials';
+import CodeAutomationEditor from './CodeAutomationEditor';
 import { UnsavedChangesProvider } from './UnsavedChangesContext';
 import { syncRequests } from './offlineHandler';
 import { saveUsers, getUsers, syncUsers, syncUsersOnStart, saveServices, saveEvents, saveTechnicians, saveInspections, syncPendingInspections, syncProductsOnStart, saveStations } from './indexedDBHandler';
@@ -328,24 +329,13 @@ function App() {
     console.log('Notificación');
   };
 
+  // 🔁 1. Maneja cuando la conexión se recupera (offline → online)
   useEffect(() => {
-    const fullSync = async () => {
-      try {
-        console.log('🚀 Sincronización inicial (app arrancó online)…');
-        await syncPendingInspections();
-        await syncRequests();
-        await syncUsers();
-        //   ⬆️  cualquier otra tarea que sueles hacer en handleOnline
-      } catch (err) {
-        console.error('❌ Error en sincronización inicial:', err);
-      }
-    };
-
     const handleOnline = async () => {
       console.log('🌐 Conexión restaurada. Sincronizando inspecciones pendientes...');
 
       try {
-        await syncPendingInspections(socket);
+        await syncPendingInspections();
         console.log("✅ Inspecciones sincronizadas con éxito.");
 
         console.log("📡 Sincronizando solicitudes...");
@@ -363,12 +353,31 @@ function App() {
 
     window.addEventListener('online', handleOnline);
 
-    if (navigator.onLine) fullSync();
-
     return () => {
       window.removeEventListener('online', handleOnline);
     };
   }, []);
+
+
+  // 🚀 2. Sincroniza al arrancar si ya hay conexión
+  useEffect(() => {
+    const fullSync = async () => {
+      try {
+        console.log('🚀 Sincronización inicial (app arrancó online)…');
+        await syncPendingInspections();
+        await syncRequests();
+        await syncUsers();
+        // Puedes agregar más tareas si se requieren
+      } catch (err) {
+        console.error('❌ Error en sincronización inicial:', err);
+      }
+    };
+
+    if (navigator.onLine) {
+      fullSync();
+    }
+  }, []);
+
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -484,6 +493,7 @@ function App() {
                 <Route path="/rules" element={isAuthorized(["Supervisor Técnico", "Administrador", "Superadministrador"]) ? <Rules /> : <Navigate to="/login" />} />
                 <Route path="/consumption" element={isAuthorized(["Supervisor Técnico", "Administrador", "Superadministrador"]) ? <Consumption /> : <Navigate to="/login" />} />
                 <Route path="/actions" element={isAuthorized(["Supervisor Técnico", "Administrador", "Superadministrador"]) ? <Actions /> : <Navigate to="/login" />} />
+                <Route path="/code_automation" element={isAuthorized(["Supervisor Técnico", "Administrador", "Superadministrador"]) ? <CodeAutomationEditor /> : <Navigate to="/login" />} />
                 <Route path="/tutoriales" element={isAuthorized(["Técnico", "Supervisor Técnico", "Administrador", "Superadministrador"]) ? <Tutorials /> : <Navigate to="/login" />} />
               </Routes>
             </div>

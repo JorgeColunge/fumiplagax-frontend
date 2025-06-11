@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { Table, Button, Modal, Form, Dropdown } from "react-bootstrap";
-import { Trash, Gear } from "react-bootstrap-icons";
+import { Trash, Gear, FileCode } from "react-bootstrap-icons";
 
 const Actions = () => {
     const [actions, setActions] = useState([]);
@@ -85,6 +85,18 @@ const Actions = () => {
         } finally {
             closeDropdown();
         }
+    };
+
+    /* ============================ */
+    /*      Ver ‟Código generado”    */
+    /* ============================ */
+    const handleViewCode = () => {
+        const { configuration_id } = selectedAction;
+        if (Number(configuration_id) <= 0) {
+            alert("Esta acción no tiene una configuración asociada para mostrar código.");
+            return;
+        }
+        navigate(`/code_automation?configId=${configuration_id}`);
     };
 
     /* ============================ */
@@ -230,6 +242,14 @@ const Actions = () => {
                         }}
                     >
                         <Gear className="me-2" /> Ver Configuración
+                    </Dropdown.Item>
+                    <Dropdown.Item
+                        onClick={() => {
+                            closeDropdown();
+                            handleViewCode();
+                        }}
+                    >
+                        <FileCode className="me-2" /> Ver Código
                     </Dropdown.Item>
                 </div>
             )}
