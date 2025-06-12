@@ -8,46 +8,56 @@
   text-align: center;
   transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
   cursor: pointer;
-  min-height: 280px; /* Incrementa la altura mínima */
-  position: relative; /* Necesario para posicionar los botones */
-  overflow: hidden; /* Asegura que el contenido no desborde */
+  min-height: 280px;
+  /* Incrementa la altura mínima */
+  position: relative;
+  /* Necesario para posicionar los botones */
+  overflow: hidden;
+  /* Asegura que el contenido no desborde */
 }
 
 .service-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-  background-color: #0056b3; /* Oscurece el fondo al pasar el cursor */
+  background-color: #0056b3;
+  /* Oscurece el fondo al pasar el cursor */
 }
 
 .service-card-title {
   font-weight: bold;
-  font-size: 1.2em; /* Aumenta el tamaño del texto */
+  font-size: 1.2em;
+  /* Aumenta el tamaño del texto */
   margin-bottom: 8px;
 }
 
 .service-card-subtitle {
-  color: #f8f9fa; /* Contraste para subtítulos */
+  color: #f8f9fa;
+  /* Contraste para subtítulos */
   margin-bottom: 8px;
 }
 
 .service-card-description {
   font-size: 0.9em;
-  color: #f8f9fa; /* Texto de descripción */
+  color: #f8f9fa;
+  /* Texto de descripción */
 }
 
 .card-buttons {
-  z-index: 10; /* Asegura que estén encima de otros elementos */
+  z-index: 10;
+  /* Asegura que estén encima de otros elementos */
 }
 
 .mb-4 {
-  margin-bottom: 16px; /* Espaciado entre filas */
+  margin-bottom: 16px;
+  /* Espaciado entre filas */
 }
 
 .text-truncate {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  max-width: 300px; /* Nunca excede el contenedor padre */
+  max-width: 300px;
+  /* Nunca excede el contenedor padre */
 }
 
 .menu-actions {
@@ -94,7 +104,8 @@ h6.text-muted {
 }
 
 .custom-table-container {
-  overflow-x: auto; /* Activa el scroll horizontal */
+  overflow-x: auto;
+  /* Activa el scroll horizontal */
   margin: 0 auto;
   border: 1px solid #ccc;
   border-radius: 8px;
@@ -103,7 +114,8 @@ h6.text-muted {
 .custom-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 600px; /* Ancho mínimo para evitar compresión en móviles */
+  min-width: 600px;
+  /* Ancho mínimo para evitar compresión en móviles */
   table-layout: fixed;
 }
 
@@ -112,7 +124,8 @@ h6.text-muted {
   padding: 10px 5px;
   text-align: center;
   border: 1px solid #ddd;
-  white-space: nowrap; /* Evita que el texto se rompa */
+  white-space: nowrap;
+  /* Evita que el texto se rompa */
 }
 
 .custom-table th {
@@ -131,9 +144,12 @@ h6.text-muted {
 .custom-table th:last-child,
 .custom-table td:last-child {
   width: 300px;
-  white-space: normal; /* Permite que el texto se divida en varias líneas */
-  text-align: left; /* Alineación a la izquierda para facilitar la lectura */
-  word-wrap: break-word; /* Divide palabras largas si es necesario */
+  white-space: normal;
+  /* Permite que el texto se divida en varias líneas */
+  text-align: left;
+  /* Alineación a la izquierda para facilitar la lectura */
+  word-wrap: break-word;
+  /* Divide palabras largas si es necesario */
 }
 
 .custom-table tbody tr:hover {
@@ -173,10 +189,11 @@ h6.text-muted {
 
 @keyframes spin {
   0% {
-      transform: rotate(0deg);
+    transform: rotate(0deg);
   }
+
   100% {
-      transform: rotate(360deg);
+    transform: rotate(360deg);
   }
 }
 
@@ -184,21 +201,24 @@ h6.text-muted {
 /* Para celulares */
 @media (min-width: 1230px) {
   .text-truncate {
-    max-width: 600px; /* Nunca excede el contenedor padre */
+    max-width: 600px;
+    /* Nunca excede el contenedor padre */
   }
 }
 
 /* Para celulares */
 @media (max-width: 575px) {
   .text-truncate {
-    max-width: 400px; /* Nunca excede el contenedor padre */
+    max-width: 400px;
+    /* Nunca excede el contenedor padre */
   }
 }
 
 /* Para celulares */
 @media (max-width: 395px) {
   .text-truncate {
-    max-width: 300px; /* Nunca excede el contenedor padre */
+    max-width: 300px;
+    /* Nunca excede el contenedor padre */
   }
 }
 
@@ -213,4 +233,65 @@ h6.text-muted {
   align-items: center;
   justify-content: center;
   z-index: 1050;
+}
+
+/* ——— Botones rectangulares estilo «pill» ——— */
+.action-btn-rect {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  border: none;
+  border-radius: 2rem;
+  height: 3.25rem;
+  padding: 0 .85rem;
+  color: #fff;
+  font-weight: 600;
+  font-size: .9rem;
+  letter-spacing: .03em;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+  transition: transform .15s, box-shadow .15s;
+}
+
+.action-btn-rect:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .2);
+}
+
+.action-btn-rect:disabled {
+  opacity: .6;
+  cursor: not-allowed
+}
+
+/* Caja del icono */
+.icon-box {
+  width: 2.4rem;
+  height: 2.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: .6rem;
+  background: #fff;
+  margin-right: .75rem;
+  border: 1px solid rgba(0, 0, 0, .08);
+}
+
+/* Gradientes por acción */
+.view-btn {
+  background: linear-gradient(135deg, #4ade80, #2dd4bf);
+}
+
+.download-btn {
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+}
+
+.edit-btn {
+  background: linear-gradient(135deg, #facc15, #f97316);
+}
+
+.whatsapp-btn {
+  background: linear-gradient(135deg, #34d399, #059669);
+}
+
+.mail-btn {
+  background: linear-gradient(135deg, #22d3ee, #0284c7);
 }

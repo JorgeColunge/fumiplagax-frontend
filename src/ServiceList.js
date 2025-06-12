@@ -8,6 +8,7 @@ import { Card, Col, Row, Collapse, Button, Table, Modal, Form, CardFooter, Modal
 import ClientInfoModal from './ClientInfoModal'; // Ajusta la ruta según la ubicación del componente
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ServiceList.css'
+import { isMobile } from "react-device-detect";
 
 function ServiceList() {
   const [services, setServices] = useState([]);
@@ -38,6 +39,11 @@ function ServiceList() {
   const [loadingConvertToPdf, setLoadingConvertToPdf] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const [actions, setActions] = useState([]);
+  const [clientData, setClientData] = useState(null);
+  const [loadingWhatsApp, setLoadingWhatsApp] = useState(false);
+  const [loadingCorreo, setLoadingCorreo] = useState(false);
+  const [showModalActions, setShowModalActions] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
   const [newInspection, setNewInspection] = useState({
     inspection_type: [], // Tipos de inspección seleccionados
     inspection_sub_type: "", // Opcional, para subtipos como en Desratización
@@ -592,6 +598,8 @@ function ServiceList() {
   const handleServiceClick = (service) => {
     setSelectedService(service); // Establece el servicio seleccionado
     fetchInspections(service.id); // Pasa el `service.id` a la función para filtrar las inspecciones
+    const cli = clients.find(c => c.id === service.client_id);
+    setClientData(cli);
     fetchActions();
     fetchDocuments(service.id);
     setShowDetailsModal(true); // Abre el modal
@@ -2108,53 +2116,181 @@ function ServiceList() {
           <Modal.Title>Acciones del Documento</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Button
-            variant="primary"
-            className="mb-3 w-100"
-            onClick={async () => {
-              try {
-                const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/PrefirmarArchivos`, { url: selectedDocument.document_url });
-                if (response.data.signedUrl) {
-                  const preSignedUrl = response.data.signedUrl;
+          {selectedDocument?.document_type === "pdf" && (
+            <Button
+              variant="primary"
+              className="mb-3 w-100"
+              onClick={async () => {
+                try {
+                  const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/PrefirmarArchivosPDF`, {
+                    url: selectedDocument.document_url,
+                  });
 
-                  if (selectedDocument.document_type === "pdf") {
-                    // Abrir la URL prefirmada en una nueva pestaña si es un PDF
-                    window.open(preSignedUrl, "_blank", "noopener,noreferrer");
+                  if (response.data.signedUrl) {
+                    setPdfUrl(response.data.signedUrl);
+                    setShowModalActions(true);
                   } else {
-                    // Navegar a la lógica actual para otros tipos de documentos
-                    navigate(`/view-document?url=${encodeURIComponent(preSignedUrl)}`);
+                    showNotification("No se pudo obtener la URL prefirmada.");
                   }
-                } else {
-                  alert("No se pudo obtener la URL prefirmada.");
+                } catch (error) {
+                  console.error("Error al obtener la URL prefirmada:", error);
+                  showNotification("Hubo un error al procesar la solicitud.");
                 }
-              } catch (error) {
-                console.error("Error al obtener la URL prefirmada:", error);
-                alert("Hubo un error al procesar la solicitud.");
-              }
-            }}
-          >
-            Ver
-          </Button>
+              }}
+            >
+              Ver
+            </Button>
+          )}
           <Button variant="secondary" className="mb-3 w-100" onClick={handleDownload}>
             Descargar
           </Button>
+          <Button variant="warning" className="mb-3 w-100" onClick={handleEditLocal}>
+            Actualizar
+          </Button>
+          {selectedDocument?.document_type === "pdf" && (
+            <Button
+              variant="success"
+              className="mb-3 w-100"
+              onClick={async () => {
+                try {
+                  setLoadingWhatsApp(true);
+
+                  /* 1️⃣  URL firmada (con MIME correcto) */
+                  const { data } = await axios.post(`${process.env.REACT_APP_API_URL}/api/PrefirmarArchivosPDF`, {
+                    url: selectedDocument.document_url,
+                  });
+                  const fileUrl = data.signedUrl || selectedDocument.document_url;
+
+                  /* 2️⃣  Descargar y crear File */
+                  const blob = await fetch(fileUrl).then((r) => r.blob());
+                  const fileName =
+                    (selectedDocument.document_name || "Acta_de_servicio").replace(/\s+/g, "_") +
+                    ".pdf"; // siempre PDF
+                  const file = new File([blob], fileName, { type: "application/pdf" });
+
+                  /* 3️⃣  Intentar compartir el PDF */
+                  let shared = false;
+                  if (navigator.canShare?.({ files: [file] })) {
+                    try {
+                      await navigator.share({
+                        title: "Acta de servicio",
+                        text: `Hola ${clientData.name}, el servicio ha finalizado y por medio del presente compartimos el acta de servicio.`,
+                        files: [file],
+                      });
+                      shared = true;
+                      showNotification("Selecciona WhatsApp, elige el contacto y envía.");
+                    } catch (shareErr) {
+                      // NotAllowedError → cancelado/denegado
+                      showNotification(
+                        `⚠️ Compartir cancelado o denegado (${shareErr.name}).`
+                      );
+                    }
+                  } else {
+                    showNotification(
+                      "❌ Este dispositivo o navegador no admite compartir archivos."
+                    );
+                  }
+
+                  /* 4️⃣  Fallback: abrir chat WhatsApp sin archivo ni URL */
+                  if (!shared) {
+                    const phone = `57${clientData.phone.replace(/\D/g, "")}`;
+                    const text = encodeURIComponent(
+                      `Hola ${clientData.name}, el servicio ha finalizado y por medio del presente compartimos el acta de servicio.`
+                    );
+                    const waUrl = isMobile
+                      ? `whatsapp://send?phone=${phone}&text=${text}`
+                      : `https://web.whatsapp.com/send?phone=${phone}&text=${text}`;
+                    window.open(waUrl, "_blank", "noopener,noreferrer");
+                    showNotification(
+                      "Se abrió WhatsApp con el mensaje preparado. Adjunta el PDF manualmente."
+                    );
+                  }
+                } catch (err) {
+                  const msg =
+                    err?.name && err?.message ? `${err.name}: ${err.message}` : String(err);
+                  showNotification(`❌ Error al compartir: ${msg}`);
+                  console.error("Error al compartir documento:", err);
+                } finally {
+                  setLoadingWhatsApp(false);
+                }
+              }}
+            >
+              {loadingWhatsApp ? (
+                <>
+                  <span
+                    className="spinner-border spinner-border-sm me-2"
+                    role="status"
+                    aria-hidden="true"
+                    style={{ width: "1rem", height: "1rem" }}
+                  />
+                  Preparando…
+                </>
+              ) : (
+                "Compartir por WhatsApp"
+              )}
+            </Button>
+          )}
           <Button
-            variant="success"
+            variant="info"
             className="mb-3 w-100"
-            onClick={handleEditGoogleDrive}
-            disabled={loadingGoogleDrive} // Deshabilitar el botón mientras se procesa
+            onClick={async () => {
+              try {
+                setLoadingCorreo(true);
+
+                /* ─── 1. Construir payload ─────────────────────────── */
+                const payload = {
+                  nombre: clientData?.name,
+                  telefono: `57${clientData?.phone}`,
+                  correo: clientData?.email,
+                  documento: selectedDocument.document_url,
+                  nombreDocumento: selectedDocument?.document_name || "Acta de servicio",
+                };
+
+                /* ─── 2. Elegir la ruta según la empresa ───────────── */
+                /***
+                 *  Asumimos que la empresa del servicio está en:
+                 *    selectedService.company   → "Fumiplagax" | "Control" | otro
+                 *  Ajusta la fuente si tu objeto se llama diferente.
+                 */
+                const company = (selectedService?.company || "").toLowerCase();
+                let endpoint = `${process.env.REACT_APP_API_URL}/api/enviar-acta-por-correo-otro`;               // valor por defecto
+
+                if (company === "fumiplagax") {
+                  endpoint = `${process.env.REACT_APP_API_URL}/api/enviar-acta-por-correo`;
+                } else if (company === "control") {
+                  endpoint = `${process.env.REACT_APP_API_URL}/api/enviar-acta-por-correo-control`;
+                }
+
+                /* ─── 3. Enviar solicitud ───────────────────────────── */
+                const sendResponse = await axios.post(endpoint, payload);
+
+                if (sendResponse.data.success) {
+                  showNotification("📧 Documento enviado por correo exitosamente.");
+                } else {
+                  showNotification("❌ Error al enviar el documento por correo.");
+                }
+
+              } catch (error) {
+                console.error("❌ Error al enviar documento por correo:", error);
+                showNotification("Hubo un error al enviar el documento por correo.");
+              } finally {
+                setLoadingCorreo(false);
+              }
+            }}
           >
-            {loadingGoogleDrive ? (
+            {loadingCorreo ? (
               <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                Procesando...
+                <span
+                  className="spinner-border spinner-border-sm me-2"
+                  role="status"
+                  aria-hidden="true"
+                  style={{ width: "1rem", height: "1rem" }}
+                />
+                Enviando…
               </>
             ) : (
-              "Editar en Google Drive"
+              "Enviar por Correo"
             )}
-          </Button>
-          <Button variant="warning" className="w-100" onClick={handleEditLocal}>
-            Editar Localmente
           </Button>
         </Modal.Body>
       </Modal>
@@ -2209,6 +2345,51 @@ function ServiceList() {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <Modal
+        show={showModalActions}
+        onHide={() => setShowModalActions(false)}
+        size="xl"
+        centered
+      >
+        <Modal.Body
+          style={{
+            height: "100vh",
+            overflow: "hidden",
+            padding: 0, // opcional: elimina padding si no lo necesitas
+          }}>
+          {pdfUrl && (
+            <iframe
+              src={pdfUrl}
+              title="Vista previa PDF"
+              width="100%"
+              height="100%"
+              style={{ border: "none" }}
+            ></iframe>
+          )}
+        </Modal.Body>
+      </Modal>
+
+      {isExecuting && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            zIndex: 2050,
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(255, 255, 255, 0.7)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <div className="spinner-border text-secondary" role="status" style={{ width: "5rem", height: "5rem" }}>
+            <span className="visually-hidden">Cargando...</span>
+          </div>
+        </div>
+      )}
 
     </div>
 

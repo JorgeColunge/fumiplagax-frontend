@@ -190,7 +190,7 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
       label: "Tutoriales",
       icon: <Backpack3 size={20} />,
       path: "/tutoriales",
-      roles: ["Operario Hogar", "Operario", "Supervisor Técnico", "Administrador", "Superadministrador"],
+      roles: ["Técnico", "Comercial", "Supervisor Técnico", "Administrador", "Superadministrador"],
     },
     {
       label: "Cerrar Sesión",

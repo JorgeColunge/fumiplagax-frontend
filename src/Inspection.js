@@ -461,6 +461,45 @@ function Inspection() {
             })
           );
         }
+
+        // después de haber rellenado initialFindings[type] con los datos crudos
+        Object.keys(initialFindings).forEach((type) => {
+          if (type.trim().toLowerCase() !== "lavado de tanque") return;
+
+          initialFindings[type] = initialFindings[type].map((f) => {
+            /* Detecta qué fase contiene datos y los normaliza */
+            if (f.placeAn || f.descriptionAn || f.photoAn) {
+              return {
+                ...f,
+                place: f.placeAn ?? "",
+                description: f.descriptionAn ?? "",
+                photo: f.photoAn ?? null,
+                faseLavado: "Antes",
+              };
+            }
+            if (f.placeDu || f.descriptionDu || f.photoDu) {
+              return {
+                ...f,
+                place: f.placeDu ?? "",
+                description: f.descriptionDu ?? "",
+                photo: f.photoDu ?? null,
+                faseLavado: "Durante",
+              };
+            }
+            if (f.placeDe || f.descriptionDe || f.photoDe) {
+              return {
+                ...f,
+                place: f.placeDe ?? "",
+                description: f.descriptionDe ?? "",
+                photo: f.photoDe ?? null,
+                faseLavado: "Después",
+              };
+            }
+            /* Sin sufijo: ya está normalizado */
+            return f;
+          });
+        });
+
         setFindingsByType(initialFindings);
 
         setProductsByType(inspectionData.findings?.productsByType || {});
@@ -2243,7 +2282,7 @@ function Inspection() {
                                   <button
                                     key={fase}
                                     type="button"
-                                    className={`btn ${finding.faseLavado === fase ? "btn-primary" : "btn-outline-primary"}`}
+                                    className={`btn ${finding.faseLavado === fase ? "btn-success" : "btn-outline-success"}`}
                                     onClick={() => handleFindingChange(type, idx, "faseLavado", fase)}
                                     disabled={isLocked}
                                   >
@@ -3169,7 +3208,7 @@ function Inspection() {
         <Modal.Body>
           {selectedDocument?.document_type === "pdf" && (
             <Button
-              variant="primary"
+              variant="success"
               className="mb-3 w-100"
               onClick={async () => {
                 try {
