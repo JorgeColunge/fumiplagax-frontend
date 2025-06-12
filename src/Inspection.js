@@ -12,6 +12,7 @@ import { useUnsavedChanges } from './UnsavedChangesContext'
 import QrScannerComponent from './QrScannerComponent';
 import moment from 'moment';
 import { useSocket } from './SocketContext';
+import { isMobile } from "react-device-detect";
 
 function Inspection() {
   const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
@@ -79,7 +80,7 @@ function Inspection() {
     id: '',
     position: '',
   });
-
+  const [serviceData, setServiceData] = useState(null);
   const sigCanvasTech = useRef();
   const sigCanvasClient = useRef();
   const location = useLocation();
@@ -518,6 +519,7 @@ function Inspection() {
               `${process.env.REACT_APP_API_URL}/api/services/${inspectionData.service_id}`
             );
             clientId = service.client_id;
+            setServiceData(service);
 
             const { data: client } = await api.get(`${process.env.REACT_APP_API_URL}/api/clients/${clientId}`);
             setClientData(client);
@@ -3196,64 +3198,122 @@ function Inspection() {
           <Button variant="warning" className="mb-3 w-100" onClick={handleEditLocal}>
             Actualizar
           </Button>
-          <Button
-            variant="success"
-            className="mb-3 w-100"
-            onClick={async () => {
-              try {
-                setLoadingWhatsApp(true);
+          {selectedDocument?.document_type === "pdf" && (
+            <Button
+              variant="success"
+              className="mb-3 w-100"
+              onClick={async () => {
+                try {
+                  setLoadingWhatsApp(true);
 
-                console.log("Datos del Cliente: ", clientData)
+                  /* 1️⃣  URL firmada (con MIME correcto) */
+                  const { data } = await api.post("/PrefirmarArchivosPDF", {
+                    url: selectedDocument.document_url,
+                  });
+                  const fileUrl = data.signedUrl || selectedDocument.document_url;
 
-                const payload = {
-                  nombre: clientData?.name,
-                  telefono: `57${clientData?.phone}`,
-                  documento: selectedDocument.document_url,
-                  nombreDocumento: selectedDocument?.document_name || "Acta de servicio"
-                };
+                  /* 2️⃣  Descargar y crear File */
+                  const blob = await fetch(fileUrl).then((r) => r.blob());
+                  const fileName =
+                    (selectedDocument.document_name || "Acta_de_servicio").replace(/\s+/g, "_") +
+                    ".pdf"; // siempre PDF
+                  const file = new File([blob], fileName, { type: "application/pdf" });
 
-                const sendResponse = await api.post("/enviar-botix-acta", payload);
+                  /* 3️⃣  Intentar compartir el PDF */
+                  let shared = false;
+                  if (navigator.canShare?.({ files: [file] })) {
+                    try {
+                      await navigator.share({
+                        title: "Acta de servicio",
+                        text: `Hola ${clientData.name}, el servicio ha finalizado y por medio del presente compartimos el acta de servicio.`,
+                        files: [file],
+                      });
+                      shared = true;
+                      showNotification("Selecciona WhatsApp, elige el contacto y envía.");
+                    } catch (shareErr) {
+                      // NotAllowedError → cancelado/denegado
+                      showNotification(
+                        `⚠️ Compartir cancelado o denegado (${shareErr.name}).`
+                      );
+                    }
+                  } else {
+                    showNotification(
+                      "❌ Este dispositivo o navegador no admite compartir archivos."
+                    );
+                  }
 
-                if (sendResponse.data.success) {
-                  showNotification("Documento enviado por WhatsApp exitosamente.");
-                } else {
-                  showNotification("Error al enviar el documento por WhatsApp.");
+                  /* 4️⃣  Fallback: abrir chat WhatsApp sin archivo ni URL */
+                  if (!shared) {
+                    const phone = `57${clientData.phone.replace(/\D/g, "")}`;
+                    const text = encodeURIComponent(
+                      `Hola ${clientData.name}, el servicio ha finalizado y por medio del presente compartimos el acta de servicio.`
+                    );
+                    const waUrl = isMobile
+                      ? `whatsapp://send?phone=${phone}&text=${text}`
+                      : `https://web.whatsapp.com/send?phone=${phone}&text=${text}`;
+                    window.open(waUrl, "_blank", "noopener,noreferrer");
+                    showNotification(
+                      "Se abrió WhatsApp con el mensaje preparado. Adjunta el PDF manualmente."
+                    );
+                  }
+                } catch (err) {
+                  const msg =
+                    err?.name && err?.message ? `${err.name}: ${err.message}` : String(err);
+                  showNotification(`❌ Error al compartir: ${msg}`);
+                  console.error("Error al compartir documento:", err);
+                } finally {
+                  setLoadingWhatsApp(false);
                 }
-
-              } catch (error) {
-                console.error("Error al enviar documento por WhatsApp:", error);
-                showNotification("Hubo un error al enviar el documento.");
-              } finally {
-                setLoadingWhatsApp(false);
-              }
-            }}
-          >
-            {loadingWhatsApp ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style={{ width: "1rem", height: "1rem" }}></span>
-                Enviando...
-              </>
-            ) : (
-              "Enviar por WhatsApp"
-            )}
-          </Button>
+              }}
+            >
+              {loadingWhatsApp ? (
+                <>
+                  <span
+                    className="spinner-border spinner-border-sm me-2"
+                    role="status"
+                    aria-hidden="true"
+                    style={{ width: "1rem", height: "1rem" }}
+                  />
+                  Preparando…
+                </>
+              ) : (
+                "Compartir por WhatsApp"
+              )}
+            </Button>
+          )}
           <Button
             variant="info"
             className="mb-3 w-100"
             onClick={async () => {
               try {
                 setLoadingCorreo(true);
-                console.log("Datos del Cliente (Correo): ", clientData);
 
+                /* ─── 1. Construir payload ─────────────────────────── */
                 const payload = {
                   nombre: clientData?.name,
                   telefono: `57${clientData?.phone}`,
                   correo: clientData?.email,
                   documento: selectedDocument.document_url,
-                  nombreDocumento: selectedDocument?.document_name || "Acta de servicio"
+                  nombreDocumento: selectedDocument?.document_name || "Acta de servicio",
                 };
 
-                const sendResponse = await api.post("/enviar-acta-por-correo", payload);
+                /* ─── 2. Elegir la ruta según la empresa ───────────── */
+                /***
+                 *  Asumimos que la empresa del servicio está en:
+                 *    selectedService.company   → "Fumiplagax" | "Control" | otro
+                 *  Ajusta la fuente si tu objeto se llama diferente.
+                 */
+                const company = (serviceData?.company || "").toLowerCase();
+                let endpoint = "/enviar-acta-por-correo-otro";               // valor por defecto
+
+                if (company === "fumiplagax") {
+                  endpoint = "/enviar-acta-por-correo";
+                } else if (company === "control") {
+                  endpoint = "/enviar-acta-por-correo-control";
+                }
+
+                /* ─── 3. Enviar solicitud ───────────────────────────── */
+                const sendResponse = await api.post(endpoint, payload);
 
                 if (sendResponse.data.success) {
                   showNotification("📧 Documento enviado por correo exitosamente.");
@@ -3271,8 +3331,13 @@ function Inspection() {
           >
             {loadingCorreo ? (
               <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style={{ width: "1rem", height: "1rem" }}></span>
-                Enviando...
+                <span
+                  className="spinner-border spinner-border-sm me-2"
+                  role="status"
+                  aria-hidden="true"
+                  style={{ width: "1rem", height: "1rem" }}
+                />
+                Enviando…
               </>
             ) : (
               "Enviar por Correo"
