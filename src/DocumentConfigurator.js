@@ -128,7 +128,7 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     { label: "Descripción", value: "description" },
     { label: "Categoría", value: "category" },
     { label: "Tipo", value: "type" },
-    { label: "Método de Control", value: "control_method" },
+    { label: "Método de Control", value: "controlMethod" },
     { label: "ID del Cliente", value: "client_id" },
     { label: "Código QR", value: "qr_code" },
   ];
@@ -184,6 +184,7 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
       { label: "Cédula Cliente", value: "findings_signatures_client_id" },
       { label: "Cargo del cliente", value: "findings_signatures_client_position" },
       { label: "Hallazgos (Todo)", value: "findings_all" },
+      { label: "Fecha Hallazgo", value: "findings_findingsByType_date" },
       { label: "Lugar Hallazgo", value: "findings_findingsByType_place" },
       { label: "Descripción Hallazgo", value: "findings_findingsByType_description" },
       { label: "Foto Hallazgo", value: "findings_findingsByType_photo" },
@@ -193,6 +194,7 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
       { label: "Unidad del producto", value: "findings_productsByType_unity" },
       { label: "Producto servicio", value: "findings_productsByType_tipo" },
       { label: "Lote del producto", value: "findings_productsByType_batch" },
+      { label: "Fecha ins del producto", value: "findings_productsByType_date" },
       { label: "Ingrediente Activo", value: "findings_productsByType_activeIngredient" },
       { label: "Categoría Producto", value: "findings_productsByType_category" },
       { label: "Hora de reingreso", value: "findings_productsByType_residualDuration" },
@@ -219,6 +221,19 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
       { label: "¿Prioridad de Cambio?", value: "findings_stationsFindings_Roedores_changePriority" },
       { label: "Descripción Hallazgo Estación", value: "findings_stationsFindings_Roedores_description" },
       { label: "Fotografía Hallazgo Estación", value: "findings_stationsFindings_Roedores_photo" },
+      { label: "Tipo de Estación", value: "findings_stationsFindings_Roedores_type" },
+      { label: "Unidad de Medida", value: "findings_stationsFindings_Roedores_unit" },
+      { label: "Producto Aplicado", value: "findings_stationsFindings_Roedores_product" },
+      { label: "Actividad Realizada", value: "findings_stationsFindings_Roedores_activity" },
+      { label: "Categoría", value: "findings_stationsFindings_Roedores_category" },
+      { label: "Ubicación de la Estación", value: "findings_stationsFindings_Roedores_location" },
+      { label: "Tipo de Consumidor", value: "findings_stationsFindings_Roedores_consumerType" },
+      { label: "Dosis Consumida", value: "findings_stationsFindings_Roedores_doseConsumed" },
+      { label: "Dosis Repuesta", value: "findings_stationsFindings_Roedores_doseReplaced" },
+      { label: "Método de Control", value: "findings_stationsFindings_Roedores_controlMethod" },
+      { label: "Cantidad Repuesta", value: "findings_stationsFindings_Roedores_replacementAmount" },
+      { label: "Descripción Estación", value: "findings_stationsFindings_Roedores_descriptionStation" },
+      { label: "Producto de Reemplazo", value: "findings_stationsFindings_Roedores_replacementProduct" },
     ];
 
     const stationDesinsectacion = [
@@ -229,6 +244,13 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
       { label: "¿Prioridad de Cambio?", value: "findings_stationsFindings_Aéreas_changePriority" },
       { label: "Descripción Estación", value: "findings_stationsFindings_Aéreas_description" },
       { label: "Fotografía Hallazgo Estación", value: "findings_stationsFindings_Aéreas_photo" },
+      { label: "Producto Aplicado", value: "findings_stationsFindings_Aéreas_product" },
+      { label: "Actividad Realizada", value: "findings_stationsFindings_Aéreas_activity" },
+      { label: "Categoría", value: "findings_stationsFindings_Aéreas_category" },
+      { label: "Ubicación de la Estación", value: "findings_stationsFindings_Aéreas_location" },
+      { label: "Tipo de Estación", value: "findings_stationsFindings_Aéreas_type" },
+      { label: "Cantidad Repuesta", value: "findings_stationsFindings_Aéreas_replacementAmount" },
+      { label: "Descripción Estación", value: "findings_stationsFindings_Aéreas_descriptionStation" },
     ];
 
     const allStation = [
@@ -512,10 +534,10 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
   function getSourceOptions(entity) {
     if (entity === "servicio")
       return ["Servicio", "Inspecciones", "Responsable", "Acompañante",
-        "Cliente", "Normativa Cliente", "Procedimiento"];
+        "Cliente", "Normativa Cliente", "Procedimiento", "Mapas"];
     if (entity === "inspeccion")
       return ["Inspección", "Servicio", "Responsable", "Acompañante",
-        "Cliente", "Normativa Cliente", "Procedimiento"];
+        "Cliente", "Normativa Cliente", "Procedimiento", "Mapas"];
     return ["Cliente", "Estaciones Aéreas", "Estaciones Roedores",
       "Mapas", "Servicios", "Inspecciones"];
   }
@@ -621,9 +643,9 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     ];
 
     if (selectedEntity === "servicio") {
-      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
+      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento", "Mapas"];
     } else if (selectedEntity === "inspeccion") {
-      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
+      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento", "Mapas"];
     }
 
     setSourceOptions((prev) => ({ ...prev, [variable]: options }));
@@ -750,9 +772,9 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     ];
 
     if (selectedEntity === "servicio") {
-      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
+      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento", "Mapas"];
     } else if (selectedEntity === "inspeccion") {
-      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
+      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento", "Mapas"];
     }
 
     setSourceOptions((prev) => ({
@@ -1066,9 +1088,9 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
     ];
 
     if (selectedEntity === "servicio") {
-      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
+      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento", "Mapas"];
     } else if (selectedEntity === "inspeccion") {
-      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
+      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento", "Mapas"];
     }
 
     setSourceOptions((prev) => ({ ...prev, [variable]: options }));
@@ -1298,9 +1320,9 @@ const DocumentConfigurator = ({ selectedTemplateId, selectedEntity }) => {
 
     // Personalizar opciones según la entidad seleccionada
     if (selectedEntity === "servicio") {
-      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
+      options = ["Servicio", "Inspecciones", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento", "Mapas"];
     } else if (selectedEntity === "inspeccion") {
-      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento"];
+      options = ["Inspección", "Servicio", "Responsable", "Acompañante", "Cliente", "Normativa Cliente", "Procedimiento", "Mapas"];
     }
 
     // Actualizar las opciones en el estado `tableSourceOptions`

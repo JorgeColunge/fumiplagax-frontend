@@ -50,7 +50,7 @@ function ClientList() {
     name: '',
     address: '',
     department: 'Nariño',
-    city: '', // 
+    city: 'Pasto',
     phone: '',
     email: '',
     representative: '',
@@ -68,6 +68,7 @@ function ClientList() {
     type: 'Aéreas',
     control_method: 'Lámina',
     client_id: null, // Se llenará automáticamente con el cliente seleccionado
+    location: '',
   });
   const [showAddRodentStationModal, setShowAddRodentStationModal] = useState(false);
   const [newRodentStation, setNewRodentStation] = useState({
@@ -76,6 +77,7 @@ function ClientList() {
     type: 'Caja Beta', // Valor predeterminado
     control_method: 'Lámina', // Valor predeterminado
     client_id: null, // Se llenará automáticamente con el cliente seleccionado
+    location: '',
   });
 
   const navigate = useNavigate();
@@ -124,7 +126,7 @@ function ClientList() {
         name: '',
         address: '',
         department: 'Nariño', // 
-        city: '', // 
+        city: 'Pasto', // 
         phone: '',
         email: '',
         representative: '',
@@ -158,6 +160,7 @@ function ClientList() {
       type: 'Caja Beta', // Predeterminado
       control_method: 'Lámina', // Predeterminado
       client_id: selectedClient.id,
+      location: '',
     });
     setShowAddRodentStationModal(true);
   };
@@ -198,6 +201,7 @@ function ClientList() {
       category: 'Aéreas',
       control_method: 'Lámina',
       client_id: selectedClient.id,
+      location: ''
     });
     setShowAddAirStationModal(true);
   };
@@ -953,6 +957,7 @@ function ClientList() {
                             <tr>
                               <th>#</th>
                               <th>Método de Control</th>
+                              <th>Ubicación</th>
                               <th>QR</th>
                               <th>Acciones</th>
                             </tr>
@@ -964,6 +969,7 @@ function ClientList() {
                                 <tr key={station.id}>
                                   <td>{station.description}</td>
                                   <td>{station.control_method}</td>
+                                  <td>{station.location || 'N/D'}</td>
                                   <td className="text-center">
                                     {station.qr_code ? (
                                       <img
@@ -1027,6 +1033,7 @@ function ClientList() {
                               <th>#</th>
                               <th>Tipo</th>
                               <th>Método de Control</th>
+                              <th>Ubicación</th>
                               <th>QR</th>
                               <th>Acciones</th>
                             </tr>
@@ -1039,6 +1046,7 @@ function ClientList() {
                                   <td>{station.description}</td>
                                   <td>{station.type}</td>
                                   <td>{station.control_method}</td>
+                                  <td>{station.location || 'N/D'}</td>
                                   <td className="text-center">
                                     {station.qr_code ? (
                                       <img
@@ -1333,6 +1341,25 @@ function ClientList() {
                 disabled
               />
             </Form.Group>
+
+            <Form.Group controlId="formAirStationLocation" className="mb-3">
+              <Form.Label>Ubicación</Form.Label>
+              <Form.Control
+                type="text"
+                name="location"
+                value={editingStation ? editingStation.location : newAirStation.location}
+                onChange={(e) => {
+                  if (editingStation) {
+                    setEditingStation({ ...editingStation, location: e.target.value });
+                  } else {
+                    setNewAirStation({ ...newAirStation, location: e.target.value });
+                  }
+                }}
+                placeholder="Ej: Zona norte de la planta"
+                required
+              />
+            </Form.Group>
+
           </Form>
         </Modal.Body>
         <Modal.Footer>
@@ -1418,6 +1445,25 @@ function ClientList() {
                 <option value="Bebedero">Bebedero</option>
               </Form.Select>
             </Form.Group>
+
+            <Form.Group controlId="formRodentStationLocation" className="mb-3">
+              <Form.Label>Ubicación</Form.Label>
+              <Form.Control
+                type="text"
+                name="location"
+                value={editingStation ? editingStation.location : newRodentStation.location}
+                onChange={(e) => {
+                  if (editingStation) {
+                    setEditingStation({ ...editingStation, location: e.target.value });
+                  } else {
+                    setNewRodentStation({ ...newRodentStation, location: e.target.value });
+                  }
+                }}
+                placeholder="Ej: Bodega 2 – pasillo A"
+                required
+              />
+            </Form.Group>
+
           </Form>
         </Modal.Body>
         <Modal.Footer>

@@ -790,12 +790,13 @@ function Inspection() {
             id: productData.id || null, // Incluir el ID
             product: productData.product || '',
             dosage: productData.dosage || '',
-            activeIngredient: productData.active_ingredient || '',
+            date: productData.date || getFormattedDateWithSlashes(),
+            activeIngredient: productData.activeIngredient || '',
             batch: productData.batch || '',
             unity: productData.unity || 'No especificado', // Evita valores nulos
             category: productData.category || 'No especificado',
-            residualDuration: productData.residual_duration || 'No especificado',
-            expirationDate: productData.expiration_date || 'No especificado',
+            residualDuration: productData.residualDuration || 'No especificado',
+            expirationDate: productData.expirationDate || 'No especificado',
             tipo: baseType,
             process: procedureMatch?.application ? JSON.parse(procedureMatch.application).join(', ') : 'No especificado',
 
@@ -988,13 +989,14 @@ function Inspection() {
 
         updatedProduct.product = value;
         updatedProduct.id = selectedProduct?.id || null;
-        updatedProduct.active_ingredient = selectedProduct?.active_ingredient || '';
+        updatedProduct.activeIngredient = selectedProduct?.active_ingredient;
         updatedProduct.batch = selectedProduct?.batch || '';
         updatedProduct.dosage = selectedProduct?.dosage || '';
-        updatedProduct.expiration_date = selectedProduct?.expiration_date || 'No especificado';
+        updatedProduct.date = getFormattedDateWithSlashes();
+        updatedProduct.expirationDate = selectedProduct?.expiration_date || 'No especificado';
         updatedProduct.unity = selectedProduct?.unity || 'No especificado';
         updatedProduct.category = selectedProduct?.category || 'No especificado';
-        updatedProduct.residual_duration = selectedProduct?.residual_duration || 'No especificado';
+        updatedProduct.residualDuration = selectedProduct?.residual_duration || 'No especificado';
         updatedProduct.tipo = baseType;
         updatedProduct.process = procedureMatch?.application ? JSON.parse(procedureMatch.application).join(', ') : 'No especificado'; // ✅ Aplicación del formato legible
       } else {
@@ -1083,17 +1085,29 @@ function Inspection() {
 
     const station = stations.find((s) => s.id === stationId); // Encuentra la estación por su ID
     const stationCategory = station?.category || ''; // Obtén la categoría o un valor por defecto
+    const stationDescription = station?.description || '';
+    const stationType = station?.type || '';
+    const stationControlMethod = station?.control_method || '';
+    const stationLocation = station?.location || '';
 
     if (clientStations[stationId]) {
       setStationFinding({
         ...clientStations[stationId], // Carga los datos existentes
         photoBlob: null, // Asegúrate de que `photoBlob` esté vacío para nuevas selecciones
         category: stationCategory,
+        descriptionStation: stationDescription,
+        type: stationType,
+        controlMethod: stationControlMethod,
+        location: stationLocation,
       });
     } else {
       // Si no hay hallazgo previo, usa valores predeterminados
       setStationFinding({
+        descriptionStation: stationDescription,
+        type: stationType,
+        controlMethod: stationControlMethod,
         category: stationCategory,
+        location: stationLocation,
         purpose: 'Consumo',
         consumptionAmount: 1,
         captureQuantity: '',
@@ -1237,17 +1251,29 @@ function Inspection() {
 
     const station = stations.find((s) => s.id === stationId); // Encuentra la estación por su ID
     const stationCategory = station?.category || ''; // Obtén la categoría o un valor por defecto
+    const stationDescription = station?.description || '';
+    const stationType = station?.type || '';
+    const stationControlMethod = station?.control_method || '';
+    const stationLocation = station?.location || '';
 
     if (clientStations[stationId]) {
       setStationFindingDesinsectacion({
         ...clientStations[stationId], // Carga los datos existentes
         photoBlob: null, // Asegúrate de que `photoBlob` esté vacío para nuevas selecciones
         category: stationCategory,
+        descriptionStation: stationDescription,
+        type: stationType,
+        controlMethod: stationControlMethod,
+        location: stationLocation,
       });
     } else {
       // Si no hay hallazgo previo, usa valores predeterminados
       setStationFindingDesinsectacion({
+        descriptionStation: stationDescription,
+        type: stationType,
+        controlMethod: stationControlMethod,
         category: stationCategory,
+        location: stationLocation,
         captureQuantity: '',
         physicalState: 'Buena',
         damageLocation: '',
@@ -1272,7 +1298,7 @@ function Inspection() {
       damageLocation: '',
       requiresChange: 'No',
       changePriority: 'No',
-      description: '',
+      descriptionStation: '',
       photo: null,
     });
   };
@@ -2346,11 +2372,11 @@ function Inspection() {
                                   product: selectedProductName,
                                   unity: selectedProduct.unity || 'Unidad no definida',
                                   dosage: prevState[`${type}${index}`]?.dosage || '',
-                                  expiration_date: selectedProduct.expiration_date || 'No especificado',
-                                  active_ingredient: selectedProduct.active_ingredient || 'No especificado',
+                                  expirationDate: selectedProduct.expiration_date || 'No especificado',
+                                  activeIngredient: selectedProduct.active_ingredient || 'No especificado',
                                   batch: selectedProduct.batch || 'No especificado',
                                   category: selectedProduct.category || 'No especificado',
-                                  residual_duration: selectedProduct.residual_duration || 'No especificado',
+                                  residualDuration: selectedProduct.residual_duration || 'No especificado',
                                   tipo: baseType,
                                   process: procedureMatch?.application ? JSON.parse(procedureMatch.application).join(', ') : 'No especificado', // ✅ Formato legible aplicado aquí
                                 },
@@ -2457,7 +2483,7 @@ function Inspection() {
                       const readableProcess = procedureMatch?.application ? JSON.parse(procedureMatch.application).join(', ') : 'No especificado';
                       setProductsByType((prevProducts) => ({
                         ...prevProducts,
-                        [`${type}${newIndex}`]: { expiration_date: '', residual_duration: '', batch: '', active_ingredient: '', product: '', dosage: '', unity: '', id: null, tipo: baseType, process: readableProcess, },
+                        [`${type}${newIndex}`]: { expirationDate: '', residualDuration: '', batch: '', activeIngredient: '', product: '', dosage: '', date: '', unity: '', id: null, tipo: baseType, process: readableProcess, },
                       }));
                     }}
                   >
