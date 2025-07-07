@@ -75,12 +75,13 @@ const MyServicesCalendar = () => {
     const userColor = storedUserInfo?.color || '#007bff'; // Color del usuario conectado
 
     const handleDatesSet = (dateInfo) => {
-        const newMesComp = moment(dateInfo.view.currentStart).format('MM/YYYY'); // Formato MM/YYYY
-        const newMesCompNom = moment(dateInfo.view.currentStart).format('MMMM YYYY');
-        
+        const centerDate = moment(dateInfo.view.calendar.getDate());   // 👈 fecha de referencia real
+        const newMesComp = centerDate.format('MM/YYYY');
+        const newMesCompNom = centerDate.format('MMMM YYYY');
+
         // Capitalizar la primera letra del mes (en español, Moment.js lo da en minúsculas)
         const formattedMesComp = newMesComp.charAt(0).toUpperCase() + newMesComp.slice(1);
-        
+
         // Verifica si ha cambiado el mes y actualiza el estado
         if (mesComp !== formattedMesComp) {
             console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${newMesComp}`);
@@ -90,7 +91,7 @@ const MyServicesCalendar = () => {
             console.log(`📅 Estás viendo el mes de: ${formattedMesComp}`);
         }
     };
-    
+
     useEffect(() => {
         const fetchData = async () => {
             await fetchScheduleAndServices();
@@ -102,14 +103,14 @@ const MyServicesCalendar = () => {
         try {
             setLoading(true); // 🔄 Activar el spinner antes de cargar los datos
             console.log('Fetching schedule and services...');
-            
+
             // Paso 1: Obtén los eventos de la agenda de servicios
             const scheduleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule?month=${mesComp}`);
             if (!scheduleResponse.ok) throw new Error('Failed to fetch schedule');
             const scheduleData = await scheduleResponse.json();
-    
+
             console.log('Schedule data received:', scheduleData);
-    
+
             // Paso 2: Crea un array para almacenar los eventos formateados
             const formattedEvents = await Promise.all(
                 scheduleData.map(async (schedule) => {
@@ -165,7 +166,7 @@ const MyServicesCalendar = () => {
                                 console.error(`Error fetching client for ID: ${serviceData.client_id}`, error);
                             }
                         }
-    
+
                         // Paso 5: Consulta la información del responsable usando el responsible_id
                         let responsibleName = 'Sin responsable';
                         let responsibleData;
@@ -183,41 +184,41 @@ const MyServicesCalendar = () => {
                                 console.error(`Error fetching responsible for ID: ${serviceData.responsible}`, error);
                             }
                         }
-    
+
                         // Paso 6: Crea el evento formateado
                         const start = moment(`${schedule.date.split('T')[0]}T${schedule.start_time}`).toISOString();
                         const end = schedule.end_time
                             ? moment(`${schedule.date.split('T')[0]}T${schedule.end_time}`).toISOString()
                             : null;
-    
-                            const formattedEvent = {
-                                id: schedule.id,
-                                title: `${serviceData.id}`,
-                                serviceType: serviceData.service_type || 'Sin tipo',
-                                description: serviceData.description || 'Sin descripción',
-                                category: serviceData.category || 'Sin categoría', // Nueva propiedad
-                                quantyPerMonth: serviceData.quantity_per_month || null, // Nueva propiedad
-                                clientName,
-                                clientId: serviceData.client_id,
-                                responsibleId: serviceData.responsible,
-                                responsibleName,
-                                address: clientData?.address || 'Sin dirección',
-                                phone: clientData?.phone || 'Sin teléfono',
-                                color: responsibleData?.color || '#fdd835',
-                                pestToControl: serviceData.pest_to_control,
-                                interventionAreas: serviceData.intervention_areas,
-                                value: serviceData.value,
-                                companion: serviceData.companion,
-                                start,
-                                end,
-                                allDay: false,
-                            };
+
+                        const formattedEvent = {
+                            id: schedule.id,
+                            title: `${serviceData.id}`,
+                            serviceType: serviceData.service_type || 'Sin tipo',
+                            description: serviceData.description || 'Sin descripción',
+                            category: serviceData.category || 'Sin categoría', // Nueva propiedad
+                            quantyPerMonth: serviceData.quantity_per_month || null, // Nueva propiedad
+                            clientName,
+                            clientId: serviceData.client_id,
+                            responsibleId: serviceData.responsible,
+                            responsibleName,
+                            address: clientData?.address || 'Sin dirección',
+                            phone: clientData?.phone || 'Sin teléfono',
+                            color: responsibleData?.color || '#fdd835',
+                            pestToControl: serviceData.pest_to_control,
+                            interventionAreas: serviceData.intervention_areas,
+                            value: serviceData.value,
+                            companion: serviceData.companion,
+                            start,
+                            end,
+                            allDay: false,
+                        };
 
                         console.log(`Color del responsable: `, responsibleData.color)
-    
+
                         console.log('Formatted event:', formattedEvent);
                         return formattedEvent;
-    
+
                     } catch (error) {
                         console.error(`Error processing schedule with service_id: ${schedule.service_id}`, error);
                         return null; // Retorna nulo si falla algo
@@ -241,25 +242,25 @@ const MyServicesCalendar = () => {
             setInspections([]); // Limpia inspecciones anteriores
             fetchInspections(selectedEvent.title); // Carga inspecciones relacionadas con el servicio
         }
-    }, [selectedEvent]);  
+    }, [selectedEvent]);
 
     useEffect(() => {
         fetchUsers(); // Carga los usuarios cuando el componente se monta
     }, []);
-    
+
     const handleShowClientModal = (clientId) => {
         setSelectedClientId(clientId);
         setShowClientModal(true);
-      };
-      
-      const handleCloseClientModal = () => {
+    };
+
+    const handleCloseClientModal = () => {
         setShowClientModal(false);
         setSelectedClientId(null);
-      };
+    };
 
-      const handleEditServiceClick = (serviceId) => {
+    const handleEditServiceClick = (serviceId) => {
         navigate('/myServices', { state: { serviceId } });
-    };    
+    };
 
     // Función para obtener inspecciones asociadas al servicio seleccionado
     const fetchInspections = async (serviceId) => {
@@ -267,16 +268,16 @@ const MyServicesCalendar = () => {
             console.log(`Obteniendo inspecciones para el servicio: ${serviceId}`);
             const response = await fetch(`${process.env.REACT_APP_API_URL}/api/inspections?service_id=${serviceId}`);
             const data = await response.json();
-    
+
             console.log('Inspecciones recibidas del backend:', data);
-    
+
             // Filtrar inspecciones en el frontend (en caso de datos incorrectos)
             const filteredInspections = data.filter(
                 (inspection) => inspection.service_id === serviceId
             );
-    
+
             console.log('Inspecciones filtradas:', filteredInspections);
-    
+
             const formattedInspections = filteredInspections.map((inspection) => ({
                 ...inspection,
                 date: moment(inspection.date).format('DD/MM/YYYY'),
@@ -284,7 +285,7 @@ const MyServicesCalendar = () => {
                 exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm:ss').format('HH:mm') : '--',
                 observations: inspection.observations || 'Sin observaciones',
             }));
-    
+
             setInspections(formattedInspections);
             console.log('Inspecciones formateadas:', formattedInspections);
         } catch (error) {
@@ -301,7 +302,7 @@ const MyServicesCalendar = () => {
         } catch (error) {
             console.error('Error al cargar usuarios:', error);
         }
-    };    
+    };
 
     // Función para guardar inspecciones nuevas
     const handleSaveInspection = async () => {
@@ -317,19 +318,19 @@ const MyServicesCalendar = () => {
             };
             try {
                 const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/inspections`, inspectionData);
-        
+
                 if (response.data.success) {
-                alert("Inspección guardada con éxito");
-                fetchInspections(selectedEvent.title); // Actualiza la tabla
-                setShowAddInspectionModal(false); // Cierra el modal
-        
-                // Redirigir al componente de inspección con el ID
-                navigate(`/inspection/${response.data.inspection.id}`);
+                    alert("Inspección guardada con éxito");
+                    fetchInspections(selectedEvent.title); // Actualiza la tabla
+                    setShowAddInspectionModal(false); // Cierra el modal
+
+                    // Redirigir al componente de inspección con el ID
+                    navigate(`/inspection/${response.data.inspection.id}`);
                 } else {
-                console.error(
-                    "Error: No se pudo guardar la inspección correctamente.",
-                    response.data.message
-                );
+                    console.error(
+                        "Error: No se pudo guardar la inspección correctamente.",
+                        response.data.message
+                    );
                 }
             } catch (error) {
                 console.error("Error saving inspection:", error);
@@ -353,11 +354,11 @@ const MyServicesCalendar = () => {
     const renderEventContent = (eventInfo) => {
         const { serviceType, clientName } = eventInfo.event.extendedProps;
         const { start, end } = eventInfo.event;
-    
+
         const cleanServiceType = serviceType.replace(/[\{\}"]/g, '').replace(/,/g, ', ');
         const startTime = moment(start).format('h:mm A');
         const endTime = moment(end).format('h:mm A');
-    
+
         return (
             <OverlayTrigger
                 placement="top"
@@ -379,7 +380,7 @@ const MyServicesCalendar = () => {
     const handleEventClick = (clickInfo) => {
         const { extendedProps, title, start, end } = clickInfo.event;
         const currentMonth = moment().format('YYYY-MM'); // Mes actual en formato 'YYYY-MM'
-    
+
         // Contar eventos en el mes actual si es periódico
         let scheduledThisMonth = 0;
         if (extendedProps.category === 'Periódico') {
@@ -388,7 +389,7 @@ const MyServicesCalendar = () => {
                 return event.title === clickInfo.event.title && eventMonth === currentMonth;
             }).length;
         }
-    
+
         const eventData = {
             id: clickInfo.event.id,
             title: title,
@@ -412,7 +413,7 @@ const MyServicesCalendar = () => {
         };
         setSelectedEvent(eventData);
         setShowEventModal(true);
-    };    
+    };
 
     const handleTodayClick = () => {
         const calendarApi = calendarRef.current.getApi();
@@ -453,12 +454,12 @@ const MyServicesCalendar = () => {
                             <Button variant="light" className="me-2" onClick={() => calendarRef.current.getApi().next()}>
                                 <ChevronRight />
                             </Button>
-                        <Button variant="outline-dark" className="me-2" onClick={handleTodayClick}>
-                            Hoy
-                        </Button>
-                        <span className="fw-bold ms-3" style={{ fontSize: "1.2rem" }}>
-                            {mesCompNom}
-                        </span>
+                            <Button variant="outline-dark" className="me-2" onClick={handleTodayClick}>
+                                Hoy
+                            </Button>
+                            <span className="fw-bold ms-3" style={{ fontSize: "1.2rem" }}>
+                                {mesCompNom}
+                            </span>
                         </div>
                         <div>
                             <Button
@@ -484,37 +485,37 @@ const MyServicesCalendar = () => {
                         </div>
                     </div>
                     <div className="custom-calendar">
-                    <FullCalendar
-                        ref={calendarRef}
-                        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                        initialView={currentView}
-                        headerToolbar={false}
-                        locale={esLocale}
-                        events={events}
-                        editable={true}
-                        selectable={true}
-                        select={handleDateSelect}
-                        timeZone="local"
-                        height="70vh"
-                        nowIndicator={true}
-                        slotLabelFormat={{ hour: 'numeric', hour12: true, meridiem: 'short' }}
-                        eventContent={renderEventContent}
-                        eventClick={handleEventClick}
-                        dayHeaderContent={({ date }) => {
-                            const utcDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
-                            return (
-                                <div className="day-header">
-                                    <div className="day-name">{utcDate.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
-                                    <div className="day-number font-bold">{utcDate.getDate()}</div>
-                                </div>
-                            );
-                        }}                        
-                        datesSet={handleDatesSet} // 👈 Ejecuta la función cuando cambian las fechas
-                    />
+                        <FullCalendar
+                            ref={calendarRef}
+                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                            initialView={currentView}
+                            headerToolbar={false}
+                            locale={esLocale}
+                            events={events}
+                            editable={true}
+                            selectable={true}
+                            select={handleDateSelect}
+                            timeZone="local"
+                            height="70vh"
+                            nowIndicator={true}
+                            slotLabelFormat={{ hour: 'numeric', hour12: true, meridiem: 'short' }}
+                            eventContent={renderEventContent}
+                            eventClick={handleEventClick}
+                            dayHeaderContent={({ date }) => {
+                                const utcDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+                                return (
+                                    <div className="day-header">
+                                        <div className="day-name">{utcDate.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}</div>
+                                        <div className="day-number font-bold">{utcDate.getDate()}</div>
+                                    </div>
+                                );
+                            }}
+                            datesSet={handleDatesSet} // 👈 Ejecuta la función cuando cambian las fechas
+                        />
                     </div>
                 </div>
             </div>
-            
+
             <Modal show={showEventModal} onHide={() => setShowEventModal(false)} centered size="lg">
                 <Modal.Header closeButton>
                     <Modal.Title className="fw-bold d-flex">
@@ -536,7 +537,7 @@ const MyServicesCalendar = () => {
                                         <p><strong>ID del Servicio:</strong> {selectedEvent.title}</p>
                                         <EyeFill
                                             className='ms-2'
-                                            style={{cursor: "pointer"}}
+                                            style={{ cursor: "pointer" }}
                                             size={22}
                                             onClick={(e) => {
                                                 e.stopPropagation(); // Evita otros eventos
@@ -549,15 +550,15 @@ const MyServicesCalendar = () => {
                                     <div className='p-0 m-0 d-flex'>
                                         <p className="my-1"><strong>Empresa:</strong> {selectedEvent.clientName || "Cliente Desconocido"}</p>
                                         {selectedEvent.clientId && (
-                                        <Building
-                                            className='ms-2 mt-1'
-                                            style={{cursor: "pointer"}}
-                                            size={22}
-                                            onClick={(e) => {
-                                            e.stopPropagation(); // Evita que se activen otros eventos del Card
-                                            handleShowClientModal(selectedEvent.clientId);
-                                            }}
-                                        />
+                                            <Building
+                                                className='ms-2 mt-1'
+                                                style={{ cursor: "pointer" }}
+                                                size={22}
+                                                onClick={(e) => {
+                                                    e.stopPropagation(); // Evita que se activen otros eventos del Card
+                                                    handleShowClientModal(selectedEvent.clientId);
+                                                }}
+                                            />
                                         )}
                                     </div>
                                     <p><strong>Responsable:</strong> {selectedEvent.responsibleName}</p>
@@ -607,10 +608,10 @@ const MyServicesCalendar = () => {
                                     </h5>
                                     <p>
                                         {(() => {
-                                        const pestMatches = selectedEvent.pestToControl.match(/"([^"]+)"/g);
-                                        return pestMatches
-                                            ? pestMatches.map((item) => item.replace(/"/g, "")).join(", ")
-                                            : "No especificado";
+                                            const pestMatches = selectedEvent.pestToControl.match(/"([^"]+)"/g);
+                                            return pestMatches
+                                                ? pestMatches.map((item) => item.replace(/"/g, "")).join(", ")
+                                                : "No especificado";
                                         })()}
                                     </p>
                                 </div>
@@ -622,10 +623,10 @@ const MyServicesCalendar = () => {
                                     </h5>
                                     <p>
                                         {(() => {
-                                        const areasMatches = selectedEvent.interventionAreas.match(/"([^"]+)"/g);
-                                        return areasMatches
-                                            ? areasMatches.map((item) => item.replace(/"/g, "")).join(", ")
-                                            : "No especificado";
+                                            const areasMatches = selectedEvent.interventionAreas.match(/"([^"]+)"/g);
+                                            return areasMatches
+                                                ? areasMatches.map((item) => item.replace(/"/g, "")).join(", ")
+                                                : "No especificado";
                                         })()}
                                     </p>
                                 </div>
@@ -638,29 +639,29 @@ const MyServicesCalendar = () => {
                                 </h5>
                                 {inspections.length > 0 ? (
                                     <div className="custom-table-container">
-                                    <table className="custom-table">
-                                    <thead>
-                                        <tr>
-                                        <th>ID</th>
-                                        <th>Fecha</th>
-                                        <th>Inicio</th>
-                                        <th>Finalización</th>
-                                        <th>Observaciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {inspections.map((inspection) => (
-                                        <tr key={inspection.id} onClick={() => navigate(`/inspection/${inspection.id}`)}>
-                                            <td>{inspection.id}</td>
-                                            <td>{inspection.date}</td>
-                                            <td>{inspection.time}</td>
-                                            <td>{inspection.exit_time}</td>
-                                            <td>{inspection.observations}</td>
-                                        </tr>
-                                        ))}
-                                    </tbody>
-                                    </table>
-                                </div>   
+                                        <table className="custom-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>ID</th>
+                                                    <th>Fecha</th>
+                                                    <th>Inicio</th>
+                                                    <th>Finalización</th>
+                                                    <th>Observaciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {inspections.map((inspection) => (
+                                                    <tr key={inspection.id} onClick={() => navigate(`/inspection/${inspection.id}`)}>
+                                                        <td>{inspection.id}</td>
+                                                        <td>{inspection.date}</td>
+                                                        <td>{inspection.time}</td>
+                                                        <td>{inspection.exit_time}</td>
+                                                        <td>{inspection.observations}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 ) : (
                                     <p>No hay inspecciones registradas para este servicio.</p>
                                 )}
@@ -752,7 +753,7 @@ const MyServicesCalendar = () => {
             />
         </div>
     );
-    
+
 };
 
 export default MyServicesCalendar;

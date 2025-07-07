@@ -9,6 +9,7 @@ import ClientInfoModal from './ClientInfoModal';
 import esLocale from '@fullcalendar/core/locales/es';
 import { Button, Modal, Form, Col, Row, Table } from 'react-bootstrap';
 import { ChevronLeft, ChevronRight, Plus, GearFill, InfoCircle, Bug, GeoAlt, FileText, Clipboard, PlusCircle, PencilSquare, Trash, Building, BuildingFill, EyeFill } from 'react-bootstrap-icons';
+import { getCachedMonth, setCachedMonth } from './indexedDBHandler';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './InspectionCalendar.css';
 import moment from 'moment-timezone';
@@ -16,6 +17,17 @@ import Tooltip from 'react-bootstrap/Tooltip';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import { useNavigate } from 'react-router-dom';
 import { useSocket } from './SocketContext';
+
+const unionById = (a = [], b = []) => {
+    const map = new Map();
+    [...a, ...b].forEach(ev => {
+        const prev = map.get(ev.id);
+        if (!prev) return map.set(ev.id, ev);        // no existía
+        /* si ya existe, actualiza campos que pudieron cambiar */
+        map.set(ev.id, { ...prev, ...ev });
+    });
+    return [...map.values()].sort((x, y) => new Date(x.start) - new Date(y.start));
+};
 
 const InspectionCalendar = () => {
     const [events, setEvents] = useState([]);
@@ -93,8 +105,9 @@ const InspectionCalendar = () => {
     }, [location.search, services]); // Ejecuta el efecto cuando cambie la URL o los servicios
 
     const handleDatesSet = (dateInfo) => {
-        const newMesComp = moment(dateInfo.view.currentStart).format('MM/YYYY'); // Formato MM/YYYY
-        const newMesCompNom = moment(dateInfo.view.currentStart).format('MMMM YYYY'); // Formato "Febrero 2025"
+        const centerDate = moment(dateInfo.view.calendar.getDate());   // 👈 fecha de referencia real
+        const newMesComp = centerDate.format('MM/YYYY');
+        const newMesCompNom = centerDate.format('MMMM YYYY');
 
         if (mesComp !== newMesComp) {
             console.log(`🔄 Cambio de mes detectado: ${mesComp} → ${newMesComp}`);
@@ -110,38 +123,112 @@ const InspectionCalendar = () => {
     }, [showEventModal, selectedEvent]);
 
     useEffect(() => {
-        if (socket) {
-            socket.on("newEvent", (newEvent) => {
-                console.log("Nuevo evento recibido:", newEvent);
-
-                // Formatea el nuevo evento si es necesario
-                const formattedEvent = {
-                    ...newEvent,
-                    start: newEvent.start,
-                    end: newEvent.end,
-                    color: newEvent.color || '#007bff',
-                };
-
-                setEvents((prevEvents) => [...prevEvents, formattedEvent]);
+        if (!socket) return;
+        const handler = newEvent => {
+            const ev = { ...newEvent, start: newEvent.start, end: newEvent.end };
+            setAllEvents(prev => {
+                const merged = unionById(prev, [ev]);
+                setEvents(selectedUsers.length ?
+                    merged.filter(e => e.responsibleId.some(id => selectedUsers.includes(id))) :
+                    merged);
+                setCachedMonth(moment(ev.start).format('MM/YYYY'), merged); // mantiene coherencia x-mes
+                return merged;
             });
-        }
-
-        // Limpieza al desmontar
-        return () => {
-            if (socket) {
-                socket.off("newEvent");
-            }
         };
-    }, [socket]);
+        socket.on('newEvent', handler);
+        return () => socket.off('newEvent', handler);
+    }, [socket, selectedUsers]);
+
 
     useEffect(() => {
-        const fetchData = async () => {
-            await fetchScheduleAndServices();
-            await fetchServices(); // Carga todos los servicios
-            await fetchUsers();
-        };
-        fetchData();
-    }, [mesComp]);  // 🔥 Se ejecuta cada vez que `mesComp` cambie    
+        let abort = false;
+
+        (async () => {
+            /* 1️⃣  Lee lo que haya en caché ⇒ pinta inmediatamente */
+            const cached = await getCachedMonth(mesComp);
+            if (cached && !abort) {
+                setAllEvents(prev => {
+                    const merged = unionById(prev, cached);
+                    setEvents(selectedUsers.length ?                    // respeta filtros
+                        merged.filter(ev => ev.responsibleId.some(id => selectedUsers.includes(id))) :
+                        merged);
+                    return merged;
+                });
+            }
+
+            /* 2️⃣  Siempre refresca contra backend (modo silencioso si ya hay caché) */
+            setIsLoading(!cached);                                 // spinner sólo si no había nada
+            try {
+                const res = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule?month=${mesComp}`);
+                if (!res.ok) throw new Error('Schedule fetch error');
+                const schedules = await res.json();
+
+                /* ——— convierte schedule→event (igual que antes, sin setState dentro del bucle) ——— */
+                const monthEvents = [];
+                for (const s of schedules) {
+                    if (abort) return;
+
+                    /* 1. Obtener el servicio, cliente y responsable tal como hacías antes */
+                    const svcRes = await fetch(`${process.env.REACT_APP_API_URL}/api/services/${s.service_id}`);
+                    const svc = await svcRes.json();
+                    const client = svc.client_id ? await (await fetch(`${process.env.REACT_APP_API_URL}/api/clients/${svc.client_id}`)).json() : null;
+                    const respUser = svc.responsible ? await (await fetch(`${process.env.REACT_APP_API_URL}/api/users/${svc.responsible}`)).json() : null;
+
+                    /* 2.- Armar el objeto evento (usa otro nombre, p. ej. evt, para no chocar con el global event) */
+                    const evt = {
+                        id: s.id,
+                        service_id: s.service_id,
+                        title: svc.id,
+                        start: moment(`${s.date.split('T')[0]}T${s.start_time}`).toISOString(),
+                        end: s.end_time ? moment(`${s.date.split('T')[0]}T${s.end_time}`).toISOString() : null,
+                        serviceType: svc.service_type || 'Sin tipo',
+                        description: svc.description || 'Sin descripción',
+                        category: svc.category || 'Sin categoría',
+                        quantyPerMonth: svc.quantity_per_month || null,
+                        clientName: client?.name || 'Sin empresa',
+                        clientId: svc.client_id,
+                        responsibleId: [
+                            svc.responsible,
+                            ...(svc.companion ? svc.companion.replace(/[\{\}"]/g, '').split(',') : []),
+                        ],
+                        responsibleName: respUser ? `${respUser.name} ${respUser.lastname ?? ''}`.trim() : 'Sin responsable',
+                        address: client?.address || 'Sin dirección',
+                        phone: client?.phone || 'Sin teléfono',
+                        color: respUser?.color || '#fdd835',
+                        backgroundColor: respUser?.color || '#fdd835',
+                        pestToControl: svc.pest_to_control,
+                        interventionAreas: svc.intervention_areas,
+                        value: svc.value,
+                        companion: svc.companion,
+                        allDay: false,
+                    };
+
+                    /* 3.- Guarda el evento en el array temporal del mes */
+                    monthEvents.push(evt);   // ← ahora sí existe
+                }
+
+                if (!abort) {
+                    /* 2.1  fusiona con el estado global (ya incluye meses anteriores) */
+                    setAllEvents(prev => {
+                        const merged = unionById(prev, monthEvents);
+                        setEvents(selectedUsers.length ?
+                            merged.filter(ev => ev.responsibleId.some(id => selectedUsers.includes(id))) :
+                            merged);
+                        return merged;
+                    });
+
+                    /* 2.2  guarda caché del mes y la caché global opcional */
+                    await setCachedMonth(mesComp, monthEvents);
+                }
+            } catch (err) {
+                console.error('fetchScheduleAndServices:', err);
+            } finally {
+                !abort && setIsLoading(false);
+            }
+        })();
+
+        return () => { abort = true; };
+    }, [mesComp, selectedUsers]);
 
     // Efecto para filtrar eventos al cambiar los usuarios seleccionados
     useEffect(() => {
@@ -165,6 +252,22 @@ const InspectionCalendar = () => {
         }
     };
 
+    const mergeEvents = (prev, newOnes) => {
+        const byId = new Map(prev.map(e => [e.id, e])); // índice rápido
+
+        // 1️⃣  actualiza / agrega
+        newOnes.forEach(ev => byId.set(ev.id, { ...(byId.get(ev.id) || {}), ...ev }));
+
+        // 2️⃣  detecta eliminados -> el backend sólo trae lo que existe este mes
+        const idsFromServer = new Set(newOnes.map(e => e.id));
+        prev.forEach(ev => {
+            const sameMonth = moment(ev.start).format('MM/YYYY') === mesComp;
+            if (sameMonth && !idsFromServer.has(ev.id)) byId.delete(ev.id); // fue borrado
+        });
+
+        return Array.from(byId.values())
+            .sort((a, b) => new Date(b.start) - new Date(a.start));
+    };
 
     const filterEvents = (updatedAllEvents = allEvents) => {
         const filteredEvents = selectedUsers.length
@@ -255,6 +358,13 @@ const InspectionCalendar = () => {
 
         validateServiceAndSchedule();
     }, [selectedService, schedules, allEvents, services]);
+
+    useEffect(() => {
+        (async () => {
+            await fetchServices(); // catálogo completo
+            await fetchUsers();    // lista de operarios
+        })();
+    }, []);                    // ← sin dependencias
 
     const fetchUsers = async () => {
         try {
@@ -467,29 +577,39 @@ const InspectionCalendar = () => {
     const handleEventResize = async (info) => {
         const { event } = info;
 
+        /* 1.  Recupera el service_id: lo guardas en el título */
+        const serviceId = event.title;          //  e.g. "S-030725-01"
+        if (!serviceId) {
+            console.error('resize: evento sin service_id', event);
+            info.revert();
+            return;
+        }
+
+        /* 2.  Payload completo para el backend */
         const updatedEvent = {
-            id: event.id,
+            service_id: serviceId,
             date: moment(event.start).format('YYYY-MM-DD'),
             start_time: moment(event.start).format('HH:mm'),
             end_time: event.end ? moment(event.end).format('HH:mm') : null,
         };
 
         try {
-            // Actualiza el evento en el backend
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule/${event.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedEvent),
-            });
+            const response = await fetch(
+                `${process.env.REACT_APP_API_URL}/api/service-schedule/${event.id}`,
+                {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedEvent),
+                }
+            );
 
             if (!response.ok) throw new Error('Error actualizando el evento');
             const updatedData = await response.json();
+            console.log('Resize → backend OK:', updatedData);
 
-            console.log('Evento actualizado en el backend:', updatedData);
-
-            // Actualiza el estado del evento en el frontend
-            setAllEvents((prevEvents) =>
-                prevEvents.map((evt) =>
+            /* 3.  Actualiza estado local */
+            setAllEvents((prev) =>
+                prev.map((evt) =>
                     evt.id === event.id
                         ? {
                             ...evt,
@@ -499,9 +619,9 @@ const InspectionCalendar = () => {
                         : evt
                 )
             );
-        } catch (error) {
-            console.error('Error al redimensionar el evento:', error);
-            info.revert(); // Revierte el cambio si falla la actualización
+        } catch (err) {
+            console.error('Error al redimensionar:', err);
+            info.revert();            // ⇐ revierte visualmente
         }
     };
 
@@ -631,115 +751,137 @@ const InspectionCalendar = () => {
         setNewInspection({ inspection_type: [], inspection_sub_type: '' });
     };
 
-    const fetchScheduleAndServices = async () => {
+    const fetchScheduleAndServices = async (
+        { refresh = true, abortFn = () => false, silent = false } = {}
+    ) => {
         try {
-            setIsLoading(true); // Activar el spinner antes de la carga
-            console.log(`Fetching schedule and services for: ${mesComp}`);
+            if (!silent) setIsLoading(true);
 
-            const scheduleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule?month=${mesComp}`);
-            if (!scheduleResponse.ok) throw new Error('Failed to fetch schedule');
-            const scheduleData = await scheduleResponse.json();
+            /* ──────────────────────────────────────────────── 1. CACHE ───── */
+            const cached = await getCachedMonth(mesComp);
+            if (cached && !abortFn()) {
+                setAllEvents(cached);
+                setEvents(cached);                 // seguirá filtrándose por usuario
+                if (!refresh) setIsLoading(false); // la UI ya muestra algo útil
+            }
 
-            console.log('Schedule data received:', scheduleData);
+            /* ───────────────────────────────────────────── 2. BACKEND ────── */
+            if (!cached || refresh) {
+                const resp = await fetch(
+                    `${process.env.REACT_APP_API_URL}/api/service-schedule?month=${mesComp}`
+                );
+                if (!resp.ok) throw new Error('Schedule fetch error');
+                const scheduleData = await resp.json();
 
-            const formattedEvents = await Promise.all(
-                scheduleData.map(async (schedule) => {
+                // Limpia estados para repintar progresivamente
+                if (!abortFn()) {
+                    setAllEvents(prev => {
+                        const merged = mergeEvents(prev, monthEvents);
+                        filterEvents(merged);
+                        return merged;
+                    });
+                }
+
+                const monthEvents = [];
+
+                /* ↓↓↓ procesa UNO A UNO para que el usuario vea cómo se llena ↓↓↓ */
+                for (const schedule of scheduleData) {
+                    if (abortFn()) return; // si cambia de mes, aborta la carga
+
                     try {
-                        // 🟢 Buscar información del servicio asociado al evento
-                        const serviceResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/services/${schedule.service_id}`);
-                        if (!serviceResponse.ok) throw new Error(`Failed to fetch service for ID: ${schedule.service_id}`);
-                        const serviceData = await serviceResponse.json();
+                        /* ───── 2.1 SERVICE ───────────────────────── */
+                        const svcRes = await fetch(
+                            `${process.env.REACT_APP_API_URL}/api/services/${schedule.service_id}`
+                        );
+                        if (!svcRes.ok) throw new Error('service fetch fail');
+                        const svc = await svcRes.json();
 
-                        // 🟢 Obtener datos del cliente
-                        let clientName = 'Sin empresa';
-                        let clientData = null;
-                        if (serviceData.client_id) {
-                            try {
-                                const clientResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/clients/${serviceData.client_id}`);
-                                if (clientResponse.ok) {
-                                    clientData = await clientResponse.json();
-                                    clientName = clientData.name || 'Sin nombre';
-                                }
-                            } catch (error) {
-                                console.error(`Error fetching client for ID: ${serviceData.client_id}`, error);
-                            }
+                        /* ───── 2.2 CLIENTE (opcional) ────────────── */
+                        let client = null;
+                        if (svc.client_id) {
+                            const r = await fetch(
+                                `${process.env.REACT_APP_API_URL}/api/clients/${svc.client_id}`
+                            );
+                            client = r.ok ? await r.json() : null;
                         }
 
-                        // 🟢 Obtener datos del responsable
-                        let responsibleName = 'Sin responsable';
-                        let responsibleData = null;
-                        if (serviceData.responsible) {
-                            try {
-                                const responsibleResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${serviceData.responsible}`);
-                                if (responsibleResponse.ok) {
-                                    responsibleData = await responsibleResponse.json();
-                                    responsibleName = `${responsibleData.name || 'Sin nombre'} ${responsibleData.lastname || ''}`.trim();
-                                }
-                            } catch (error) {
-                                console.error(`Error fetching responsible for ID: ${serviceData.responsible}`, error);
-                            }
+                        /* ───── 2.3 RESPONSABLE (opcional) ────────── */
+                        let respUser = null;
+                        if (svc.responsible) {
+                            const r = await fetch(
+                                `${process.env.REACT_APP_API_URL}/api/users/${svc.responsible}`
+                            );
+                            respUser = r.ok ? await r.json() : null;
                         }
 
-                        // 🟢 Formatear fechas y datos del evento
-                        const start = moment(`${schedule.date.split('T')[0]}T${schedule.start_time}`).toISOString();
+                        /* ───── 2.4 FORMATEO FINAL ────────────────── */
+                        const start = moment(
+                            `${schedule.date.split('T')[0]}T${schedule.start_time}`
+                        ).toISOString();
                         const end = schedule.end_time
                             ? moment(`${schedule.date.split('T')[0]}T${schedule.end_time}`).toISOString()
                             : null;
 
-                        const formattedEvent = {
+                        const event = {
                             id: schedule.id,
                             service_id: schedule.service_id,
-                            title: `${serviceData.id}`,
-                            serviceType: serviceData.service_type || 'Sin tipo',
-                            description: serviceData.description || 'Sin descripción',
-                            category: serviceData.category || 'Sin categoría',
-                            quantyPerMonth: serviceData.quantity_per_month || null,
-                            clientName,
-                            clientId: serviceData.client_id,
-                            responsibleId: [serviceData.responsible, ...(serviceData.companion ? serviceData.companion.replace(/[\{\}"]/g, '').split(',') : [])],
-                            responsibleName,
-                            address: clientData?.address || 'Sin dirección',
-                            phone: clientData?.phone || 'Sin teléfono',
-                            color: responsibleData?.color || '#fdd835',
-                            backgroundColor: responsibleData?.color,
-                            pestToControl: serviceData.pest_to_control,
-                            interventionAreas: serviceData.intervention_areas,
-                            value: serviceData.value,
-                            companion: serviceData.companion,
+                            title: svc.id,
+                            /* ---- extendedProps ---- */
+                            serviceType: svc.service_type || 'Sin tipo',
+                            description: svc.description || 'Sin descripción',
+                            category: svc.category || 'Sin categoría',
+                            quantyPerMonth: svc.quantity_per_month || null,
+                            clientName: client?.name ?? 'Sin empresa',
+                            clientId: svc.client_id,
+                            responsibleId: [
+                                svc.responsible,
+                                ...(svc.companion
+                                    ? svc.companion.replace(/[\{\}"]/g, '').split(',')
+                                    : []),
+                            ],
+                            responsibleName: respUser
+                                ? `${respUser.name} ${respUser.lastname ?? ''}`.trim()
+                                : 'Sin responsable',
+                            address: client?.address ?? 'Sin dirección',
+                            phone: client?.phone ?? 'Sin teléfono',
+                            color: respUser?.color ?? '#fdd835',
+                            backgroundColor: respUser?.color,
+                            pestToControl: svc.pest_to_control,
+                            interventionAreas: svc.intervention_areas,
+                            value: svc.value,
+                            companion: svc.companion,
+                            /* ---- fechas ---- */
                             start,
                             end,
                             allDay: false,
                         };
 
-                        return formattedEvent;
-                    } catch (error) {
-                        console.error(`Error processing schedule with service_id: ${schedule.service_id}`, error);
-                        return null;
+                        /* Evita duplicados rápidos */
+                        const dup = monthEvents.some(
+                            (e) => e.service_id === event.service_id &&
+                                e.start === event.start &&
+                                e.end === event.end
+                        );
+                        if (dup) continue;
+
+                        monthEvents.push(event);
+
+                        /* Pinta inmediatamente */
+                        setAllEvents(prev => mergeEvents(prev, [event]));
+                        setEvents(prev => mergeEvents(prev, [event]));
+                    } catch (err) {
+                        console.error(`Error schedule_id ${schedule.id}`, err);
                     }
-                })
-            );
+                } // ← for
 
-            // 🔥 Filtrar eventos nulos
-            const validEvents = formattedEvents.filter(event => event !== null);
-
-            // 🚀 Evitar duplicados antes de actualizar el estado
-            const uniqueEvents = validEvents.filter((event, index, self) =>
-                index === self.findIndex((e) =>
-                    e.service_id === event.service_id &&
-                    e.start === event.start &&
-                    e.end === event.end
-                )
-            );
-
-            setAllEvents(uniqueEvents);
-            setEvents(uniqueEvents);
-
-            console.log("Eventos final procesados sin duplicados:", uniqueEvents);
-            setIsLoading(false); // Desactivar el spinner después de cargar los datos
-        } catch (error) {
-            console.error('Error loading schedule and services:', error);
+                /* ─────────────────────────────────────── 2.5 GUARDA CACHE ──── */
+                if (!abortFn()) await setCachedMonth(mesComp, monthEvents);          // caché del mes
+                setCachedMonth('ALL', mergeEvents(allEvents, monthEvents));
+            }
+        } catch (err) {
+            console.error('fetchScheduleAndServices:', err);
         } finally {
-            setIsLoading(false); // Desactivar el spinner incluso si hay un error
+            if (!abortFn() && !silent) setIsLoading(false);
         }
     };
 
@@ -1116,17 +1258,99 @@ const InspectionCalendar = () => {
             console.log('Eventos finales a programar:', uniqueEvents);
 
             // Enviar eventos al backend
-            for (const event of uniqueEvents) {
+            // Guarda cada cita en el backend y recoge el id real
+            /* ──────────── 1.  Grabar en backend y recoger el ID real ──────────── */
+            const savedEvents = [];
+
+            for (const payload of uniqueEvents) {
                 try {
-                    await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(event),
-                    });
+                    const res = await fetch(
+                        `${process.env.REACT_APP_API_URL}/api/service-schedule`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload),
+                        }
+                    );
+                    if (!res.ok) throw new Error('Error programando el evento');
+
+                    const saved = await res.json();      //  ←  tu API responde { success,…, data:{id,…} }
+
+                    /* ▸  Extrae el id sin riesgo de undefined  */
+                    const realId =
+                        saved.data?.id ??          //  forma que usa tu backend
+                        saved.id ??                //  fallback por si cambia en otro endpoint
+                        saved.schedule?.id ??      //  otro posible formato
+                        `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;  //  último recurso
+
+                    savedEvents.push({ ...payload, id: String(realId) });  // FullCalendar prefiere string
                 } catch (error) {
-                    console.error(`Error programando el evento en ${event.date}:`, error);
+                    console.error(`Error programando el evento en ${payload.date}:`, error);
                 }
             }
+
+            /* ──────────── 2.  Construir el objeto EXACTO que usa FullCalendar ──────────── */
+            const freshlyCreated = savedEvents.map((ev) => {
+                const svc = services.find((s) => s.id === ev.service_id) || {};
+
+                /* responsables (titular + acompañantes) */
+                const responsibleIds = [
+                    svc.responsible,
+                    ...(svc.companion
+                        ? svc.companion.replace(/[\{\}"]/g, '').split(',')
+                        : []),
+                ].filter(Boolean);
+
+                const respUser = users.find((u) => u.id === svc.responsible) || {};
+
+                return {
+                    /*  ⚠️  FullCalendar necesita la clave **id** (no eventId)  */
+                    id: ev.id,
+
+                    service_id: ev.service_id,
+                    title: `${ev.service_id}`,
+
+                    start: moment(`${ev.date}T${ev.start_time}`).toISOString(),
+                    end: moment(`${ev.date}T${ev.end_time}`).toISOString(),
+
+                    /* ─ extendedProps ─ */
+                    serviceType: svc.service_type || 'Sin tipo',
+                    description: svc.description || 'Sin descripción',
+                    category: svc.category || 'Sin categoría',
+                    quantyPerMonth: svc.quantity_per_month || null,
+                    clientName: svc.clientName || 'Sin empresa',   // agregado en fetchServices
+                    clientId: svc.client_id,
+                    responsibleId: responsibleIds,
+                    responsibleName:
+                        `${respUser.name || 'Sin'} ${respUser.lastname || ''}`.trim(),
+                    address: svc.address || 'Sin dirección',
+                    phone: svc.phone || 'Sin teléfono',
+                    color: respUser.color || '#fdd835',
+                    backgroundColor: respUser.color || '#fdd835',
+                    pestToControl: svc.pest_to_control,
+                    interventionAreas: svc.intervention_areas,
+                    value: svc.value,
+                    companion: svc.companion,
+
+                    allDay: false,
+                };
+            });
+
+            //---------------------------------------------------------------
+            // 2. Actualiza estados y respeta filtros por usuario
+            //---------------------------------------------------------------
+            setAllEvents(prev => {
+                const updated = [...freshlyCreated, ...prev]      // ⬅ nuevo va primero
+                    .filter(                                      // quita duplicados
+                        (e, i, self) =>
+                            i === self.findIndex(x => x.id === e.id)
+                    )
+                    .sort((a, b) => new Date(b.start) - new Date(a.start)); // opcional: más reciente arriba
+
+                filterEvents(updated);            // respeta usuarios seleccionados
+                setCachedMonth(mesComp, updated); // ① sincroniza IndexedDB
+                return updated;
+            });
 
             alert('Eventos agendados con éxito.');
             handleScheduleModalClose();

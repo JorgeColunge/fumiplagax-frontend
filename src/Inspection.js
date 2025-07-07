@@ -10,6 +10,7 @@ import "./Inspection.css";
 import { ArrowDownSquare, ArrowUpSquare, Eye, FileEarmarkArrowDown, FileEarmarkPlus, EnvelopePaper, Whatsapp, Radioactive, FileEarmarkExcel, FileEarmarkImage, FileEarmarkPdf, FileEarmarkWord, PencilSquare, QrCodeScan, XCircle } from 'react-bootstrap-icons';
 import { useUnsavedChanges } from './UnsavedChangesContext'
 import QrScannerComponent from './QrScannerComponent';
+import { compressImage } from './imageHelpers';
 import moment from 'moment';
 import { useSocket } from './SocketContext';
 import { isMobile } from "react-device-detect";
@@ -110,10 +111,10 @@ function Inspection() {
   useEffect(() => {
     if (socket) {
       socket.on("inspection_synced", ({ oldId, newId }) => {
-        console.log(`🔄 La inspección ${oldId} ha sido actualizada a ${newId}`);
+        //console.log(`🔄 La inspección ${oldId} ha sido actualizada a ${newId}`);
 
         if (inspectionId === oldId) {
-          console.log(`✅ Actualizando ID de la inspección actual: ${oldId} → ${newId}`);
+          //console.log(`✅ Actualizando ID de la inspección actual: ${oldId} → ${newId}`);
 
           // Actualizamos la URL sin recargar la página
           navigate(`/inspection/${newId}`, { replace: true });
@@ -196,17 +197,17 @@ function Inspection() {
   const handleConvertToPdf = async () => {
     setLoadingConvertToPdf(true); // Mostrar spinner
     try {
-      console.log("Enviando solicitud para convertir a PDF...");
+      //console.log("Enviando solicitud para convertir a PDF...");
       const response = await api.post("/convert-to-pdf", {
         generatedDocumentId: selectedDocForPdf.id,
       });
 
-      console.log("Respuesta recibida del backend:", response.data);
+      //console.log("Respuesta recibida del backend:", response.data);
 
       if (response.data.success) {
-        console.log("Conversión exitosa. Datos del nuevo documento:", response.data.newDocument);
+        //console.log("Conversión exitosa. Datos del nuevo documento:", response.data.newDocument);
         setConvertToPdfModalOpen(false);
-        console.log("Actualizando lista de documentos...");
+        //console.log("Actualizando lista de documentos...");
         await fetchDocuments();
       } else {
         console.error("Error en la conversión del documento:", response.data.message);
@@ -264,22 +265,22 @@ function Inspection() {
   const handleEditGoogleDrive = async () => {
     setLoadingGoogleDrive(true); // Mostrar el spinner
     try {
-      console.log("Iniciando pre-firmado del documento:", selectedDocument);
+      //console.log("Iniciando pre-firmado del documento:", selectedDocument);
 
       const response = await api.post("/PrefirmarArchivos", { url: selectedDocument.document_url });
-      console.log("Respuesta de pre-firmado:", response.data);
+      //console.log("Respuesta de pre-firmado:", response.data);
 
       if (response.data.signedUrl) {
         const preSignedUrl = response.data.signedUrl;
-        console.log("URL prefirmada obtenida:", preSignedUrl);
+        //console.log("URL prefirmada obtenida:", preSignedUrl);
 
-        console.log("Enviando solicitud para editar en Google Drive...");
+        //console.log("Enviando solicitud para editar en Google Drive...");
         const googleDriveResponse = await api.post("/edit-googledrive", { s3Url: preSignedUrl });
-        console.log("Respuesta de edición en Google Drive:", googleDriveResponse.data);
+        //console.log("Respuesta de edición en Google Drive:", googleDriveResponse.data);
 
         if (googleDriveResponse.data.success && googleDriveResponse.data.fileId) {
           const googleDriveEditUrl = `https://docs.google.com/document/d/${googleDriveResponse.data.fileId}/edit`;
-          console.log("URL de edición en Google Drive:", googleDriveEditUrl);
+          //console.log("URL de edición en Google Drive:", googleDriveEditUrl);
 
           // Abrir Google Drive en una nueva pestaña
           window.open(googleDriveEditUrl, "_blank", "noopener,noreferrer");
@@ -293,7 +294,7 @@ function Inspection() {
             google_drive_id: googleDriveResponse.data.fileId,
           };
 
-          console.log("Información del documento que se pasa al componente:", documentInfo);
+          //console.log("Información del documento que se pasa al componente:", documentInfo);
 
           navigate("/edit-google-drive", {
             state: {
@@ -331,7 +332,7 @@ function Inspection() {
     setDocumentModalOpen(false);
   };
 
-  console.log("user rol", userRol);
+  //console.log("user rol", userRol);
 
   const showNotification = (message) => {
     setNotification({ show: true, message });
@@ -395,9 +396,9 @@ function Inspection() {
   useEffect(() => {
     const preSignUrl = async (url) => {
       try {
-        console.log(`Intentando pre-firmar la URL: ${url}`); // Log de inicio
+        //console.log(`Intentando pre-firmar la URL: ${url}`); // Log de inicio
         const response = await api.post('/PrefirmarArchivos', { url });
-        console.log(`URL pre-firmada con éxito: ${response.data.signedUrl}`); // Log de éxito
+        //console.log(`URL pre-firmada con éxito: ${response.data.signedUrl}`); // Log de éxito
         return response.data.signedUrl;
       } catch (error) {
         console.error(`Error al pre-firmar la URL: ${url}`, error); // Log de error
@@ -407,12 +408,12 @@ function Inspection() {
 
     const fetchInspectionData = async () => {
       try {
-        console.log('🔍 Verificando modo de conexión...');
+        //console.log('🔍 Verificando modo de conexión...');
 
         let inspectionData;
 
         if (isOffline()) {
-          console.log('📴 Modo offline activado. Consultando IndexedDB...');
+          //console.log('📴 Modo offline activado. Consultando IndexedDB...');
           inspectionData = await getInspectionById(inspectionId);
 
           if (!inspectionData) {
@@ -420,22 +421,22 @@ function Inspection() {
             return setLoading(false);
           }
 
-          console.log('✅ Inspección cargada desde IndexedDB:', inspectionData);
+          //console.log('✅ Inspección cargada desde IndexedDB:', inspectionData);
 
           // 🔥 Convertir `inspection_type` de array a string separado por comas
           if (Array.isArray(inspectionData.inspection_type)) {
             inspectionData.inspection_type = inspectionData.inspection_type.join(", ");
           }
         } else {
-          console.log('🌐 Modo online. Consultando API...');
+          //console.log('🌐 Modo online. Consultando API...');
           const response = await api.get(`${process.env.REACT_APP_API_URL}/api/inspections/${inspectionId}`);
           inspectionData = response.data;
 
-          console.log('✅ Inspección obtenida desde API:', inspectionData);
+          //console.log('✅ Inspección obtenida desde API:', inspectionData);
 
           // Guardar en IndexedDB para acceso offline en el futuro
           await saveInspections({ [inspectionData.service_id]: [inspectionData] });
-          console.log('📥 Inspección almacenada en IndexedDB.');
+          //console.log('📥 Inspección almacenada en IndexedDB.');
         }
 
         setInspectionData(inspectionData);
@@ -550,7 +551,7 @@ function Inspection() {
               setClientData(client);                  // <– info básica del cliente
 
               stationsArr = await getStationsByClient(clientId);
-              console.log(`📂 ${stationsArr.length} estaciones offline cargadas`);
+              //console.log(`📂 ${stationsArr.length} estaciones offline cargadas`);
             }
           } else {
             /* 🌐 ONLINE: peticiones a la API + cache local */
@@ -563,26 +564,30 @@ function Inspection() {
             const { data: client } = await api.get(`${process.env.REACT_APP_API_URL}/api/clients/${clientId}`);
             setClientData(client);
 
-            const { data: stations } = await api.get(
-              `${process.env.REACT_APP_API_URL}/api/stations/client/${clientId}`
-            );
-            stationsArr = stations;
+            try {
+              const { data: stations } = await api.get(
+                `${process.env.REACT_APP_API_URL}/api/stations/client/${clientId}`
+              );
+              stationsArr = stations;         // puede venir vacío
+              await saveStations(clientId, stationsArr);
+            } catch (err) {
+              // Cualquier fallo (404, 500, timeout…) → sin estaciones
+              stationsArr = [];
+              console.warn('Cliente sin estaciones o error al consultarlas:', err?.response?.status);
+            }
 
-            /* guarda las estaciones para uso offline futuro */
-            await saveStations(clientId, stationsArr);
+            setStations(stationsArr);
           }
-
-          setStations(stationsArr);
         }
 
         // Cargar productos disponibles
         try {
           if (isOffline()) {
-            console.log('📴 Offline: leyendo productos desde IndexedDB...');
+            //console.log('📴 Offline: leyendo productos desde IndexedDB...');
             const offlineProducts = await getProducts();
             setAvailableProducts(offlineProducts);
           } else {
-            console.log('🌐 Online: descargando productos...');
+            //console.log('🌐 Online: descargando productos...');
             const { data: productsFromServer } = await api.get(`${process.env.REACT_APP_API_URL}/api/products`);
             setAvailableProducts(productsFromServer);
 
@@ -595,7 +600,7 @@ function Inspection() {
         }
 
         setLoading(false);
-        console.log('✅ Carga de datos de inspección completada.');
+        //console.log('✅ Carga de datos de inspección completada.');
       } catch (error) {
         console.error('❌ Error al cargar los datos de inspección:', error);
         setLoading(false);
@@ -622,12 +627,12 @@ function Inspection() {
   useEffect(() => {
     const fetchProcedures = async () => {
       try {
-        console.log('📄 Consultando procedimientos desde el backend...');
+        //console.log('📄 Consultando procedimientos desde el backend...');
 
         const response = await api.get(`${process.env.REACT_APP_API_URL}/api/procedures`);
         const procedures = response.data;
 
-        console.log('✅ Procedimientos cargados:', procedures);
+        //console.log('✅ Procedimientos cargados:', procedures);
         setProcedures(procedures); // Asegúrate de tener este estado definido con `useState`
       } catch (error) {
         console.error('❌ Error al consultar los procedimientos:', error);
@@ -649,15 +654,15 @@ function Inspection() {
   };
 
   const handleQrScan = (scannedValue) => {
-    console.log("Valor recibido del escáner QR:", scannedValue);
+    //console.log("Valor recibido del escáner QR:", scannedValue);
     const normalizedValue = scannedValue.toLowerCase();
 
     if (currentQrStationType === "Desratización") {
       setSearchTermDesratizacion(normalizedValue);
-      console.log("Estado de búsqueda actualizado (Desratización):", normalizedValue);
+      //console.log("Estado de búsqueda actualizado (Desratización):", normalizedValue);
     } else if (currentQrStationType === "Desinsectación") {
       setSearchTermDesinsectacion(normalizedValue);
-      console.log("Estado de búsqueda actualizado (Desinsectación):", normalizedValue);
+      //console.log("Estado de búsqueda actualizado (Desinsectación):", normalizedValue);
     }
 
     setQrScannerOpen(false); // Cierra el modal
@@ -709,7 +714,7 @@ function Inspection() {
       ),
     };
 
-    console.log('Cambios detectados:', changes);
+    //console.log('Cambios detectados:', changes);
     return Object.values(changes).some((change) => change); // Retorna true si hay algún cambio
   };
 
@@ -956,20 +961,21 @@ function Inspection() {
     });
   };
 
-  const handleFindingPhotoChange = (type, index, file) => {
+  const handleFindingPhotoChange = async (type, index, file) => {
     if (!file || !file.type.startsWith('image/')) {
       showNotification('Seleccione un archivo válido de tipo imagen.');
       return;
     }
 
-    const photoURL = URL.createObjectURL(file);
+    const compressed = await compressImage(file);
+    const photoURL = URL.createObjectURL(compressed);
 
     setFindingsByType((prevFindings) => {
       const updatedFindings = [...prevFindings[type]];
       updatedFindings[index] = {
         ...updatedFindings[index],
         photo: photoURL, // Nueva URL para previsualización
-        photoBlob: file, // Nuevo archivo seleccionado
+        photoBlob: compressed, // Nuevo archivo seleccionado
       };
       // Marcar cambios detectados
       setHasUnsavedChanges(true);
@@ -1192,14 +1198,14 @@ function Inspection() {
       // Marcar cambios detectados
       setHasUnsavedChanges(true);
       setUnsavedRoute(location.pathname);
-      console.log(`Hallazgo para estación id asignado: ${updatedFinding.id}`);
+      //console.log(`Hallazgo para estación id asignado: ${updatedFinding.id}`);
       return updatedFinding; // Retornar el nuevo estado
     });
   };
 
 
 
-  const handleStationFindingPhotoChange = (file) => {
+  const handleStationFindingPhotoChange = async (file) => {
     if (!file || !file.type.startsWith('image/')) {
       console.error('No se seleccionó un archivo válido o no es una imagen.');
       showNotification('Seleccione un archivo válido de tipo imagen.');
@@ -1207,7 +1213,8 @@ function Inspection() {
     }
 
     // Crear una URL temporal para la previsualización
-    const photoURL = URL.createObjectURL(file);
+    const compressed = await compressImage(file);
+    const photoURL = URL.createObjectURL(compressed);
 
     setStationFinding((prevFinding) => {
       // Liberar la URL anterior si existía
@@ -1218,7 +1225,7 @@ function Inspection() {
       return {
         ...prevFinding,
         photo: photoURL, // Nueva URL para previsualización
-        photoBlob: file, // Nuevo archivo seleccionado (Blob)
+        photoBlob: compressed, // Nuevo archivo seleccionado (Blob)
       };
     });
 
@@ -1226,7 +1233,7 @@ function Inspection() {
     setHasUnsavedChanges(true);
     setUnsavedRoute(location.pathname);
 
-    console.log('Nueva imagen seleccionada:', file);
+    //console.log('Nueva imagen seleccionada:', file);
   };
 
   const handleSaveStationFinding = () => {
@@ -1313,25 +1320,26 @@ function Inspection() {
       // Marcar cambios detectados
       setHasUnsavedChanges(true);
       setUnsavedRoute(location.pathname);
-      console.log(`Hallazgo de desinsectación id asignado: ${updatedFinding.id}`);
+      //console.log(`Hallazgo de desinsectación id asignado: ${updatedFinding.id}`);
       return updatedFinding; // Retornar el estado actualizado
     });
   };
 
 
-  const handleStationFindingPhotoChangeDesinsectacion = (file) => {
+  const handleStationFindingPhotoChangeDesinsectacion = async (file) => {
     if (!file || !file.type.startsWith("image/")) {
       console.error("No se seleccionó un archivo válido o no es una imagen.");
       showNotification("Seleccione un archivo válido de tipo imagen.");
       return;
     }
 
-    const photoURL = URL.createObjectURL(file);
+    const compressed = await compressImage(file);
+    const photoURL = URL.createObjectURL(compressed);
 
     setStationFindingDesinsectacion((prevFinding) => ({
       ...prevFinding,
       photo: photoURL, // URL para previsualización
-      photoBlob: file, // Blob para guardar offline o enviar online
+      photoBlob: compressed, // Blob para guardar offline o enviar online
     }));
     // Marcar cambios detectados
     setHasUnsavedChanges(true);
@@ -1766,17 +1774,17 @@ function Inspection() {
                       </thead>
                       <tbody>
                         {stations.filter((station) => {
-                          console.log("Evaluando estación:", station);
+                          //console.log("Evaluando estación:", station);
 
                           // Verificar categoría
                           if (station.category !== "Roedores") {
-                            console.log(`Estación ${station.name || `ID: ${station.id}`} excluida por categoría:`, station.category);
+                            //console.log(`Estación ${station.name || `ID: ${station.id}`} excluida por categoría:`, station.category);
                             return false;
                           }
 
                           // Normalizamos el término de búsqueda
                           const search = searchTermDesratizacion.trim().toLowerCase();
-                          console.log("Término de búsqueda utilizado:", search); // Log del término de búsqueda
+                          //console.log("Término de búsqueda utilizado:", search); // Log del término de búsqueda
 
                           const stationPrefix = "station-";
                           const isStationSearch = search.startsWith(stationPrefix);
@@ -1784,9 +1792,9 @@ function Inspection() {
                           // Búsqueda por ID exacto usando el prefijo
                           if (isStationSearch) {
                             const stationId = Number(search.replace(stationPrefix, ""));
-                            console.log(`Buscando estación con ID ${stationId} en estación con ID:`, station.id);
+                            //console.log(`Buscando estación con ID ${stationId} en estación con ID:`, station.id);
                             const match = !isNaN(stationId) && station.id === stationId;
-                            console.log(`Resultado de búsqueda exacta para estación ${station.id}:`, match ? "Coincide" : "No coincide");
+                            //console.log(`Resultado de búsqueda exacta para estación ${station.id}:`, match ? "Coincide" : "No coincide");
                             return match;
                           }
 
@@ -1795,7 +1803,7 @@ function Inspection() {
                           const stationDescription = station.description ? station.description.toLowerCase() : "";
                           const matches = stationName.includes(search) || stationDescription.includes(search);
 
-                          console.log(`Resultado del filtro general para estación ${station.name || `ID: ${station.id}`}:`, matches ? "Incluida" : "Excluida");
+                          //console.log(`Resultado del filtro general para estación ${station.name || `ID: ${station.id}`}:`, matches ? "Incluida" : "Excluida");
                           return matches;
                         })
                           .map((station) => (
