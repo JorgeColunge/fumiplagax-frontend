@@ -408,204 +408,171 @@ function Inspection() {
 
     const fetchInspectionData = async () => {
       try {
-        //console.log('🔍 Verificando modo de conexión...');
+        /* ────────── 0. utilitario para firmar si hay URL ────────── */
+        const signIfNeeded = async (url) =>
+          url ? await preSignUrl(url).catch(() => null) : null;
 
+        /* ────────── 1. Descarga (online u offline) ────────── */
         let inspectionData;
 
         if (isOffline()) {
-          //console.log('📴 Modo offline activado. Consultando IndexedDB...');
           inspectionData = await getInspectionById(inspectionId);
-
           if (!inspectionData) {
             console.warn(`⚠️ Inspección ${inspectionId} no encontrada en IndexedDB.`);
             return setLoading(false);
           }
-
-          //console.log('✅ Inspección cargada desde IndexedDB:', inspectionData);
-
-          // 🔥 Convertir `inspection_type` de array a string separado por comas
           if (Array.isArray(inspectionData.inspection_type)) {
             inspectionData.inspection_type = inspectionData.inspection_type.join(", ");
           }
         } else {
-          //console.log('🌐 Modo online. Consultando API...');
-          const response = await api.get(`${process.env.REACT_APP_API_URL}/api/inspections/${inspectionId}`);
-          inspectionData = response.data;
-
-          //console.log('✅ Inspección obtenida desde API:', inspectionData);
-
-          // Guardar en IndexedDB para acceso offline en el futuro
+          const { data } = await api.get(
+            `${process.env.REACT_APP_API_URL}/api/inspections/${inspectionId}`
+          );
+          inspectionData = data;
           await saveInspections({ [inspectionData.service_id]: [inspectionData] });
-          //console.log('📥 Inspección almacenada en IndexedDB.');
         }
 
         setInspectionData(inspectionData);
+        setGeneralObservations(inspectionData.observations || "");
 
-        // Cargar observaciones generales
-        setGeneralObservations(inspectionData.observations || '');
-
-        // Procesar hallazgos
+        /* ────────── 2. Procesar hallazgos ────────── */
         const initialFindings = inspectionData.findings?.findingsByType || {};
+
         for (const type of Object.keys(initialFindings)) {
           initialFindings[type] = await Promise.all(
-            initialFindings[type].map(async (finding) => {
-              if (!finding.photo) return { ...finding, photo: null, photoRelative: null, photoBlob: null };
+            initialFindings[type].map(async (f) => {
+              /* a) ――― Normalizar fases de Lavado ――― */
+              if (type.trim().toLowerCase() === "lavado de tanque") {
+                const fases = [
+                  { suf: "An", name: "Antes" },
+                  { suf: "Du", name: "Durante" },
+                  { suf: "De", name: "Después" },
+                ];
 
-              let signedUrl = null;
-              try {
-                signedUrl = await preSignUrl(finding.photo);
-              } catch (error) {
-                console.error(`❌ Error al pre-firmar la URL del hallazgo ${finding.id}:`, error);
+                for (const { suf, name } of fases) {
+                  if (f[`place${suf}`] || f[`description${suf}`] || f[`photo${suf}`]) {
+                    const photoRel = f[`photo${suf}`] ?? null;
+                    return {
+                      ...f,
+                      place: f[`place${suf}`] ?? "",
+                      description: f[`description${suf}`] ?? "",
+                      photo: await signIfNeeded(photoRel),
+                      photoRelative: photoRel,
+                      photoBlob: null,
+                      faseLavado: name,
+                    };
+                  }
+                }
+                /* sin sufijo → ya venía normalizado */
               }
 
-              return { ...finding, photo: signedUrl, photoRelative: finding.photo || null, photoBlob: null };
+              /* b) ――― Cualquier otro tipo ――― */
+              const photoRel = f.photo || null;
+              return {
+                ...f,
+                photo: await signIfNeeded(photoRel),
+                photoRelative: photoRel,
+                photoBlob: null,
+              };
             })
           );
         }
 
-        // después de haber rellenado initialFindings[type] con los datos crudos
-        Object.keys(initialFindings).forEach((type) => {
-          if (type.trim().toLowerCase() !== "lavado de tanque") return;
-
-          initialFindings[type] = initialFindings[type].map((f) => {
-            /* Detecta qué fase contiene datos y los normaliza */
-            if (f.placeAn || f.descriptionAn || f.photoAn) {
-              return {
-                ...f,
-                place: f.placeAn ?? "",
-                description: f.descriptionAn ?? "",
-                photo: f.photoAn ?? null,
-                faseLavado: "Antes",
-              };
-            }
-            if (f.placeDu || f.descriptionDu || f.photoDu) {
-              return {
-                ...f,
-                place: f.placeDu ?? "",
-                description: f.descriptionDu ?? "",
-                photo: f.photoDu ?? null,
-                faseLavado: "Durante",
-              };
-            }
-            if (f.placeDe || f.descriptionDe || f.photoDe) {
-              return {
-                ...f,
-                place: f.placeDe ?? "",
-                description: f.descriptionDe ?? "",
-                photo: f.photoDe ?? null,
-                faseLavado: "Después",
-              };
-            }
-            /* Sin sufijo: ya está normalizado */
-            return f;
-          });
-        });
-
         setFindingsByType(initialFindings);
-
         setProductsByType(inspectionData.findings?.productsByType || {});
 
-        // Cargar firmas y pre-firmar URLs
+        /* ────────── 3. Firmas ────────── */
         const signatures = inspectionData.findings?.signatures || {};
         if (signatures.technician?.signature) {
-          setTechSignaturePreview(await preSignUrl(signatures.technician.signature) || signatures.technician.signature);
+          setTechSignaturePreview(
+            (await signIfNeeded(signatures.technician.signature)) ||
+            signatures.technician.signature
+          );
         }
         if (signatures.client?.signature) {
-          setClientSignaturePreview(await preSignUrl(signatures.client.signature) || signatures.client.signature);
+          setClientSignaturePreview(
+            (await signIfNeeded(signatures.client.signature)) ||
+            signatures.client.signature
+          );
         }
-
-        // Cargar datos del cliente
         if (signatures.client) {
           setSignData({
-            name: signatures.client.name || '',
-            id: signatures.client.id || '',
-            position: signatures.client.position || '',
+            name: signatures.client.name || "",
+            id: signatures.client.id || "",
+            position: signatures.client.position || "",
           });
         }
 
-        // Procesar hallazgos en estaciones
+        /* ────────── 4. Hallazgos en estaciones ────────── */
         const clientStationsData = {};
         for (const finding of inspectionData.findings?.stationsFindings || []) {
-          try {
-            const signedUrl = finding.photo ? await preSignUrl(finding.photo) : null;
-            if (!finding.stationId) continue;
-
-            clientStationsData[finding.stationId] = { ...finding, photo: signedUrl, photoRelative: finding.photo || null, photoBlob: null };
-          } catch (error) {
-            console.error(`❌ Error procesando hallazgo en estación ${finding.stationId}:`, error);
-          }
+          if (!finding.stationId) continue;
+          clientStationsData[finding.stationId] = {
+            ...finding,
+            photo: await signIfNeeded(finding.photo),
+            photoRelative: finding.photo || null,
+            photoBlob: null,
+          };
         }
         setClientStations(clientStationsData);
 
-        /* ---------- Cargar estaciones relacionadas ---------- */
+        /* ────────── 5. Estaciones relacionadas (igual que antes) ────────── */
         if (inspectionData.service_id) {
           let clientId, stationsArr = [];
 
           if (isOffline()) {
-            /* 📴 OFFLINE: todo sale de IndexedDB */
             const service = await getServiceById(inspectionData.service_id);
             clientId = service?.client_id;
-
             if (clientId) {
-              const client = await getClientById(clientId);
-              setClientData(client);                  // <– info básica del cliente
-
+              setClientData(await getClientById(clientId));
               stationsArr = await getStationsByClient(clientId);
-              //console.log(`📂 ${stationsArr.length} estaciones offline cargadas`);
             }
           } else {
-            /* 🌐 ONLINE: peticiones a la API + cache local */
             const { data: service } = await api.get(
               `${process.env.REACT_APP_API_URL}/api/services/${inspectionData.service_id}`
             );
             clientId = service.client_id;
             setServiceData(service);
 
-            const { data: client } = await api.get(`${process.env.REACT_APP_API_URL}/api/clients/${clientId}`);
-            setClientData(client);
+            setClientData(
+              (await api.get(`${process.env.REACT_APP_API_URL}/api/clients/${clientId}`)).data
+            );
 
             try {
               const { data: stations } = await api.get(
                 `${process.env.REACT_APP_API_URL}/api/stations/client/${clientId}`
               );
-              stationsArr = stations;         // puede venir vacío
+              stationsArr = stations;
               await saveStations(clientId, stationsArr);
-            } catch (err) {
-              // Cualquier fallo (404, 500, timeout…) → sin estaciones
+            } catch {
               stationsArr = [];
-              console.warn('Cliente sin estaciones o error al consultarlas:', err?.response?.status);
             }
-
-            setStations(stationsArr);
           }
+          setStations(stationsArr);
         }
 
-        // Cargar productos disponibles
+        /* ────────── 6. Productos disponibles (igual) ────────── */
         try {
           if (isOffline()) {
-            //console.log('📴 Offline: leyendo productos desde IndexedDB...');
-            const offlineProducts = await getProducts();
-            setAvailableProducts(offlineProducts);
+            setAvailableProducts(await getProducts());
           } else {
-            //console.log('🌐 Online: descargando productos...');
-            const { data: productsFromServer } = await api.get(`${process.env.REACT_APP_API_URL}/api/products`);
-            setAvailableProducts(productsFromServer);
-
-            // Cachear para el futuro
-            await saveProducts(productsFromServer);
+            const { data: products } = await api.get(
+              `${process.env.REACT_APP_API_URL}/api/products`
+            );
+            setAvailableProducts(products);
+            await saveProducts(products);
           }
-        } catch (prodErr) {
-          console.error('❌ Error al cargar productos:', prodErr);
-          setAvailableProducts([]);               // evita crashes de UI
+        } catch {
+          setAvailableProducts([]);
         }
 
         setLoading(false);
-        //console.log('✅ Carga de datos de inspección completada.');
       } catch (error) {
-        console.error('❌ Error al cargar los datos de inspección:', error);
+        console.error("❌ Error al cargar los datos de inspección:", error);
         setLoading(false);
       }
     };
+
 
     const fetchActions = async () => {
       try {

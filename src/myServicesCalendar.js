@@ -5,6 +5,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import ClientInfoModal from './ClientInfoModal';
+import { getCachedMonth2, setCachedMonth2 } from './indexedDBHandler';
 import esLocale from '@fullcalendar/core/locales/es';
 import { Button, Modal, Form, Table } from 'react-bootstrap';
 import { ChevronLeft, ChevronRight, Plus, GearFill, InfoCircle, Bug, GeoAlt, FileText, Clipboard, PlusCircle, PencilSquare, Trash, Building, ViewList, EyeFill } from 'react-bootstrap-icons';
@@ -15,6 +16,24 @@ import Tooltip from 'react-bootstrap/Tooltip';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import { useNavigate } from 'react-router-dom';
 import { useSocket } from './SocketContext';
+
+const mergeEvents = (prev, newOnes, monthKey) => {
+    const byId = new Map(prev.map(e => [e.id, e]));
+
+    newOnes.forEach(e => byId.set(e.id, { ...(byId.get(e.id) || {}), ...e }));
+
+    // si un id estaba en este mes y no llega del server ⇒ se borró en backend
+    const idsServer = new Set(newOnes.map(e => e.id));
+    prev.forEach(e => {
+        if (moment(e.start).format('MM/YYYY') === monthKey &&
+            !idsServer.has(e.id)) {
+            byId.delete(e.id);
+        }
+    });
+
+    return Array.from(byId.values())
+        .sort((a, b) => new Date(b.start) - new Date(a.start));
+};
 
 const MyServicesCalendar = () => {
     const [events, setEvents] = useState([]);
@@ -57,7 +76,14 @@ const MyServicesCalendar = () => {
                     color: newEvent.color || '#007bff',
                 };
 
-                setEvents((prevEvents) => [...prevEvents, formattedEvent]);
+                setAllEvents(prev => {
+                    const merged = mergeEvents(prev, [formattedEvent], moment(formattedEvent.start).format('MM/YYYY'));
+                    setCachedMonth2(moment(formattedEvent.start).format('MM/YYYY'),
+                        merged.filter(e => moment(e.start).format('MM/YYYY') ===
+                            moment(formattedEvent.start).format('MM/YYYY')));
+                    setEvents(merged);
+                    return merged;
+                });
             });
         }
 
@@ -93,15 +119,28 @@ const MyServicesCalendar = () => {
     };
 
     useEffect(() => {
-        const fetchData = async () => {
-            await fetchScheduleAndServices();
-        };
-        fetchData();
-    }, [mesComp]);  // 🔥 Se ejecuta cada vez que `mesComp` cambie       
+        let abort = false;
 
-    const fetchScheduleAndServices = async () => {
+        (async () => {
+            /* 1️⃣ cache primero */
+            const cached = await getCachedMonth2(mesComp);
+            if (cached && !abort) {
+                setAllEvents(prev => mergeEvents(prev, cached, mesComp));
+                setEvents(prev => mergeEvents(prev, cached, mesComp));
+            }
+
+            /* 2️⃣ backend en segundo plano */
+            await fetchScheduleAndServices({ refresh: !cached, abortFn: () => abort });
+        })();
+
+        return () => { abort = true; };
+    }, [mesComp]);
+
+    const fetchScheduleAndServices = async (
+        { refresh = true, abortFn = () => false, silent = false } = {}
+    ) => {
         try {
-            setLoading(true); // 🔄 Activar el spinner antes de cargar los datos
+            if (!silent) setLoading(true); // 🔄 Activar el spinner antes de cargar los datos
             console.log('Fetching schedule and services...');
 
             // Paso 1: Obtén los eventos de la agenda de servicios
@@ -112,7 +151,7 @@ const MyServicesCalendar = () => {
             console.log('Schedule data received:', scheduleData);
 
             // Paso 2: Crea un array para almacenar los eventos formateados
-            const formattedEvents = await Promise.all(
+            const monthEvents = (await Promise.all(
                 scheduleData.map(async (schedule) => {
                     try {
                         // Paso 3: Consulta la información del servicio
@@ -224,15 +263,22 @@ const MyServicesCalendar = () => {
                         return null; // Retorna nulo si falla algo
                     }
                 })
-            );
+            )).filter(Boolean);
 
-            const validEvents = formattedEvents.filter((event) => event !== null);
-            setAllEvents(validEvents);
-            setEvents(validEvents);
+            if (!abortFn()) {
+                setAllEvents(prev => {
+                    const merged = mergeEvents(prev, monthEvents, mesComp);
+                    setEvents(merged);
+                    return merged;
+                });
+
+                /* guarda cache del mes */
+                await setCachedMonth2(mesComp, monthEvents);
+            }
         } catch (error) {
             console.error('Error loading schedule and services:', error);
         } finally {
-            setLoading(false); // ✅ Desactivar el spinner después de la carga
+            if (!silent) setLoading(false);
         }
     };
 

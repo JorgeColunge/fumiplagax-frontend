@@ -260,7 +260,7 @@ function ServiceList() {
     "Exteriores",
     "Lokers",
     "Muebles",
-    "Necera",
+    "Nevera",
     "Oficinas",
     "Producción",
     "Servicio al cliente",

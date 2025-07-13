@@ -816,6 +816,32 @@ export const setCachedMonth = async (monthKey, events) => {
   return db.put('months', events, monthKey);
 };
 
+// 🔄 Manejo de caché mensual
+let monthDBPromise2 = null;
+
+const getMonthDB2 = async () => {
+  if (!monthDBPromise2) {
+    monthDBPromise2 = openDB('servicesCalendar', 1, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains('months')) {
+          db.createObjectStore('months');
+        }
+      },
+    });
+  }
+  return monthDBPromise2;
+};
+
+export const getCachedMonth2 = async (monthKey) => {
+  const db = await getMonthDB2();
+  return db.get('months', monthKey);
+};
+
+export const setCachedMonth2 = async (monthKey, events) => {
+  const db = await getMonthDB2();
+  return db.put('months', events, monthKey);
+};
+
 // 🔄 Cache para lista de servicios
 let servicesDBPromise;
 

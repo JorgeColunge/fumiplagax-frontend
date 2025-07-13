@@ -555,6 +555,7 @@ function ProductList() {
                   <option value="mg">mg</option>
                   <option value="g">g</option>
                   <option value="kg">kg</option>
+                  <option value="unidad">unidad</option>
                 </Form.Select>
               </Form.Group>
             </Form.Group>
