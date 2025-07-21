@@ -121,7 +121,7 @@ function ServiceList() {
         .filter((inspection) => inspection.service_id === serviceId) // Filtra por `service_id`
         .map((inspection) => ({
           ...inspection,
-          date: moment(inspection.date).format("DD/MM/YYYY"), // Formato legible para la fecha
+          date: moment.utc(inspection.date).format("DD/MM/YYYY"),
           time: inspection.time ? moment(inspection.time, "HH:mm:ss").format("HH:mm") : "--",
           exit_time: inspection.exit_time ? moment(inspection.exit_time, "HH:mm:ss").format("HH:mm") : "--",
           observations: inspection.observations || "Sin observaciones",
@@ -219,7 +219,8 @@ function ServiceList() {
     "Encarpado",
     "Lavado de tanque",
     "Inspección",
-    "Diagnostico"
+    "Diagnostico",
+    "Aves"
   ];
 
   // Estado para las opciones visibles de "Plaga a Controlar"
@@ -227,16 +228,17 @@ function ServiceList() {
 
   // Opciones de plagas para cada tipo de servicio
   const pestOptions = {
-    "Desinsectación": ["Moscas", "Zancudos", "Cucarachas", "Hormigas", "Pulgas", "Gorgojos", "Escarabajos"],
+    "Desinsectación": ["Moscas", "Zancudos", "Cucarachas", "Hormigas", "Pulgas", "Gorgojos", "Escarabajos", "Polillas", "Ácaros"],
     "Desratización": ["Rata de alcantarilla", "Rata de techo", "Rata de campo"],
     "Desinfección": ["Virus", "Hongos", "Bacterias"],
-    "Roceria": [],
-    "Limpieza y aseo de archivos": [],
-    "Lavado shut basura": [],
-    "Encarpado": [],
-    "Lavado de tanque": [],
-    "Inspección": [],
-    "Diagnostico": []
+    "Roceria": ["Moscas", "Zancudos", "Cucarachas", "Hormigas", "Pulgas", "Gorgojos", "Escarabajos", "Polillas", "Ácaros", "Rata de alcantarilla", "Rata de techo", "Rata de campo"],
+    "Limpieza y aseo de archivos": ["Gorgojos", "Polillas", "Ácaros"],
+    "Lavado shut basura": ["Virus", "Hongos", "Bacterias", "Moscas", "Zancudos", "Cucarachas", "Hormigas", "Pulgas", "Gorgojos", "Escarabajos", "Polillas", "Ácaros"],
+    "Encarpado": ["Gorgojos", "Polillas", "Ácaros"],
+    "Lavado de tanque": ["Virus", "Hongos", "Bacterias"],
+    "Aves": ["Palomas", "Tortolas", "Torcasas"],
+    "Inspección": ["Moscas", "Zancudos", "Cucarachas", "Hormigas", "Pulgas", "Gorgojos", "Escarabajos", "Polillas", "Ácaros", "Rata de alcantarilla", "Rata de techo", "Rata de campo", "Virus", "Hongos", "Bacterias", "Palomas", "Tortolas", "Torcasas"],
+    "Diagnostico": ["Moscas", "Zancudos", "Cucarachas", "Hormigas", "Pulgas", "Gorgojos", "Escarabajos", "Polillas", "Ácaros", "Rata de alcantarilla", "Rata de techo", "Rata de campo", "Virus", "Hongos", "Bacterias", "Palomas", "Tortolas", "Torcasas"]
   };
 
   const [showInterventionAreas, setShowInterventionAreas] = useState(false);

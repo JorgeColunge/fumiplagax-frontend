@@ -150,7 +150,7 @@ function TopBar({ userName, onSync, notifications, setNotifications, isSidebarOp
           </Button>
         </div>
 
-        {/* Dropdown de notificaciones */}
+        {/* Dropdown de notificaciones
         <div className="icon-container d-flex align-items-center">
           <Dropdown align="end">
             <Dropdown.Toggle
@@ -216,7 +216,7 @@ function TopBar({ userName, onSync, notifications, setNotifications, isSidebarOp
               )}
             </Dropdown.Menu>
           </Dropdown>
-        </div>
+        </div>  */}
 
         {/* Iniciales del usuario */}
         <div className="icon-container d-flex align-items-center">

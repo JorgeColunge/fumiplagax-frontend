@@ -108,6 +108,27 @@ function Inspection() {
 
   const socket = useSocket(); // Obtenemos el socket
 
+  const sigImage = useRef(null);
+
+  useEffect(() => {
+    const onResize = () => {
+      // ↙️ guarda la firma ANTES de que el canvas desaparezca
+      if (sigCanvasTech.current && !sigCanvasTech.current.isEmpty()) {
+        sigImage.current = sigCanvasTech.current.getTrimmedCanvas().toDataURL();
+      }
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    // ↗️ rehidrata DESPUÉS del nuevo render
+    if (sigImage.current && sigCanvasTech.current) {
+      sigCanvasTech.current.fromDataURL(sigImage.current);
+    }
+  }, [isMobile]);
+
   useEffect(() => {
     if (socket) {
       socket.on("inspection_synced", ({ oldId, newId }) => {
@@ -181,6 +202,56 @@ function Inspection() {
     stationFinding.consumptionAmount,
     stationFinding.replacementAmount,
   ]);
+
+  const DPI = 300;          // Cambia aquí si necesitas otra resolución
+  const CM_PER_INCH = 2.54;
+
+  function cmToPx(cm) {
+    return Math.round((cm / CM_PER_INCH) * DPI);
+  }
+
+  /**
+   * Convierte un canvas con una firma cualquiera en
+   * un canvas 16:9 de 3 cm de ancho (≈354 px) conservando
+   * la proporción del trazo.
+   * @param {HTMLCanvasElement} sourceCanvas - canvas recortado de SignaturePad
+   * @returns {HTMLCanvasElement} canvas normalizado
+   */
+  function normalizeSignatureCanvas(sourceCanvas) {
+    // ⚠️ Si el canvas recortado está vacío devolvemos null
+    if (!sourceCanvas || sourceCanvas.width === 0 || sourceCanvas.height === 0) {
+      return null;
+    }
+    // 1. Dimensiones destino (16:9, 3 cm de ancho)
+    const destW = cmToPx(3);               // ~354 px
+    const destH = Math.round(destW * 9 / 16); // ~196 px
+
+    // 2. Crear canvas destino
+    const dest = document.createElement('canvas');
+    dest.width = destW;
+    dest.height = destH;
+
+    const ctx = dest.getContext('2d');
+    ctx.clearRect(0, 0, destW, destH);
+
+    // 3. Calcular factor de escala máx que quepa dentro
+    const scale = Math.min(
+      (destW * 0.9) / sourceCanvas.width,   // 10 % de margen
+      (destH * 0.9) / sourceCanvas.height
+    );
+
+    const drawW = sourceCanvas.width * scale;
+    const drawH = sourceCanvas.height * scale;
+
+    // 4. Centrar la firma
+    const offsetX = (destW - drawW) / 2;
+    const offsetY = (destH - drawH) / 2;
+
+    // 5. Dibujar escalado
+    ctx.drawImage(sourceCanvas, offsetX, offsetY, drawW, drawH);
+
+    return dest;           // ← devuelve canvas listo
+  }
 
   // Abrir el modal
   const handleOpenConvertToPdfModal = () => {
@@ -349,27 +420,39 @@ function Inspection() {
     setClientSignature(null);
   };
 
-  const handleSaveSignature = async () => {
-    if (sigCanvasTech.current) {
-      // Generar la imagen en formato Blob para enviar al backend
-      sigCanvasTech.current.getTrimmedCanvas().toBlob((blob) => {
-        setTechSignature(blob); // Guardar como Blob
-      });
-      // Generar la imagen en formato base64 para previsualización
-      const dataURL = sigCanvasTech.current.getTrimmedCanvas().toDataURL();
-      setTechSignaturePreview(dataURL); // Guardar la previsualización
+  const handleSaveSignature = () => {
+    /* ---------- TÉCNICO ---------- */
+    if (sigCanvasTech.current && !sigCanvasTech.current.isEmpty()) {
+      const trimmed = sigCanvasTech.current.getTrimmedCanvas();
+      const normalized = normalizeSignatureCanvas(trimmed);
+
+      if (normalized) {
+        // Blob → backend
+        normalized.toBlob(
+          (blob) => setTechSignature(blob),
+          'image/png',            // MIME explícito
+          1                       // calidad (solo para jpg/webp, pero no estorba)
+        );
+        // Preview → UI
+        setTechSignaturePreview(normalized.toDataURL());
+      }
     }
-    if (sigCanvasClient.current) {
-      // Generar la imagen en formato Blob para enviar al backend
-      sigCanvasClient.current.getTrimmedCanvas().toBlob((blob) => {
-        setClientSignature(blob); // Guardar como Blob
-      });
-      // Generar la imagen en formato base64 para previsualización
-      const dataURL = sigCanvasClient.current.getTrimmedCanvas().toDataURL();
-      setClientSignaturePreview(dataURL); // Guardar la previsualización
+
+    /* ---------- CLIENTE ---------- */
+    if (sigCanvasClient.current && !sigCanvasClient.current.isEmpty()) {
+      const trimmed = sigCanvasClient.current.getTrimmedCanvas();
+      const normalized = normalizeSignatureCanvas(trimmed);
+
+      if (normalized) {
+        normalized.toBlob(
+          (blob) => setClientSignature(blob),
+          'image/png',
+          1
+        );
+        setClientSignaturePreview(normalized.toDataURL());
+      }
     }
   };
-
 
   const handleSignModalCancel = () => {
     setSignModalOpen(false);
