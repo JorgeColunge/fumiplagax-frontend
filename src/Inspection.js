@@ -224,7 +224,7 @@ function Inspection() {
     }
     // 1. Dimensiones destino (16:9, 3 cm de ancho)
     const destW = cmToPx(3);               // ~354 px
-    const destH = Math.round(destW * 9 / 16); // ~196 px
+    const destH = Math.round(destW * 5 / 16); // ~196 px
 
     // 2. Crear canvas destino
     const dest = document.createElement('canvas');
