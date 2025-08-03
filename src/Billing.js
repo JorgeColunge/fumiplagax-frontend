@@ -1,16 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
 import 'moment/locale/es';
 import { useNavigate } from 'react-router-dom'; // Asegúrate de tener configurado react-router
 import { Calendar, Person, Bag, Building, PencilSquare, Trash, Bug, Diagram3, GearFill, Clipboard, PlusCircle, InfoCircle, FileText, GeoAlt } from 'react-bootstrap-icons';
 import { Card, Col, Row, Collapse, Button, Table, Modal, Form, CardFooter, ModalTitle } from 'react-bootstrap';
-import {
-  getServices,          // ya devuelve { services, clients }
-  getEvents,            // lista de eventos
-  saveServices,
-  saveEvents
-} from './indexedDBHandler';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './ServiceList.css'
 
@@ -42,6 +36,8 @@ function Billing() {
   const [showBilled, setShowBilled] = useState(null); // Estado para alternar entre facturados/no facturados
   const [loadingAnimation, setLoadingAnimation] = useState(false);
   const [showInterventionAreasOptions, setShowInterventionAreasOptions] = useState(false);
+  const [billedInspections, setBilledInspections] = useState([]);
+  const [servicesWithPendingInspections, setServicesWithPendingInspections] = useState([]);
   const [newInspection, setNewInspection] = useState({
     inspection_type: [], // Tipos de inspección seleccionados
     inspection_sub_type: "", // Opcional, para subtipos como en Desratización
@@ -139,28 +135,29 @@ function Billing() {
 
   const fetchBilledServices = async () => {
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/billing`);
-      const billingData = response.data;
+      const { data } = await axios.get(`${process.env.REACT_APP_API_URL}/api/billing`);
 
-      console.log("Datos recibidos de facturación:", billingData);
+      // ➊ lista de todas las inspecciones facturadas
+      const allBilledInspections = data.flatMap((bill) =>
+        (bill.billing_data || []).flatMap((entry) =>
+          entry.services.flatMap((svc) => svc.inspections)
+        )
+      );
 
-      // Extraer IDs de servicios facturados desde billing_data
-      const billedServiceIds = billingData.flatMap((billing) => {
-        if (billing.billing_data && Array.isArray(billing.billing_data)) {
-          return billing.billing_data.flatMap((entry) =>
-            entry.services.map((service) => service.service_id)
-          );
-        } else {
-          console.warn("billing_data no encontrado o no es un array en:", billing);
-          return [];
-        }
-      });
+      /*  — si aún necesitas los IDs de servicio facturados — */
+      const billedServiceIds = data.flatMap((bill) =>
+        (bill.billing_data || []).flatMap((entry) =>
+          entry.services.map((svc) => svc.service_id)
+        )
+      );
 
-      console.log("IDs de servicios facturados extraídos:", billedServiceIds);
-
+      setBilledInspections(allBilledInspections);
       setBilledServices(billedServiceIds);
-    } catch (error) {
-      console.error("Error fetching billed services:", error);
+
+      return allBilledInspections;   // ➋ ← DEVUELVE el arreglo
+    } catch (err) {
+      console.error("Error fetching billed services:", err);
+      return [];                     // para no romper el flujo
     }
   };
 
@@ -173,92 +170,94 @@ function Billing() {
     }
   };
 
+  const getBilledInspectionsForService = (serviceId) => {
+    const billingEntry = billingData.find((b) =>
+      b.services.some((svc) => svc.service_id === serviceId)
+    );
+
+    if (!billingEntry) return [];
+
+    // Obtener inspecciones facturadas para ese servicio
+    const serviceEntry = billingEntry.services.find((svc) => svc.service_id === serviceId);
+    return serviceEntry ? serviceEntry.inspections : [];
+  };
+
   const fetchInspections = async (serviceId) => {
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/inspections?service_id=${serviceId}`);
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/inspections?service_id=${serviceId}`
+      );
+
       const formattedInspections = response.data
-        .filter((inspection) => inspection.service_id === serviceId) // Filtra por `service_id`
+        .filter((inspection) => inspection.service_id === serviceId)
+        // 🔥 Filtrar inspecciones que NO estén en billedInspections
+        .filter((inspection) => !billedInspections.includes(inspection.id))
         .map((inspection) => ({
           ...inspection,
-          date: moment(inspection.date).format("DD/MM/YYYY"), // Formato legible para la fecha
+          date: moment(inspection.date).format("DD/MM/YYYY"),
           time: inspection.time ? moment(inspection.time, "HH:mm:ss").format("HH:mm") : "--",
           exit_time: inspection.exit_time ? moment(inspection.exit_time, "HH:mm:ss").format("HH:mm") : "--",
           observations: inspection.observations || "Sin observaciones",
         }))
-        .sort((a, b) => b.datetime - a.datetime); // Ordena por fecha y hora
+        .sort((a, b) => b.datetime - a.datetime);
+
       setInspections(formattedInspections);
     } catch (error) {
       console.error("Error fetching inspections:", error);
     }
   };
 
-  const applyFilters = () => {
-    if (services.length === 0) return; // Si no hay servicios, no hacer nada
+  const applyFilters = useCallback(() => {
+    if (!services.length) {
+      setFilteredServices([]);
+      return;
+    }
 
-    let filtered = services.map((service) => {
-      const status = determineScheduleStatus(service, scheduleEvents);
+    const pivot = moment(`${selectedYear}-${selectedMonth}-01`, "YYYY-M-D");
 
-      // Determina si está facturado, manejando casos donde `billedServices` está vacío
-      const isBilled =
-        service.category === 'Puntual'
-          ? billedServices.includes(service.id)
-          : service.category === 'Periódico'
-            ? billedServices.some(
-              (billedService) =>
-                billedService === service.id &&
-                moment(service.billing_date).year() === selectedYear &&
-                moment(service.billing_date).month() + 1 === selectedMonth
-            )
-            : false;
+    let list = services.filter((svc) => {
+      const created = moment(
+        svc.created_at,
+        [moment.ISO_8601, "DD-MM-YYYY", "YYYY-MM-DD"],
+        true
+      );
+      if (!created.isValid()) return false;
 
-      return { ...service, scheduleStatus: status, isBilled };
+      if (svc.category === "Puntual") {
+        return created.month() + 1 === selectedMonth && created.year() === selectedYear;
+      }
+      if (svc.category === "Periódico") {
+        return created.isSameOrBefore(pivot, "month");
+      }
+      return false;
     });
 
-    // Filtro por mes y año
-    if (selectedMonth && selectedYear) {
-      const selectedDate = moment(`${selectedYear}-${selectedMonth}-01`); // Fecha del primer día del mes seleccionado
-      filtered = filtered.filter((service) => {
-        const serviceCreatedAt = moment(service.created_at);
-        return serviceCreatedAt.isSameOrBefore(selectedDate, 'month'); // Verifica que sea menor o igual al mes y año seleccionados
-      });
-    }
+    // 🔥 NUEVO FILTRO → Solo mostrar servicios con inspecciones pendientes
+    list = list.filter((svc) => servicesWithPendingInspections.includes(svc.id));
 
-    // Filtro por texto de búsqueda
-    if (searchServiceText) {
-      filtered = filtered.filter(
-        (service) =>
-          service.id.toString().includes(searchServiceText) ||
-          (clients.find((client) => client.id === service.client_id)?.name || '')
-            .toLowerCase()
-            .includes(searchServiceText.toLowerCase()) ||
-          (technicians.find((tech) => tech.id === service.responsible)?.name || '')
-            .toLowerCase()
-            .includes(searchServiceText.toLowerCase())
-      );
-    }
-
-    // Filtro por cliente
     if (selectedClient) {
-      filtered = filtered.filter((service) => service.client_id === parseInt(selectedClient));
+      list = list.filter((svc) => String(svc.client_id) === String(selectedClient));
     }
 
-    // Filtro por responsable
     if (selectedUser) {
-      filtered = filtered.filter((service) => service.responsible === selectedUser);
+      list = list.filter((svc) => svc.responsible === selectedUser);
     }
 
-    // Filtro por estado de agenda
     if (filterStatus) {
-      filtered = filtered.filter((service) => service.scheduleStatus === filterStatus);
+      list = list.filter((svc) => determineScheduleStatus(svc, scheduleEvents) === filterStatus);
     }
 
-    // Filtro por estado de facturación, independientemente de si `billedServices` está vacío
-    if (showBilled !== null) {
-      filtered = filtered.filter((service) => service.isBilled === showBilled);
-    }
-    console.log(`🔎 applyFilters → total: ${services.length} | filtrados: ${filtered.length}`);
-    setFilteredServices(filtered); // Actualiza el estado con los datos filtrados
-  };
+    setFilteredServices(list);
+  }, [
+    services,
+    selectedMonth,
+    selectedYear,
+    selectedClient,
+    selectedUser,
+    filterStatus,
+    scheduleEvents,
+    servicesWithPendingInspections, // 👈 importante agregarlo
+  ]);
 
   const handleAddToBilling = (selectedInspections) => {
     setShowDetailsModal(false);
@@ -353,11 +352,6 @@ function Billing() {
 
   // Función para enviar los datos al backend
   const handleSubmitBilling = async () => {
-    // Verifica si hay un archivo seleccionado
-    if (!billingFile) {
-      showNotification('Error', 'Por favor selecciona un comprobante antes de facturar.');
-      return;
-    }
 
     console.log('Datos de facturación antes de enviar:', billingData);
     console.log('Archivo seleccionado:', billingFile);
@@ -365,7 +359,9 @@ function Billing() {
     // Crear el FormData para enviar el archivo y los datos
     const formData = new FormData();
     formData.append('billingData', JSON.stringify(billingData));
-    formData.append('file', billingFile);
+    if (billingFile) {
+      formData.append('file', billingFile);
+    }
 
     try {
       // Enviar la facturación al backend
@@ -379,17 +375,13 @@ function Billing() {
       resetBillingData();
       setBillingFile(null);
 
-      // Actualiza los servicios localmente eliminando los facturados
-      setServices((prevServices) =>
-        prevServices.filter((service) =>
-          !billingData.some((client) =>
-            client.services.some((billedService) => billedService.service_id === service.id)
-          )
-        )
-      );
+      setLoadingAnimation(true);          // spinner corto mientras refresca
 
-      // Vuelve a aplicar los filtros para reorganizar la lista
-      applyFilters();
+      const billed = await fetchBilledServices();              // 🔄  lista actualizada
+      await fetchPendingInspectionsForAllServices(billed);     // recalcular pendientes
+
+      applyFilters();                                          // la lista ya tiene los datos correctos
+      setLoadingAnimation(false);
 
       // Notifica el éxito
       showNotification('Éxito', 'La facturación se procesó correctamente.');
@@ -486,147 +478,98 @@ function Billing() {
 
   const navigate = useNavigate();
 
+  const formatMonthParam = (m, y) => `${String(m).padStart(2, '0')}/${y}`; // "08/2025"
+
   useEffect(() => {
-    (async () => {
-      moment.locale('es');
+    const loadData = async () => {
       setLoading(true);
+      moment.locale('es');
 
-      /* ───────── 1) Intentar OFFLINE ───────── */
-      const { services: cachedServices, clients: cachedClients } = await getServices();
-      const cachedEvents = await getEvents();
+      try {
+        /* 1. Servicios y clientes */
+        const [svcRes, cliRes] = await Promise.all([
+          axios.get(`${process.env.REACT_APP_API_URL}/api/services`),
+          axios.get(`${process.env.REACT_APP_API_URL}/api/clients`)
+        ]);
 
-      if (cachedServices.length) {
-        console.log(`📦 Servicios OFFLINE: ${cachedServices.length}`);
-        setServices(cachedServices);
-        const flatClients = Object.entries(cachedClients).map(
-          ([id, c]) => ({ id: Number(id), ...c })
-        );
-        setClients(flatClients);                       // array con id, name, …
-        setClientNames(
-          Object.fromEntries(flatClients.map(c => [c.id, c.name]))
-        );
+        setServices(svcRes.data);
+        setClients(cliRes.data);
+        setClientNames(Object.fromEntries(cliRes.data.map(c => [c.id, c.name])));
+
+        /* 2. Eventos del mes actual */
+        const now = moment();
+        const evRes = await axios.get(`${process.env.REACT_APP_API_URL}/api/service-schedule`, {
+          params: { month: formatMonthParam(now.month() + 1, now.year()) }
+        });
+        setScheduleEvents(evRes.data);
+
+        /* 3. Técnicos (todos los usuarios) */
+        const techRes = await axios.get(`${process.env.REACT_APP_API_URL}/api/users`);
+        setTechnicians(techRes.data);
+
+        /* 4. Facturas → devuelve la lista facturada */
+        const billed = await fetchBilledServices();
+
+        /* 5. Inspecciones pendientes con esa lista */
+        await fetchPendingInspectionsForAllServices(billed);
+      } catch (err) {
+        console.error('❌ Error cargando datos:', err);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      if (cachedEvents.length) {
-        console.log(`📦 Eventos OFFLINE: ${cachedEvents.length}`);
-        setScheduleEvents(cachedEvents);
-      }
-
-      /* ───────── 2) Complementar con la API si falta algo ───────── */
-      if (!cachedServices.length || !cachedEvents.length) {
-        try {
-          /* 2a. Servicios + clientes */
-          const [svcRes, cliRes] = await Promise.all([
-            axios.get(`${process.env.REACT_APP_API_URL}/api/services`),
-            axios.get(`${process.env.REACT_APP_API_URL}/api/clients`)
-          ]);
-
-          console.log(`🌐 Servicios API: ${svcRes.data.length}`);
-          await saveServices(svcRes.data, cliRes.data);     // guarda en cache
-
-          setServices(svcRes.data);
-          setClients(cliRes.data);
-          setClientNames(
-            Object.fromEntries(cliRes.data.map(c => [c.id, c.name]))
-          );
-
-          /* 2b. Eventos */
-          const evRes = await axios.get(`${process.env.REACT_APP_API_URL}/api/service-schedule`);
-          console.log(`🌐 Eventos API: ${evRes.data.length}`);
-          setScheduleEvents(evRes.data);
-          await saveEvents(evRes.data);
-
-          /* 2c. Técnicos (solo online) */
-          const techRes = await axios.get(`${process.env.REACT_APP_API_URL}/api/users?role=Technician`);
-          setTechnicians(techRes.data);
-        } catch (err) {
-          console.error('❌ Error cargando desde API:', err);
-        }
-      }
-
-      /* ───────── 3) Facturas y filtros ───────── */
-      await fetchBilledServices();     // ya lleva su propio log
-      setLoading(false);
-      applyFilters();                  // para que se muestren los cards
-    })();
-  }, []);               // ← solo al montar
+    loadData();
+  }, []);          // ← solo al montar
 
   // Condición para mostrar animación de carga
   const isLoading = loading || loadingAnimation;
 
   useEffect(() => {
-    if (!loading && services.length > 0 && billedServices.length > 0) {
+    if (services.length && servicesWithPendingInspections.length >= 0) {
       applyFilters();
     }
-  }, [loading, services, billedServices, searchServiceText, selectedClient, selectedUser, filterStatus, showBilled, selectedMonth, selectedYear, scheduleEvents]);
-
-  useEffect(() => {
-    if (!loading && services.length > 0 && clients.length > 0) {
-      setShowBilled(true);
-      setTimeout(() => {
-        setShowBilled(false);
-      }, 2);
-    }
-  }, [loading, services, clients]);
-
-
-  useEffect(() => {
-    const fetchServicesAndClients = async () => {
-      try {
-        const servicesResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/services`);
-        const clientsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/clients`);
-        const scheduleResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/service-schedule`);
-
-        const clientData = {};
-        clientsResponse.data.forEach(client => {
-          clientData[client.id] = client.name;
-        });
-
-        setServices(servicesResponse.data);
-        setScheduleEvents(scheduleResponse.data);
-        setClients(clientsResponse.data);
-        setClientNames(clientData);
-        setFilteredServices(servicesResponse.data);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setLoading(false);
-      }
-    };
-
-    const fetchTechnicians = async () => {
-      try {
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/users?role=Technician`);
-        setTechnicians(response.data);
-      } catch (error) {
-        console.error("Error fetching technicians:", error);
-      }
-    };
-
-    // Llama a las funciones sin duplicación
-    fetchServicesAndClients();
-    fetchTechnicians();
-  }, []); // Asegúrate de que las dependencias sean vacías para ejecutarse solo al montar.
+  }, [services, servicesWithPendingInspections, selectedMonth, selectedYear, selectedClient, selectedUser, filterStatus]);
 
   const handleServiceSearchChange = (e) => {
-    const input = e.target.value;
+    const input = e.target.value.toLowerCase();
     setSearchServiceText(input);
-    let filtered = services;
 
-    if (input) {
+    let filtered = services.filter((svc) => {
+      const clientName = (clientNames[svc.client_id] || "").toLowerCase();
+      return (
+        svc.description.toLowerCase().includes(input) ||
+        svc.service_type.toLowerCase().includes(input) ||
+        clientName.includes(input)                                   // ← ahora busca por empresa
+      );
+    });
+
+    if (selectedClient) {
       filtered = filtered.filter(
-        (service) =>
-          service.description.toLowerCase().includes(input.toLowerCase()) ||
-          service.service_type.toLowerCase().includes(input.toLowerCase())
+        (svc) => String(svc.client_id) === String(selectedClient)    // ← casteo
       );
     }
-
     if (selectedUser) {
-      filtered = filtered.filter((service) => service.responsible === selectedUser);
+      filtered = filtered.filter((svc) => svc.responsible === selectedUser);
     }
 
     setFilteredServices(filtered);
   };
+
+  // pon ‘billed’ opcional con valor por defecto para llamadas internas
+  const fetchPendingInspectionsForAllServices = async (billed = billedInspections) => {
+    try {
+      const { data: allInspections } = await axios.get(`${process.env.REACT_APP_API_URL}/api/inspections`);
+
+      const pending = allInspections.filter((insp) => !billed.includes(insp.id));
+      const pendingSvcIds = [...new Set(pending.map((i) => i.service_id))];
+
+      setServicesWithPendingInspections(pendingSvcIds);
+    } catch (err) {
+      console.error("Error obteniendo inspecciones pendientes:", err);
+    }
+  };
+
 
   const handleSearchChange = (e) => {
     const input = e.target.value;
@@ -670,12 +613,7 @@ function Billing() {
       ) : (
         <>
           <Row className="align-items-center mb-2" style={{ minHeight: 0, height: 'auto' }}>
-            <Col className="ms-auto m-0" xs={6} md={2}>
-              <Button className='w-100' variant="outline-success" onClick={openBillingModal} disabled={billingData.length === 0}>
-                Facturar ({totalServices}) ({totalInspections})
-              </Button>
-            </Col>
-            <Col xs={6} md={2}>
+            <Col className='ms-auto' xs={6} md={2}>
               <Form.Group controlId="formMonthFilter">
                 <Form.Control
                   as="select"
@@ -720,6 +658,12 @@ function Billing() {
               </Form.Group>
             </Col>
 
+            <Col className="m-0" xs={6} md={2}>
+              <Button className='w-100' variant="outline-success" onClick={openBillingModal} disabled={billingData.length === 0}>
+                Facturar ({totalServices}) ({totalInspections})
+              </Button>
+            </Col>
+
             {/* Filtro por empresa */}
             <Col xs={12} md={2}>
               <Form.Group controlId="formClientFilter">
@@ -752,18 +696,6 @@ function Billing() {
                       {tech.name}
                     </option>
                   ))}
-                </Form.Control>
-              </Form.Group>
-            </Col>
-
-            {/* Filtro por responsable */}
-            <Col xs={12} md={2}>
-              <Form.Group controlId="formScheduleStatus">
-                <Form.Control as="select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                  <option value="">Todos los estados</option>
-                  <option value="Pendiente de Agenda">Pendiente de Agenda</option>
-                  <option value="Agendamiento Parcial">Agendamiento Parcial</option>
-                  <option value="Agendado">Agendado</option>
                 </Form.Control>
               </Form.Group>
             </Col>
@@ -900,6 +832,10 @@ function Billing() {
                     <strong>Responsable:</strong>{" "}
                     {technicians.find((tech) => tech.id === selectedService.responsible)?.name || "No asignado"}
                   </p>
+                  <p className="my-1"><strong>Categoría:</strong> {selectedService.category}</p>
+                  {selectedService.category === "Periódico" && (
+                    <p className="my-1"><strong>Cantidad al Mes:</strong> {selectedService.quantity_per_month}</p>
+                  )}
                   <p className="my-1">
                     <strong>Valor:</strong> ${selectedService.value}
                   </p>

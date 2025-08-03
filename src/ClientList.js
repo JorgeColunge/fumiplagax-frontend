@@ -65,7 +65,7 @@ function ClientList() {
   const [showAddAirStationModal, setShowAddAirStationModal] = useState(false);
   const [newAirStation, setNewAirStation] = useState({
     description: '',
-    type: 'Aéreas',
+    category: 'Aéreas',
     control_method: 'Lámina',
     client_id: null, // Se llenará automáticamente con el cliente seleccionado
     location: '',
@@ -528,7 +528,7 @@ function ClientList() {
         )
       );
 
-      handleShowNotification("Estación actualizada exitosamente");
+      handleShowNotification("Estación aérea actualizada exitosamente");
       handleCloseEditStationModal();
     } catch (error) {
       console.error("Error al actualizar la estación:", error);
@@ -537,30 +537,32 @@ function ClientList() {
   };
 
   const handleSaveStation = async () => {
+    if (!editingStation) return;
     try {
-      if (editingStation) {
-        // Editar estación existente
-        await axios.put(`${process.env.REACT_APP_API_URL}/api/stations/${editingStation.id}`, editingStation);
+      // 1) Optimista
+      setAirStations(prev =>
+        prev.map(st => st.id === editingStation.id ? editingStation : st)
+      );
 
-        setAirStations(prevStations =>
-          prevStations.map(station =>
-            station.id === editingStation.id ? editingStation : station
-          )
-        );
+      // 2) Persistencia
+      const { data } = await axios.put(
+        `${process.env.REACT_APP_API_URL}/api/stations/${editingStation.id}`,
+        editingStation
+      );
 
-        handleShowNotification("Estación actualizada exitosamente");
-        handleCloseEditStationModal();
-      } else {
-        // Crear nueva estación
-        const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/stations`, newAirStation);
-        setAirStations([...airStations, response.data.station]);
+      // 3) Sincronizar con backend
+      setAirStations(prev =>
+        prev.map(st => st.id === data.station.id ? data.station : st)
+      );
 
-        handleShowNotification("Estación creada exitosamente");
-        handleCloseAddAirStationModal();
-      }
-    } catch (error) {
-      console.error("Error al guardar la estación:", error);
-      handleShowNotification("Hubo un error al guardar la estación.");
+      handleShowNotification("Estación aérea actualizada exitosamente");
+    } catch (err) {
+      console.error(err);
+      handleShowNotification("Hubo un error al actualizar la estación");
+      // recuperar estado correcto si falla
+      fetchStationsByClient(selectedClient.id);
+    } finally {
+      handleCloseEditStationModal();
     }
   };
 
@@ -613,6 +615,9 @@ function ClientList() {
       document_number
     ].every(value => value && value.toString().trim() !== '');
   };
+
+  const isEditingRodent = editingStation?.category === 'Roedores';
+  const isEditingAir = editingStation?.category === 'Aéreas';
 
   return (
     <div className="container mt-4">
@@ -983,7 +988,15 @@ function ClientList() {
                                     )}
                                   </td>
                                   <td style={{ textAlign: 'center', position: 'relative' }}>
-                                    {/* Ícono de eliminación al final de la fila */}
+                                    <i
+                                      className="fas fa-edit text-primary me-2"
+                                      style={{ cursor: 'pointer', fontSize: '1.2rem' }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleShowEditStationModal(station); // ✅ Usa la misma función que ya tienes
+                                      }}
+                                      title="Editar estación"
+                                    ></i>
                                     <XCircle
                                       style={{
                                         cursor: 'pointer',
@@ -1073,7 +1086,7 @@ function ClientList() {
                                       style={{ cursor: 'pointer', color: 'red', fontSize: '1.2rem' }}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleDeleteAirStation(station.id);
+                                        handleDeleteRodentStation(station.id);
                                       }}
                                       title="Eliminar estación"
                                     />
@@ -1297,7 +1310,7 @@ function ClientList() {
         </Modal.Footer>
       </Modal>
 
-      <Modal show={showAddAirStationModal || showEditStationModal} onHide={showAddAirStationModal ? handleCloseAddAirStationModal : handleCloseEditStationModal}>
+      <Modal show={showAddAirStationModal || (showEditStationModal && isEditingAir)} onHide={showAddAirStationModal ? handleCloseAddAirStationModal : handleCloseEditStationModal}>
         <Modal.Header closeButton>
           <Modal.Title>{editingStation ? "Editar Estación Aérea" : "Agregar Estación Aérea"}</Modal.Title>
         </Modal.Header>
@@ -1372,7 +1385,7 @@ function ClientList() {
         </Modal.Footer>
       </Modal>
 
-      <Modal show={showAddRodentStationModal || showEditStationModal} onHide={showAddRodentStationModal ? handleCloseAddRodentStationModal : handleCloseEditStationModal}>
+      <Modal show={showAddRodentStationModal || (showEditStationModal && isEditingRodent)} onHide={showAddRodentStationModal ? handleCloseAddRodentStationModal : handleCloseEditStationModal}>
         <Modal.Header closeButton>
           <Modal.Title>{editingStation ? "Editar Estación de Roedores" : "Agregar Estación de Roedores"}</Modal.Title>
         </Modal.Header>

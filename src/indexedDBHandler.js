@@ -789,6 +789,27 @@ export const syncProductsOnStart = async () => {
   }
 };
 
+// utils locales (no requiere import)
+const normalizeId = (id) =>
+  id === null || id === undefined ? '' : String(id);
+
+export const getAllMonthKeys = async () => {
+  const db = await getMonthDB();
+  const tx = db.transaction('months', 'readonly');
+  const store = tx.objectStore('months');
+  const keys = await store.getAllKeys();
+  return keys.filter((k) => k !== 'ALL'); // Excluir la clave global
+};
+
+export const addEventsToAllCache = async (newEvents) => {
+  const db = await getMonthDB();
+  const allEvents = (await db.get('months', 'ALL')) || [];
+  const merged = [...allEvents, ...newEvents].filter(
+    (event, index, self) =>
+      index === self.findIndex((e) => e.id === event.id) // evita duplicados
+  );
+  await db.put('months', merged, 'ALL');
+};
 
 // 🔄 Manejo de caché mensual
 let monthDBPromise = null;
@@ -813,7 +834,16 @@ export const getCachedMonth = async (monthKey) => {
 
 export const setCachedMonth = async (monthKey, events) => {
   const db = await getMonthDB();
-  return db.put('months', events, monthKey);
+  await db.put('months', events, monthKey);
+
+  // 🆕  reconstruye ALL cada vez, sin fusiones acumulativas
+  const allKeys = (await db.getAllKeys('months')).filter(k => k !== 'ALL');
+  const union = new Map();
+  for (const key of allKeys) {
+    const list = await db.get('months', key) || [];
+    list.forEach(e => union.set(normalizeId(e.id), e));
+  }
+  await db.put('months', Array.from(union.values()), 'ALL');
 };
 
 // 🔄 Manejo de caché mensual

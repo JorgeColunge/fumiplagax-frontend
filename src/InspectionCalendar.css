@@ -19,8 +19,10 @@
 /* Estilo de los días */
 .custom-calendar .fc-daygrid-day {
     color: #177000;
-    border-top: none; /* Quitar bordes superiores */
-    border-bottom: none; /* Quitar bordes inferiores */
+    border-top: none;
+    /* Quitar bordes superiores */
+    border-bottom: none;
+    /* Quitar bordes inferiores */
 }
 
 
@@ -57,7 +59,7 @@
     align-items: center;
 }
 
-.fc-daygrid-day-number{
+.fc-daygrid-day-number {
     color: #000;
     text-decoration: none !important;
     align-items: center;
@@ -68,14 +70,14 @@
 
 /* Para eventos en la vista semanal */
 .custom-calendar .fc-event {
-    @apply bg-fuchsia-500 text-white  px-2 py-1 flex items-center border-0;
+    @apply bg-fuchsia-500 text-white px-2 py-1 flex items-center border-0;
 }
 
 .custom-calendar .fc-event .dot {
-    @apply w-2 h-2 bg-fuchsia-500  inline-block mr-2 border-0;
+    @apply w-2 h-2 bg-fuchsia-500 inline-block mr-2 border-0;
 }
 
-.fc .fc-daygrid-day-number{
+.fc .fc-daygrid-day-number {
     text-decoration: none;
 }
 
@@ -85,24 +87,31 @@
     border: none !important;
     font-weight: 400;
     color: #888;
-    font-size: 0.65rem; /* agregado */
-    padding: 2px 4px;   /* agregado */
-    white-space: nowrap; /* agregado */
+    font-size: 0.65rem;
+    /* agregado */
+    padding: 2px 4px;
+    /* agregado */
+    white-space: nowrap;
+    /* agregado */
 }
 
 
 /* Estilo para el contenido del evento con altura reducida y sin texto */
 .custom-calendar .event-content {
-    height: 10px; /* Altura reducida para el evento */
-    overflow: hidden; /* Evita que el contenido desborde */
+    height: 10px;
+    /* Altura reducida para el evento */
+    overflow: hidden;
+    /* Evita que el contenido desborde */
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
 .custom-calendar .fc-event {
-    height: 100%; /* Asegúrate de que el evento mismo también tenga una altura reducida */
-    padding: 0; /* Elimina el relleno para que el evento sea solo un punto o una barra */
+    height: 100%;
+    /* Asegúrate de que el evento mismo también tenga una altura reducida */
+    padding: 0;
+    /* Elimina el relleno para que el evento sea solo un punto o una barra */
     margin: 0;
     width: 95%;
 }
@@ -110,7 +119,8 @@
 .custom-calendar .dot {
     height: 8px;
     width: 8px;
-    background-color: #ff00e1; /* Color para el punto que indica el evento de todo el día */
+    background-color: #ff00e1;
+    /* Color para el punto que indica el evento de todo el día */
 }
 
 /* Ocultar el texto 'Todo el día' en la vista de semana y día */
@@ -132,22 +142,29 @@
 /* Cambiar el color de toda la columna del día actual en la vista de semana */
 .custom-calendar .fc-col-today {
     background-color: rgb(226, 255, 226);
-    opacity: 0.5; /* Ajusta la opacidad para hacer más visible el contenido */
+    opacity: 0.5;
+    /* Ajusta la opacidad para hacer más visible el contenido */
 }
 
 /* Cambiar también el color de la parte horaria si es necesario */
 .custom-calendar .fc-timegrid-col.fc-day-today {
     background-color: rgb(226, 255, 226);
-    opacity: 1; /* Ajusta la opacidad para hacer más visible el contenido */
+    opacity: 1;
+    /* Ajusta la opacidad para hacer más visible el contenido */
 }
 
-.day-header{
-    color: green; /* Cambia el color a verde */
-    font-weight: bold; /* Opcional: hacer el texto más destacado */
+.day-header {
+    color: green;
+    /* Cambia el color a verde */
+    font-weight: bold;
+    /* Opcional: hacer el texto más destacado */
     text-decoration: none;
-    text-decoration: none !important; /* Asegúrate de sobrescribir cualquier estilo heredado */
-    border: none; /* Por si el subrayado es un borde */
-    outline: none; /* Por si el subrayado es un outline */
+    text-decoration: none !important;
+    /* Asegúrate de sobrescribir cualquier estilo heredado */
+    border: none;
+    /* Por si el subrayado es un borde */
+    outline: none;
+    /* Por si el subrayado es un outline */
 }
 
 a {
@@ -161,20 +178,26 @@ a {
 
 /* Ocultar la barra de desplazamiento en IE, Edge y Firefox */
 .fc-scroller {
-    -ms-overflow-style: none;  /* IE y Edge */
-    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: none;
+    /* IE y Edge */
+    scrollbar-width: none;
+    /* Firefox */
 }
 
 
-.fc .fc-daygrid-day.fc-day-today{
-    background-color: rgb(226, 255, 226); /* Fondo azul claro */
+.fc .fc-daygrid-day.fc-day-today {
+    background-color: rgb(226, 255, 226);
+    /* Fondo azul claro */
     color: white;
-    border-radius: 5px; /* Opcional: bordes redondeados */
-    padding: 5px; /* Opcional: espaciado interno */
+    border-radius: 5px;
+    /* Opcional: bordes redondeados */
+    padding: 5px;
+    /* Opcional: espaciado interno */
 }
 
 .custom-today-cell {
-    background-color: rgba(240, 120, 240, 0.2); /* Color con opacidad */
+    background-color: rgba(240, 120, 240, 0.2);
+    /* Color con opacidad */
     font-weight: bold;
 }
 
@@ -232,13 +255,13 @@ a {
 }
 
 /* Espacio entre botones dentro de la columna */
-.header-col > .view-button, 
-.header-col > .control-button {
+.header-col>.view-button,
+.header-col>.control-button {
     margin-right: 8px;
 }
 
-.header-col > .view-button:last-child, 
-.header-col > .control-button:last-child {
+.header-col>.view-button:last-child,
+.header-col>.control-button:last-child {
     margin-right: 0;
 }
 
@@ -299,34 +322,44 @@ a {
 .event-container {
     font-family: 'Roboto', sans-serif;
     font-size: 12px;
-    word-break: break-word; /* nuevo */
+    word-break: break-word;
+    /* nuevo */
 }
 
 /* Estilo del ID del evento */
 .event-id {
-    font-weight: bold; /* Negrita para el ID */
+    font-weight: bold;
+    /* Negrita para el ID */
     font-size: 12px;
 }
 
 .event-client {
-    font-weight: bold; /* Negrita para el ID */
+    font-weight: bold;
+    /* Negrita para el ID */
 }
 
 /* Estilo de las horas */
 .event-time {
-    font-size: 12px; /* Tamaño más pequeño para las horas */
+    font-size: 12px;
+    /* Tamaño más pequeño para las horas */
     width: 150px;
 }
 
 /* Para bordes más suaves de todos los eventos */
 .fc-event {
     border-radius: 10px;
-    overflow: hidden; /* Asegura que el contenido respete el radio */
-    padding-left: 4px; /* Espaciado interno reducido */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); /* Sombra suave */
-    white-space: normal !important; /* Permitir saltos de línea */
-    word-break: break-word; /* Romper palabras largas si es necesario */
-    font-size: 0.75rem; /* Ajustar tamaño general del texto */
+    overflow: hidden;
+    /* Asegura que el contenido respete el radio */
+    padding-left: 4px;
+    /* Espaciado interno reducido */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    /* Sombra suave */
+    white-space: normal !important;
+    /* Permitir saltos de línea */
+    word-break: break-word;
+    /* Romper palabras largas si es necesario */
+    font-size: 0.75rem;
+    /* Ajustar tamaño general del texto */
 }
 
 .user-list {
@@ -336,9 +369,9 @@ a {
 }
 
 .user-item,
-.user-item-all{
+.user-item-all {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    
+
 }
 
 .user-item,
@@ -374,13 +407,16 @@ a {
 /* Estilo de la tabla */
 .modern-table {
     border-collapse: separate;
-    border-spacing: 0 0; /* Espaciado entre filas */
-    width: 100%; /* Asegura que la tabla ocupe todo el contenedor */
-    table-layout: fixed; /* Evita el desbordamiento horizontal */
+    border-spacing: 0 0;
+    /* Espaciado entre filas */
+    width: 100%;
+    /* Asegura que la tabla ocupe todo el contenedor */
+    table-layout: fixed;
+    /* Evita el desbordamiento horizontal */
     z-index: 5;
-  }
-  
-  .modern-table thead th {
+}
+
+.modern-table thead th {
     background-color: #f5f5f5;
     color: #333;
     font-weight: bold;
@@ -388,57 +424,61 @@ a {
     text-transform: uppercase;
     text-align: center;
     padding: 12px;
-  }
-  
-  .modern-table tbody tr {
+}
+
+.modern-table tbody tr {
     background-color: #ffffff;
     border: 1px solid #ddd;
     z-index: 5;
-  }
-  
-  .modern-table tbody tr img,
-  .modern-table tbody tr .img-mask,
-  .modern-table tbody tr p {
-    transition: all 0.3s ease-in-out; /* Suave transición al pasar el cursor */
+}
+
+.modern-table tbody tr img,
+.modern-table tbody tr .img-mask,
+.modern-table tbody tr p {
+    transition: all 0.3s ease-in-out;
+    /* Suave transición al pasar el cursor */
     z-index: 5;
-  }
-  
-  .modern-table tbody tr:hover img,
-  .modern-table tbody tr:hover .img-mask,
-  .modern-table tbody tr:hover p {
-    transform: scale(1.1); /* Efecto de "zoom" al hacer hover */
+}
+
+.modern-table tbody tr:hover img,
+.modern-table tbody tr:hover .img-mask,
+.modern-table tbody tr:hover p {
+    transform: scale(1.1);
+    /* Efecto de "zoom" al hacer hover */
     z-index: 5;
-  }
-  
-  .modern-table tbody tr:hover {
-    background-color: #f9f9f9; /* Color al pasar el cursor */
-  }
-  
-  .modern-table tbody td {
+}
+
+.modern-table tbody tr:hover {
+    background-color: #f9f9f9;
+    /* Color al pasar el cursor */
+}
+
+.modern-table tbody td {
     text-align: center;
-    vertical-align: middle; /* Centrado vertical */
+    vertical-align: middle;
+    /* Centrado vertical */
     padding: 10px;
     border-top: 1px solid #ddd;
-  }
+}
 
-  .loading-animation-container {
+.loading-animation-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 100vh;
-  }
-  
-  .spinner {
+}
+
+.spinner {
     border: 4px solid rgba(0, 0, 0, 0.1);
     border-left-color: #007bff;
     border-radius: 50%;
     width: 50px;
     height: 50px;
     animation: spin 1s linear infinite;
-  }
+}
 
-  .loading-overlay {
+.loading-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -459,6 +499,16 @@ a {
 .spinner-border2 {
     width: 1rem;
     height: 1rem;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spin {
+    animation: spin 1s linear infinite;
 }
 
 /* 📱 Ajustes solo en móviles */
@@ -500,40 +550,42 @@ a {
 
 /* 🖥️ Ajustes solo para escritorio */
 @media screen and (min-width: 769px) {
-  .custom-calendar .fc .fc-col-header-cell-cushion {
-    font-size: 1rem;       /* Tamaño adecuado */
-    padding: 6px 10px;     /* Espaciado cómodo */
-    white-space: nowrap;
-  }
+    .custom-calendar .fc .fc-col-header-cell-cushion {
+        font-size: 1rem;
+        /* Tamaño adecuado */
+        padding: 6px 10px;
+        /* Espaciado cómodo */
+        white-space: nowrap;
+    }
 
-  .custom-calendar .day-name {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #333;
-    text-transform: uppercase;
-  }
+    .custom-calendar .day-name {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #333;
+        text-transform: uppercase;
+    }
 
-  .custom-calendar .day-number {
-    font-size: 1.4rem;
-    font-weight: bold;
-    color: #000;
-  }
+    .custom-calendar .day-number {
+        font-size: 1.4rem;
+        font-weight: bold;
+        color: #000;
+    }
 
-  .fc-event {
-    font-size: 0.75rem;
-    padding-left: 8px;
-  }
+    .fc-event {
+        font-size: 0.75rem;
+        padding-left: 8px;
+    }
 
-  .event-container {
-    font-size: 0.75rem;
-  }
+    .event-container {
+        font-size: 0.75rem;
+    }
 
-  .event-id,
-  .event-time {
-    font-size: 0.75rem;
-  }
+    .event-id,
+    .event-time {
+        font-size: 0.75rem;
+    }
 
-  .custom-calendar .fc-timegrid-slot-label {
-    font-size: 0.9rem;
-  }
+    .custom-calendar .fc-timegrid-slot-label {
+        font-size: 0.9rem;
+    }
 }

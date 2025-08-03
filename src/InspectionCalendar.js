@@ -8,8 +8,8 @@ import interactionPlugin from '@fullcalendar/interaction';
 import ClientInfoModal from './ClientInfoModal';
 import esLocale from '@fullcalendar/core/locales/es';
 import { Button, Modal, Form, Col, Row, Table } from 'react-bootstrap';
-import { ChevronLeft, ChevronRight, Plus, GearFill, InfoCircle, Bug, GeoAlt, FileText, Clipboard, PlusCircle, PencilSquare, Trash, Building, BuildingFill, EyeFill } from 'react-bootstrap-icons';
-import { getCachedMonth, setCachedMonth } from './indexedDBHandler';
+import { ChevronLeft, ChevronRight, Plus, GearFill, InfoCircle, Bug, GeoAlt, FileText, Clipboard, PlusCircle, PencilSquare, Trash, Building, BuildingFill, EyeFill, ArrowRepeat } from 'react-bootstrap-icons';
+import { getCachedMonth, setCachedMonth, getAllMonthKeys } from './indexedDBHandler';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './InspectionCalendar.css';
 import moment from 'moment-timezone';
@@ -18,16 +18,27 @@ import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import { useNavigate } from 'react-router-dom';
 import { useSocket } from './SocketContext';
 
-const unionById = (a = [], b = []) => {
+const normalizeId = (id) =>
+    id === null || id === undefined ? '' : String(id);
+
+// Devuelve true si dos eventos ocupan la misma “ranura” (mismo servicio + misma hora)
+const sameSlot = (a, b) =>
+    a.service_id === b.service_id &&
+    moment(a.start).isSame(b.start) &&
+    moment(a.end).isSame(b.end);
+
+// Fusiona listas sin duplicar ids (ya normalizados)
+const mergeById = (...lists) => {
     const map = new Map();
-    [...a, ...b].forEach(ev => {
-        const prev = map.get(ev.id);
-        if (!prev) return map.set(ev.id, ev);        // no existía
-        /* si ya existe, actualiza campos que pudieron cambiar */
-        map.set(ev.id, { ...prev, ...ev });
+    lists.flat().forEach((e) => {
+        const key = normalizeId(e.id);
+        map.set(key, { ...(map.get(key) || {}), ...e });
     });
-    return [...map.values()].sort((x, y) => new Date(x.start) - new Date(y.start));
+    return Array.from(map.values()).sort(
+        (x, y) => new Date(x.start) - new Date(y.start)
+    );
 };
+
 
 const InspectionCalendar = () => {
     const [events, setEvents] = useState([]);
@@ -70,6 +81,7 @@ const InspectionCalendar = () => {
     const [repetitiveStartDate, setRepetitiveStartDate] = useState('');
     const [repetitiveEndDate, setRepetitiveEndDate] = useState('');
     const [repetitionOption, setRepetitionOption] = useState('');
+    const [isSyncing, setIsSyncing] = useState(false);
     const userTimeZone = moment.tz.guess();
     const navigate = useNavigate();
     const socket = useSocket();
@@ -124,16 +136,9 @@ const InspectionCalendar = () => {
 
     useEffect(() => {
         if (!socket) return;
-        const handler = newEvent => {
-            const ev = { ...newEvent, start: newEvent.start, end: newEvent.end };
-            setAllEvents(prev => {
-                const merged = unionById(prev, [ev]);
-                setEvents(selectedUsers.length ?
-                    merged.filter(e => e.responsibleId.some(id => selectedUsers.includes(id))) :
-                    merged);
-                setCachedMonth(moment(ev.start).format('MM/YYYY'), merged); // mantiene coherencia x-mes
-                return merged;
-            });
+        const handler = (event) => {
+            // socket handler o en el refetch mensual:
+            setAllEvents(prev => mergeById(prev, [event]));
         };
         socket.on('newEvent', handler);
         return () => socket.off('newEvent', handler);
@@ -145,15 +150,10 @@ const InspectionCalendar = () => {
 
         (async () => {
             /* 1️⃣  Lee lo que haya en caché ⇒ pinta inmediatamente */
-            const cached = await getCachedMonth(mesComp);
+            const cached = await getCachedMonth("ALL");
             if (cached && !abort) {
-                setAllEvents(prev => {
-                    const merged = unionById(prev, cached);
-                    setEvents(selectedUsers.length ?                    // respeta filtros
-                        merged.filter(ev => ev.responsibleId.some(id => selectedUsers.includes(id))) :
-                        merged);
-                    return merged;
-                });
+                setAllEvents(cached);
+                filterEvents(cached);
             }
 
             /* 2️⃣  Siempre refresca contra backend (modo silencioso si ya hay caché) */
@@ -176,7 +176,7 @@ const InspectionCalendar = () => {
 
                     /* 2.- Armar el objeto evento (usa otro nombre, p. ej. evt, para no chocar con el global event) */
                     const evt = {
-                        id: s.id,
+                        id: String(s.id),
                         service_id: s.service_id,
                         title: svc.id,
                         start: moment(`${s.date.split('T')[0]}T${s.start_time}`).toISOString(),
@@ -210,7 +210,7 @@ const InspectionCalendar = () => {
                 if (!abort) {
                     /* 2.1  fusiona con el estado global (ya incluye meses anteriores) */
                     setAllEvents(prev => {
-                        const merged = unionById(prev, monthEvents);
+                        const merged = mergeById(prev, monthEvents);
                         setEvents(selectedUsers.length ?
                             merged.filter(ev => ev.responsibleId.some(id => selectedUsers.includes(id))) :
                             merged);
@@ -218,7 +218,7 @@ const InspectionCalendar = () => {
                     });
 
                     /* 2.2  guarda caché del mes y la caché global opcional */
-                    await setCachedMonth(mesComp, monthEvents);
+                    await setCachedMonth(mesComp, mergeById(monthEvents));
                 }
             } catch (err) {
                 console.error('fetchScheduleAndServices:', err);
@@ -242,6 +242,99 @@ const InspectionCalendar = () => {
             calendarApi.addEventSource(events); // Agrega los eventos actuales
         }
     }, [events]); // Dependencia en `events`
+
+    const handleSyncClick = async () => {
+        if (isSyncing) return;
+        setIsSyncing(true);
+
+        try {
+            // 🔹 1. Obtener las claves (meses) guardadas en cache
+            const monthKeys = await getAllMonthKeys();
+
+            let allSyncedEvents = [];
+
+            // 🔹 2. Recorrer cada mes y sincronizar en cascada
+            for (const monthKey of monthKeys) {
+                try {
+                    const resp = await fetch(
+                        `${process.env.REACT_APP_API_URL}/api/service-schedule?month=${monthKey}`
+                    );
+                    if (!resp.ok) throw new Error(`Error al sincronizar mes ${monthKey}`);
+
+                    const schedules = await resp.json();
+
+                    // Convertir cada schedule → evento
+                    const freshEvents = await Promise.all(
+                        schedules.map(async (s) => {
+                            const svc = await (await fetch(`${process.env.REACT_APP_API_URL}/services/${s.service_id}`)).json();
+                            const client = svc.client_id
+                                ? await (await fetch(`${process.env.REACT_APP_API_URL}/clients/${svc.client_id}`)).json()
+                                : null;
+                            const respUser = svc.responsible
+                                ? await (await fetch(`${process.env.REACT_APP_API_URL}/users/${svc.responsible}`)).json()
+                                : null;
+
+                            return {
+                                id: String(s.id),
+                                service_id: s.service_id,
+                                title: svc.id,
+                                start: moment(`${s.date.split("T")[0]}T${s.start_time}`).toISOString(),
+                                end: s.end_time
+                                    ? moment(`${s.date.split("T")[0]}T${s.end_time}`).toISOString()
+                                    : null,
+
+                                /* props que tu UI espera */
+                                serviceType: svc.service_type || "Sin tipo",
+                                description: svc.description || "Sin descripción",
+                                category: svc.category || "Sin categoría",
+                                quantyPerMonth: svc.quantity_per_month || null,
+                                clientName: client?.name || "Sin empresa",
+                                clientId: svc.client_id,
+                                responsibleId: [
+                                    svc.responsible,
+                                    ...(svc.companion
+                                        ? svc.companion.replace(/[\{\}"]/g, "").split(",")
+                                        : []),
+                                ],
+                                responsibleName: respUser
+                                    ? `${respUser.name} ${respUser.lastname ?? ""}`.trim()
+                                    : "Sin responsable",
+                                address: client?.address || "Sin dirección",
+                                phone: client?.phone || "Sin teléfono",
+                                color: respUser?.color || "#fdd835",
+                                backgroundColor: respUser?.color || "#fdd835",
+                                pestToControl: svc.pest_to_control,
+                                interventionAreas: svc.intervention_areas,
+                                value: svc.value,
+                                companion: svc.companion,
+                                allDay: false,
+                            };
+                        })
+                    );
+
+                    // 🔹 Guardar en cache por mes
+                    await setCachedMonth(monthKey, freshEvents);
+
+                    // 🔹 Agregar a la lista global
+                    allSyncedEvents = [...allSyncedEvents, ...freshEvents];
+                } catch (err) {
+                    console.error(`❌ Error sincronizando mes ${monthKey}:`, err);
+                }
+            }
+
+            // 🔹 3. Actualizar la clave "ALL" con todo lo sincronizado
+            const merged = mergeById(allEvents, allSyncedEvents);
+            await setCachedMonth("ALL", merged);
+            setAllEvents(merged);
+            filterEvents(merged);
+
+            console.log("✅ Sincronización completa de todos los meses.");
+        } catch (err) {
+            console.error("Error en la sincronización en cascada:", err);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     const openScheduleModal = async () => {
         try {
@@ -507,6 +600,7 @@ const InspectionCalendar = () => {
                             start: moment(`${schedules[0]?.date}T${schedules[0]?.startTime}`).toISOString(),
                             end: moment(`${schedules[0]?.date}T${schedules[0]?.endTime}`).toISOString(),
                             service_id: selectedService,
+                            responsibleId: event.responsibleId || [services.find(s => s.id === selectedService)?.responsible]
                         }
                         : event
                 )
@@ -563,6 +657,7 @@ const InspectionCalendar = () => {
                             ...evt,
                             start: moment(event.start).toISOString(),
                             end: event.end ? moment(event.end).toISOString() : null,
+                            responsibleId: evt.responsibleId || []
                         }
                         : evt
                 )
@@ -615,6 +710,7 @@ const InspectionCalendar = () => {
                             ...evt,
                             start: moment(event.start).toISOString(),
                             end: event.end ? moment(event.end).toISOString() : null,
+                            responsibleId: evt.responsibleId || []
                         }
                         : evt
                 )
@@ -823,7 +919,7 @@ const InspectionCalendar = () => {
                             : null;
 
                         const event = {
-                            id: schedule.id,
+                            id: String(schedule.id),
                             service_id: schedule.service_id,
                             title: svc.id,
                             /* ---- extendedProps ---- */
@@ -875,8 +971,8 @@ const InspectionCalendar = () => {
                 } // ← for
 
                 /* ─────────────────────────────────────── 2.5 GUARDA CACHE ──── */
-                if (!abortFn()) await setCachedMonth(mesComp, monthEvents);          // caché del mes
-                setCachedMonth('ALL', mergeEvents(allEvents, monthEvents));
+                if (!abortFn()) await setCachedMonth(mesComp, mergeById(monthEvents));          // caché del mes
+                setCachedMonth('ALL', mergeById(mergeEvents(allEvents, monthEvents)));
             }
         } catch (err) {
             console.error('fetchScheduleAndServices:', err);
@@ -956,7 +1052,10 @@ const InspectionCalendar = () => {
     };
 
     const renderEventContent = (eventInfo) => {
-        const { serviceType, clientName } = eventInfo.event.extendedProps;
+        const {
+            serviceType = "Sin tipo",
+            clientName = "Sin empresa",
+        } = eventInfo.event.extendedProps;
         const { start, end } = eventInfo.event;
         const serviceId = eventInfo.event.title;
         const eventId = eventInfo.event.id;
@@ -1264,93 +1363,53 @@ const InspectionCalendar = () => {
 
             for (const payload of uniqueEvents) {
                 try {
-                    const res = await fetch(
-                        `${process.env.REACT_APP_API_URL}/api/service-schedule`,
-                        {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload),
-                        }
-                    );
+                    const res = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
                     if (!res.ok) throw new Error('Error programando el evento');
 
-                    const saved = await res.json();      //  ←  tu API responde { success,…, data:{id,…} }
+                    const saved = await res.json();        // tu backend devuelve {data:{id,…}, …}
+                    const realId = String(saved.data.id);   // ← id definitivo (¡a string!)
 
-                    /* ▸  Extrae el id sin riesgo de undefined  */
-                    const realId =
-                        saved.data?.id ??          //  forma que usa tu backend
-                        saved.id ??                //  fallback por si cambia en otro endpoint
-                        saved.schedule?.id ??      //  otro posible formato
-                        `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;  //  último recurso
+                    /* construimos AHORA el objeto que FullCalendar espera */
+                    const svc = services.find(s => s.id === payload.service_id) || {};
+                    const respUser = users.find(u => u.id === svc.responsible) || {};
 
-                    savedEvents.push({ ...payload, id: String(realId) });  // FullCalendar prefiere string
+                    const newFcEvent = {
+                        id: realId,
+                        service_id: payload.service_id,
+                        title: payload.service_id,
+                        start: moment(`${payload.date}T${payload.start_time}`).toISOString(),
+                        end: moment(`${payload.date}T${payload.end_time}`).toISOString(),
+                        /* extendedProps ↓ */
+                        serviceType: svc.service_type || 'Sin tipo',
+                        description: svc.description || 'Sin descripción',
+                        category: svc.category || 'Sin categoría',
+                        quantyPerMonth: svc.quantity_per_month || null,
+                        pestToControl: svc.pest_to_control,
+                        interventionAreas: svc.intervention_areas,
+                        clientName: svc.clientName || 'Sin empresa',
+                        clientId: svc.client_id,
+                        responsibleId: [svc.responsible],
+                        responsibleName: `${respUser.name || ''} ${respUser.lastname || ''}`.trim(),
+                        color: respUser.color || '#fdd835',
+                        backgroundColor: respUser.color || '#fdd835',
+                        allDay: false,
+                    };
+
+                    /* actualiza estado y caché con ese único evento */
+                    setAllEvents(prev => {
+                        const merged = mergeById(prev, [newFcEvent]);
+                        filterEvents(merged);
+                        setCachedMonth(mesComp, merged);
+                        return merged;
+                    });
                 } catch (error) {
                     console.error(`Error programando el evento en ${payload.date}:`, error);
                 }
             }
-
-            /* ──────────── 2.  Construir el objeto EXACTO que usa FullCalendar ──────────── */
-            const freshlyCreated = savedEvents.map((ev) => {
-                const svc = services.find((s) => s.id === ev.service_id) || {};
-
-                /* responsables (titular + acompañantes) */
-                const responsibleIds = [
-                    svc.responsible,
-                    ...(svc.companion
-                        ? svc.companion.replace(/[\{\}"]/g, '').split(',')
-                        : []),
-                ].filter(Boolean);
-
-                const respUser = users.find((u) => u.id === svc.responsible) || {};
-
-                return {
-                    /*  ⚠️  FullCalendar necesita la clave **id** (no eventId)  */
-                    id: ev.id,
-
-                    service_id: ev.service_id,
-                    title: `${ev.service_id}`,
-
-                    start: moment(`${ev.date}T${ev.start_time}`).toISOString(),
-                    end: moment(`${ev.date}T${ev.end_time}`).toISOString(),
-
-                    /* ─ extendedProps ─ */
-                    serviceType: svc.service_type || 'Sin tipo',
-                    description: svc.description || 'Sin descripción',
-                    category: svc.category || 'Sin categoría',
-                    quantyPerMonth: svc.quantity_per_month || null,
-                    clientName: svc.clientName || 'Sin empresa',   // agregado en fetchServices
-                    clientId: svc.client_id,
-                    responsibleId: responsibleIds,
-                    responsibleName:
-                        `${respUser.name || 'Sin'} ${respUser.lastname || ''}`.trim(),
-                    address: svc.address || 'Sin dirección',
-                    phone: svc.phone || 'Sin teléfono',
-                    color: respUser.color || '#fdd835',
-                    backgroundColor: respUser.color || '#fdd835',
-                    pestToControl: svc.pest_to_control,
-                    interventionAreas: svc.intervention_areas,
-                    value: svc.value,
-                    companion: svc.companion,
-
-                    allDay: false,
-                };
-            });
-
-            //---------------------------------------------------------------
-            // 2. Actualiza estados y respeta filtros por usuario
-            //---------------------------------------------------------------
-            setAllEvents(prev => {
-                const updated = [...freshlyCreated, ...prev]      // ⬅ nuevo va primero
-                    .filter(                                      // quita duplicados
-                        (e, i, self) =>
-                            i === self.findIndex(x => x.id === e.id)
-                    )
-                    .sort((a, b) => new Date(b.start) - new Date(a.start)); // opcional: más reciente arriba
-
-                filterEvents(updated);            // respeta usuarios seleccionados
-                setCachedMonth(mesComp, updated); // ① sincroniza IndexedDB
-                return updated;
-            });
 
             alert('Eventos agendados con éxito.');
             handleScheduleModalClose();
@@ -1393,6 +1452,14 @@ const InspectionCalendar = () => {
                         </div>
 
                         <div>
+                            <Button
+                                variant="outline-secondary"
+                                className="me-3"
+                                onClick={handleSyncClick}
+                                title="Sincronizar eventos"
+                            >
+                                <ArrowRepeat size={18} className={isSyncing ? 'spin' : ''} />
+                            </Button>
                             <Button variant={currentView === 'dayGridMonth' ? 'dark' : 'success'} className="me-2" onClick={() => changeView('dayGridMonth')}>
                                 Mes
                             </Button>
