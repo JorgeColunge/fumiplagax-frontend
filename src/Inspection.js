@@ -956,6 +956,77 @@ function Inspection() {
     return new Blob([ab], { type: mimeString });
   };
 
+  // ↓↓↓ Descargar imagen de un hallazgo con pre-firmado si aplica
+  const handleDownloadFindingImage = async (type, idx) => {
+    try {
+      const finding = (findingsByType[type] || [])[idx];
+      if (!finding) {
+        showNotification("No se encontró el hallazgo.");
+        return;
+      }
+
+      const downloadBlob = (blob, filename) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      };
+
+      const fileNameFromUrl = (u, def = `hallazgo_${type}_${idx + 1}.jpg`) => {
+        try {
+          const last = u.split("/").pop()?.split("?")[0];
+          return decodeURIComponent(last || def);
+        } catch {
+          return def;
+        }
+      };
+
+      // 1) Si hay foto nueva en memoria (Blob), úsala directo
+      if (finding.photoBlob instanceof Blob) {
+        downloadBlob(finding.photoBlob, `hallazgo_${type}_${idx + 1}.jpg`);
+        return;
+      }
+
+      // 2) Si es un blob URL (blob:...), la descargamos
+      if (finding.photo && finding.photo.startsWith("blob:")) {
+        const res = await fetch(finding.photo);
+        const blob = await res.blob();
+        downloadBlob(blob, `hallazgo_${type}_${idx + 1}.jpg`);
+        return;
+      }
+
+      // 3) Si existe ruta relativa guardada, la pre-firmamos
+      let signedOrDirectUrl = null;
+      if (finding.photoRelative) {
+        try {
+          const { data } = await api.post("/PrefirmarArchivos", { url: finding.photoRelative });
+          signedOrDirectUrl = data?.signedUrl || finding.photo || finding.photoRelative;
+        } catch {
+          signedOrDirectUrl = finding.photo || finding.photoRelative;
+        }
+      } else {
+        signedOrDirectUrl = finding.photo || null;
+      }
+
+      if (!signedOrDirectUrl) {
+        showNotification("No hay imagen disponible para descargar.");
+        return;
+      }
+
+      const resp = await fetch(signedOrDirectUrl);
+      const blob = await resp.blob();
+      const filename = fileNameFromUrl(signedOrDirectUrl, `hallazgo_${type}_${idx + 1}.jpg`);
+      downloadBlob(blob, filename);
+    } catch (e) {
+      console.error("Error descargando imagen:", e);
+      showNotification("No se pudo descargar la imagen.");
+    }
+  };
+
   const handleStationChange = (stationId, field, value) => {
     setClientStations((prevStations) => ({
       ...prevStations,
@@ -2336,11 +2407,34 @@ function Inspection() {
                             <label className="form-label">Foto</label>
                             <div className="image-upload-container">
                               {finding.photo ? (
-                                <img
-                                  src={finding.photo}
-                                  alt={`Preview ${idx}`}
-                                  className="image-preview"
-                                />
+                                <>
+                                  {/* Botón de descarga (overlay) */}
+                                  <button
+                                    type="button"
+                                    className="btn btn-light btn-sm"
+                                    onClick={() => handleDownloadFindingImage(type, idx)}
+                                    title="Descargar imagen"
+                                    style={{
+                                      position: "absolute",
+                                      top: 6,
+                                      right: 6,
+                                      borderRadius: "50%",
+                                      padding: 4,
+                                      lineHeight: 1,
+                                      background: "rgba(255,255,255,0.92)",
+                                      boxShadow: "0 0 4px rgba(0,0,0,0.2)",
+                                      zIndex: 2,
+                                    }}
+                                  >
+                                    <FileEarmarkArrowDown size={14} />
+                                  </button>
+
+                                  <img
+                                    src={finding.photo}
+                                    alt={`Preview ${idx}`}
+                                    className="image-preview"
+                                  />
+                                </>
                               ) : (
                                 <div className="drag-drop-area">
                                   <span>Arrastra o selecciona una imagen</span>

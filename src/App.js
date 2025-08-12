@@ -472,8 +472,8 @@ function App() {
                 <Route path="/edit-my-profile-client/:id" element={<EditMyProfileClient userInfo={userInfo} onProfileUpdate={handleProfileUpdate} />} />
                 <Route path="/users" element={isAuthorized(["SST", "Administrador", "Superadministrador"]) ? <UserList /> : <Navigate to="/login" />} />
                 <Route path="/clients" element={isAuthorized(["Comercial", "Supervisor Técnico", "Administrador", "Superadministrador"]) ? <ClientList /> : <Navigate to="/login" />} />
-                <Route path="/products" element={isAuthorized(["SST", "Supervisor Técnico", "Administrador", "Superadministrador"]) ? <ProductList /> : <Navigate to="/login" />} />
-                <Route path="/billing" element={isAuthorized(["Administrador", "Superadministrador"]) ? <Billing /> : <Navigate to="/login" />} />
+                <Route path="/products" element={isAuthorized(["Técnico", "Comercial", "SST", "Supervisor Técnico", "Administrador", "Superadministrador"]) ? <ProductList /> : <Navigate to="/login" />} />
+                <Route path="/billing" element={isAuthorized(["Administrador", "Superadministrador", "Supervisor Técnico"]) ? <Billing /> : <Navigate to="/login" />} />
                 <Route path="/services" element={isAuthorized(["SST", "Comercial", "Supervisor Técnico", "Administrador", "Superadministrador"]) ? <ServiceList /> : <Navigate to="/login" />} />
                 <Route path="/services-calendar" element={isAuthorized(["SST", "Comercial", "Supervisor Técnico", "Administrador", "Superadministrador"]) ? <InspectionCalendar /> : <Navigate to="/login" />} />
                 <Route path="/client-calendar" element={isAuthorized(["Cliente"]) ? <CalendarClient /> : <Navigate to="/login" />} />

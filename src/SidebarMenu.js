@@ -160,13 +160,13 @@ function SidebarMenu({ onLogout, userInfo, isSidebarVisible, onToggle }) {
       label: "Productos",
       icon: <Eyedropper size={20} />,
       path: "/products",
-      roles: ["Supervisor Técnico", "Administrador", "Superadministrador", "SST"],
+      roles: ["Técnico", "Comercial", "Supervisor Técnico", "Administrador", "Superadministrador", "SST"],
     },
     {
       label: "Facturación",
       icon: <CurrencyDollar size={20} />,
       path: "/billing",
-      roles: ["Administrador", "Superadministrador"],
+      roles: ["Administrador", "Superadministrador", "Supervisor Técnico"],
     },
     {
       label: "Normas", // Botón agregado

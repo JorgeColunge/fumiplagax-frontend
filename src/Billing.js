@@ -90,7 +90,14 @@ function Billing() {
   });
   const [selectedMonth, setSelectedMonth] = useState(moment().month() + 1); // Mes actual
   const [selectedYear, setSelectedYear] = useState(moment().year()); // Año actual
+  const [company, setCompany] = useState(
+    () => localStorage.getItem('company_filter') || 'Fumiplagax'
+  );
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    localStorage.setItem('company_filter', company);
+  }, [company]);
 
   const toggleActions = (id) => {
     setExpandedCardId((prevId) => (prevId === id ? null : id)); // Alterna el estado abierto/cerrado del menú
@@ -207,6 +214,25 @@ function Billing() {
     }
   };
 
+  // Intenta leer la empresa; ajusta los campos según tu data real.
+  const resolveCompanyLabel = (svc) => {
+    // 1) Ideal: si el backend ya trae una marca en el servicio o el cliente:
+    // ejemplos posibles: svc.company, svc.brand, svc.tenant, etc.
+    if (svc.company) return svc.company;
+    if (svc.brand) return svc.brand;
+
+    const cli = clients.find((c) => c.id === svc.client_id);
+
+    if (cli?.company) return cli.company;
+    if (cli?.brand) return cli.brand;
+
+    // 2) Heurística por nombre (si no hay campo dedicado)
+    const name = (cli?.name || '').toLowerCase();
+    if (name.includes('fumiplagax')) return 'Fumiplagax';
+    if (name.includes('control')) return 'Control';
+    return 'Otro';
+  };
+
   const applyFilters = useCallback(() => {
     if (!services.length) {
       setFilteredServices([]);
@@ -233,6 +259,9 @@ function Billing() {
     });
 
     // 🔥 NUEVO FILTRO → Solo mostrar servicios con inspecciones pendientes
+
+    list = list.filter((svc) => resolveCompanyLabel(svc) === company);
+
     list = list.filter((svc) => servicesWithPendingInspections.includes(svc.id));
 
     if (selectedClient) {
@@ -256,7 +285,9 @@ function Billing() {
     selectedUser,
     filterStatus,
     scheduleEvents,
-    servicesWithPendingInspections, // 👈 importante agregarlo
+    servicesWithPendingInspections,
+    company,
+    clients
   ]);
 
   const handleAddToBilling = (selectedInspections) => {
@@ -529,7 +560,7 @@ function Billing() {
     if (services.length && servicesWithPendingInspections.length >= 0) {
       applyFilters();
     }
-  }, [services, servicesWithPendingInspections, selectedMonth, selectedYear, selectedClient, selectedUser, filterStatus]);
+  }, [services, servicesWithPendingInspections, selectedMonth, selectedYear, selectedClient, selectedUser, filterStatus, company]);
 
   const handleServiceSearchChange = (e) => {
     const input = e.target.value.toLowerCase();
@@ -613,7 +644,20 @@ function Billing() {
       ) : (
         <>
           <Row className="align-items-center mb-2" style={{ minHeight: 0, height: 'auto' }}>
-            <Col className='ms-auto' xs={6} md={2}>
+            <Col className='ms-auto' xs={12} md={2}>
+              <Form.Group controlId="formCompanyFilter">
+                <Form.Control
+                  as="select"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                >
+                  <option value="Fumiplagax">Fumiplagax</option>
+                  <option value="Control">Control</option>
+                  <option value="Otro">Otro</option>
+                </Form.Control>
+              </Form.Group>
+            </Col>
+            <Col xs={6} md={2}>
               <Form.Group controlId="formMonthFilter">
                 <Form.Control
                   as="select"

@@ -1,28 +1,38 @@
 import React, { useEffect, useState } from 'react';
 import './ProductList.css';
 import axios from 'axios';
-import { Button, Card, Modal, Form, Collapse } from 'react-bootstrap';
+import { Button, Card, Modal, Form } from 'react-bootstrap';
 import { BsPencilSquare, BsTrash, BsEye, BsGrid, BsClockHistory, BsDropletHalf, BsBookHalf, BsBodyText, BsCalendar } from 'react-icons/bs';
 import { saveProducts, getProducts } from './indexedDBHandler';
 import 'bootstrap/dist/css/bootstrap.min.css';
+
+/* ───────────────── RBAC ───────────────── */
+const ALLOWED_ROLES = ["Supervisor Técnico", "Administrador", "Superadministrador"];
+const userRole = (() => {
+  try {
+    return JSON.parse(localStorage.getItem("user_info"))?.rol ?? "";
+  } catch { return ""; }
+})();
+const CAN_MANAGE = ALLOWED_ROLES.includes(userRole);
+/* ──────────────────────────────────────── */
 
 function ProductList() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [showDetailModal, setShowDetailModal] = useState(false); // Nuevo estado para el modal de detalles
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [selectedProduct, setSelectedProduct] = useState(null); // Nuevo estado para el producto seleccionado  
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [newProduct, setNewProduct] = useState({
     name: '',
     description_type: '',
     dose: '',
     unity: '',
     residual_duration: '',
-    batch: '', // Nuevo campo Lote
-    expiration_date: '', // Nuevo campo Fecha de Vencimiento
+    batch: '',
+    expiration_date: '',
     safety_data_sheet: '',
     technical_sheet: '',
     health_registration: '',
@@ -33,60 +43,47 @@ function ProductList() {
   });
 
   const categoryOptions = [
-    "Desinsectación",
-    "Desratización",
-    "Desinfección",
-    "Roceria",
-    "Limpieza y aseo de archivos",
-    "Lavado shut basura",
-    "Encarpado",
-    "Lavado de tanque",
-    "Inspección",
-    "Diagnostico"
+    "Desinsectación", "Desratización", "Desinfección", "Roceria",
+    "Limpieza y aseo de archivos", "Lavado shut basura", "Encarpado",
+    "Lavado de tanque", "Inspección", "Diagnostico"
   ];
 
   const [expandedCardId, setExpandedCardId] = useState(null);
+  const toggleActions = (id) => setExpandedCardId(prevId => (prevId === id ? null : id));
 
-  const toggleActions = (id) => {
-    setExpandedCardId((prevId) => (prevId === id ? null : id));
-  };
-
-  const [showCategoryOptions, setShowCategoryOptions] = useState(false); // Controlar el colapso de categorías  
-
+  const [showCategoryOptions, setShowCategoryOptions] = useState(false); // (no usado, mantengo por compatibilidad)
   const [safetyDataSheetFile, setSafetyDataSheetFile] = useState(null);
   const [technicalSheetFile, setTechnicalSheetFile] = useState(null);
   const [healthRegistrationFile, setHealthRegistrationFile] = useState(null);
   const [emergencyCardFile, setEmergencyCardFile] = useState(null);
-
   const [pendingAlert, setPendingAlert] = useState(false);
+
+  const matchesFilter = (p, q) => {
+    if (!q?.trim()) return true;
+    const s = q.toLowerCase();
+
+    const inName = (p.name || '').toLowerCase().includes(s);
+
+    const cats = Array.isArray(p.category)
+      ? p.category
+      : typeof p.category === 'string'
+        ? p.category.split(',').map(c => c.trim())
+        : [];
+
+    const inCat = cats.some(c => (c || '').toLowerCase().includes(s));
+    return inName || inCat;
+  };
 
   const filteredProducts = products.filter((product) =>
     (product.name || '').toLowerCase().includes(searchText.toLowerCase()) ||
-    product.category.some(cat => (cat || '').toLowerCase().includes(searchText.toLowerCase()))
+    (product.category || []).some(cat => (cat || '').toLowerCase().includes(searchText.toLowerCase()))
   );
 
   const prefirmarArchivo = async (fileUrl) => {
-    console.log('Iniciando proceso para prefirmar archivo...');
     try {
-      if (!fileUrl) {
-        console.error('Error: La URL del archivo es inválida o no se proporcionó.');
-        return null;
-      }
-      console.log('URL recibida para prefirmar:', fileUrl);
-
-      // Decodificar la URL antes de enviarla
-      const decodedUrl = decodeURIComponent(fileUrl);
-      console.log('URL decodificada para prefirmar:', decodedUrl);
-
+      if (!fileUrl) return null;
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/PrefirmarArchivos`, { url: fileUrl });
-
-      if (response.data && response.data.signedUrl) {
-        console.log('URL prefirmada generada con éxito:', response.data.signedUrl);
-        return response.data.signedUrl;
-      } else {
-        console.error('Error: Respuesta inesperada del servidor al generar la URL prefirmada.', response.data);
-        return null;
-      }
+      return response.data?.signedUrl ?? null;
     } catch (error) {
       console.error('Error al prefirmar archivo:', error.message, error.response?.data || error);
       alert('No se pudo generar la URL prefirmada. Por favor, verifica el archivo.');
@@ -95,48 +92,22 @@ function ProductList() {
   };
 
   const uploadFileToS3 = async (file, preSignedUrl) => {
-    console.log('Iniciando subida de archivo a S3...');
-    console.log('Archivo a cargar:', file?.name);
-    console.log('URL prefirmada proporcionada:', preSignedUrl);
-
-    if (!file || !preSignedUrl) {
-      console.error('Error: Archivo o URL prefirmada no proporcionados.');
-      return false;
-    }
-
+    if (!file || !preSignedUrl) return false;
     try {
-      const response = await axios.put(preSignedUrl, file, {
-        headers: {
-          'Content-Type': file.type || 'application/octet-stream',
-        },
-      });
-
-      if (response.status === 200) {
-        console.log(`Archivo ${file.name} cargado con éxito a S3.`);
-        return true;
-      } else {
-        console.error('Error: Respuesta inesperada al cargar archivo a S3.', response.status, response.data);
-        return false;
-      }
+      const response = await axios.put(preSignedUrl, file, { headers: { 'Content-Type': file.type || 'application/octet-stream' } });
+      return response.status === 200;
     } catch (error) {
-      console.error(`Error al cargar el archivo ${file.name} a S3:`, error.message, error.response?.data || error);
+      console.error(`Error al cargar el archivo ${file?.name} a S3:`, error.message, error.response?.data || error);
       return false;
     }
   };
 
-  // Función para manejar la vista de archivos con URL prefirmada
   const verArchivoPrefirmado = async (fileUrl) => {
-    console.log('Intentando abrir archivo con URL prefirmada...');
     try {
       const signedUrl = await prefirmarArchivo(fileUrl);
-      if (signedUrl) {
-        console.log('Abriendo archivo en una nueva pestaña...');
-        window.open(signedUrl, '_blank');
-      } else {
-        console.error('Error: No se pudo obtener la URL prefirmada para el archivo.');
-      }
+      if (signedUrl) window.open(signedUrl, '_blank');
     } catch (error) {
-      console.error('Error al intentar abrir archivo con URL prefirmada:', error.message);
+      console.error('Error al abrir archivo prefirmado:', error.message);
     }
   };
 
@@ -144,10 +115,7 @@ function ProductList() {
     const fetchProducts = async () => {
       try {
         if (navigator.onLine) {
-          console.log('🌐 Online: descargando productos...');
           const { data } = await axios.get(`${process.env.REACT_APP_API_URL}/api/products`);
-
-          // 🔧 normaliza category → array
           const normalized = data.map(p => ({
             ...p,
             category: Array.isArray(p.category)
@@ -156,12 +124,10 @@ function ProductList() {
                 ? p.category.split(',').map(c => c.trim())
                 : []
           }));
-
           setProducts(normalized);
-          await saveProducts(normalized);          // <—— NUEVO
+          await saveProducts(normalized);
         } else {
-          console.log('📴 Offline: leyendo productos desde IndexedDB');
-          const offlineProducts = await getProducts(); // <—— NUEVO
+          const offlineProducts = await getProducts();
           setProducts(offlineProducts);
         }
       } catch (err) {
@@ -171,47 +137,45 @@ function ProductList() {
         setLoading(false);
       }
     };
-
     fetchProducts();
   }, []);
 
   const handleCategoryChange = (e) => {
     const { value, checked } = e.target;
-    setNewProduct((prevProduct) => {
-      const currentCategories = prevProduct.category || [];
-      const updatedCategories = checked
-        ? [...currentCategories, value] // Agrega categoría seleccionada
-        : currentCategories.filter((cat) => cat !== value); // Elimina categoría deseleccionada
-
-      console.log("Categorías actualizadas:", updatedCategories); // Depura las categorías seleccionadas
-      return { ...prevProduct, category: updatedCategories };
+    setNewProduct(prev => {
+      const current = prev.category || [];
+      const updated = checked ? [...current, value] : current.filter(cat => cat !== value);
+      return { ...prev, category: updated };
     });
   };
 
   const handleShowModal = (product = null) => {
-    console.log("Producto seleccionado para editar:", product); // Debug
-
+    /* ───── guard de permisos ───── */
+    if (!CAN_MANAGE) {
+      alert("No tienes permisos para crear o editar productos.");
+      return;
+    }
+    /* ───────────────────────────── */
     if (product) {
       setEditingProduct(product);
-
       setNewProduct({
         name: product.name || '',
         description_type: product.description_type || '',
         dose: product.dose || '',
         unity: product.unity || '',
         residual_duration: product.residual_duration || '',
-        batch: product.batch || '', // Cargar el Lote si existe
-        expiration_date: product.expiration_date ? product.expiration_date.split('T')[0] : '', // ✅ Formatea la fecha correctamente
+        batch: product.batch || '',
+        expiration_date: product.expiration_date ? product.expiration_date.split('T')[0] : '',
         safety_data_sheet: product.safety_data_sheet || '',
         technical_sheet: product.technical_sheet || '',
         health_registration: product.health_registration || '',
         emergency_card: product.emergency_card || '',
-        health_record: product.health_record || '', // ✅ Ahora se asigna correctamente
+        health_record: product.health_record || '',
         active_ingredient: product.active_ingredient || '',
         category: Array.isArray(product.category)
           ? product.category
           : typeof product.category === 'string'
-            ? JSON.parse(product.category.replace(/\\/g, '')) // ✅ Convierte la categoría correctamente
+            ? JSON.parse(product.category.replace(/\\/g, ''))
             : []
       });
     } else {
@@ -233,11 +197,7 @@ function ProductList() {
         category: []
       });
     }
-
-    setTimeout(() => {
-      console.log("Abriendo modal de edición..."); // Debug
-      setShowModal(true);
-    }, 100);
+    setShowModal(true);
   };
 
   const handleShowDetailModal = (product) => {
@@ -245,30 +205,27 @@ function ProductList() {
     setShowDetailModal(true);
   };
 
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setEditingProduct(null);
-  };
-
-  const handleCloseDetailModal = () => {
-    setShowDetailModal(false);
-    setSelectedProduct(null);
-  };
+  const handleCloseModal = () => { setShowModal(false); setEditingProduct(null); };
+  const handleCloseDetailModal = () => { setShowDetailModal(false); setSelectedProduct(null); };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setNewProduct({ ...newProduct, [name]: value });
+    setNewProduct(prev => ({ ...prev, [name]: value }));
   };
 
   const handleAddOrEditProduct = async () => {
-    console.log("Datos del nuevo producto antes de enviar:", newProduct);
+    /* ───── guard de permisos ───── */
+    if (!CAN_MANAGE) {
+      alert("No tienes permisos para realizar esta acción.");
+      return;
+    }
+    /* ───────────────────────────── */
 
-    if (!newProduct.name || newProduct.name.trim() === '') {
+    if (!newProduct.name?.trim()) {
       alert('El campo "Nombre" es obligatorio.');
       return;
     }
-
-    if (!newProduct.category || newProduct.category.length === 0) {
+    if (!newProduct.category?.length) {
       alert('Debes seleccionar al menos una categoría.');
       return;
     }
@@ -279,63 +236,57 @@ function ProductList() {
       formData.append('description_type', newProduct.description_type);
       formData.append('dose', newProduct.dose);
       formData.append('residual_duration', newProduct.residual_duration);
-      formData.append('batch', newProduct.batch); // Nuevo campo Lote
-      formData.append('expiration_date', newProduct.expiration_date); // Nuevo campo Fecha de Vencimiento
+      formData.append('batch', newProduct.batch);
+      formData.append('expiration_date', newProduct.expiration_date);
       formData.append('unity', newProduct.unity);
       formData.append('active_ingredient', newProduct.active_ingredient);
       formData.append('category', JSON.stringify(newProduct.category));
 
-      // Archivos opcionales
       if (safetyDataSheetFile) formData.append('safety_data_sheet', safetyDataSheetFile);
       if (technicalSheetFile) formData.append('technical_sheet', technicalSheetFile);
       if (healthRegistrationFile) formData.append('health_registration', healthRegistrationFile);
       if (emergencyCardFile) formData.append('emergency_card', emergencyCardFile);
 
-      console.log("FormData enviado al servidor:");
-      formData.forEach((value, key) => console.log(`${key}: ${value}`)); // Log de FormData
-
       const response = editingProduct
-        ? await axios.put(`${process.env.REACT_APP_API_URL}/api/products/${editingProduct.id}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        })
-        : await axios.post(`${process.env.REACT_APP_API_URL}/api/products`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        ? await axios.put(`${process.env.REACT_APP_API_URL}/api/products/${editingProduct.id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+        : await axios.post(`${process.env.REACT_APP_API_URL}/api/products`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
-      console.log("Respuesta del servidor al guardar producto:", response.data);
-
-      // Lógica para actualizar productos en el estado
       if (editingProduct) {
-        setProducts((prevProducts) =>
-          prevProducts.map((product) =>
+        setProducts(prev =>
+          prev.map(product =>
             product.id === editingProduct.id
               ? {
-                ...response.data.product, // Accede directamente al producto dentro de la respuesta
+                ...response.data.product,
                 category: Array.isArray(response.data.product.category)
                   ? response.data.product.category
                   : typeof response.data.product.category === 'string'
-                    ? JSON.parse(response.data.product.category) // Convierte la cadena JSON a un arreglo
+                    ? JSON.parse(response.data.product.category)
                     : [],
               }
               : product
           )
         );
       } else {
-        const newProduct = {
-          ...response.data.product, // Usamos el producto directamente
+        // Normaliza usando lo que TE devuelve tu backend
+        const created = {
+          ...response.data.product,
           category: Array.isArray(response.data.product.category)
             ? response.data.product.category
             : typeof response.data.product.category === 'string'
-              ? JSON.parse(response.data.product.category) // Convierte la cadena JSON a un arreglo
+              ? JSON.parse(response.data.product.category)
               : [],
           dose: response.data.product.dose || 'No especificada',
           residual_duration: response.data.product.residual_duration || 'No especificada',
         };
 
-        setProducts((prevProducts) => [...prevProducts, newProduct]);
-      }
+        // Inserta ARRIBA para que sea visible inmediatamente
+        setProducts(prev => [created, ...prev]);
 
-      console.log("Estado de productos después de actualizar:", products);
+        // Si el filtro actual lo ocultaría, lo limpiamos (solo entonces)
+        if (!matchesFilter(created, searchText)) {
+          setSearchText('');
+        }
+      }
 
       alert('Producto registrado correctamente.');
       handleCloseModal();
@@ -345,28 +296,25 @@ function ProductList() {
     }
   };
 
-  console.log("Datos enviados en la actualización:", newProduct);
-
   const deleteProduct = async (id) => {
-    if (!window.confirm("¿Estás seguro de que deseas eliminar este producto?")) {
+    /* ───── guard de permisos ───── */
+    if (!CAN_MANAGE) {
+      alert("No tienes permisos para eliminar productos.");
       return;
     }
+    /* ───────────────────────────── */
+    if (!window.confirm("¿Estás seguro de que deseas eliminar este producto?")) return;
 
     try {
-      console.log(`⏳ Enviando solicitud para eliminar el producto con ID: ${id}`);
-
       const response = await axios.delete(`${process.env.REACT_APP_API_URL}/api/products/${id}`);
-
       if (response.data.success) {
-        console.log(` Producto con ID ${id} eliminado correctamente.`);
-        setProducts((prevProducts) => prevProducts.filter((product) => product.id !== id));
+        setProducts(prev => prev.filter(product => product.id !== id));
         alert("Producto eliminado exitosamente.");
       } else {
-        console.error(" Error en la respuesta del servidor:", response.data);
         alert("No se pudo eliminar el producto.");
       }
     } catch (error) {
-      console.error(" Error al eliminar producto:", error);
+      console.error("Error al eliminar producto:", error);
       alert("Hubo un error al eliminar el producto.");
     }
   };
@@ -384,9 +332,13 @@ function ProductList() {
             onChange={(e) => setSearchText(e.target.value)}
           />
         </Form.Group>
-        <Button variant="success" onClick={() => handleShowModal()}>
-          Agregar Producto
-        </Button>
+
+        {/* ───── Botón Crear condicionado por permisos ───── */}
+        {CAN_MANAGE && (
+          <Button variant="success" onClick={() => handleShowModal()}>
+            Agregar Producto
+          </Button>
+        )}
       </div>
 
       {pendingAlert && (
@@ -394,16 +346,12 @@ function ProductList() {
       )}
 
       <div className="row">
-        {filteredProducts.map((product, index) => (
+        {filteredProducts.map((product) => (
           <div key={product.id} className="col-sm-6 col-md-4 col-lg-3 mb-4">
             <Card
               className="border"
-              style={{
-                cursor: "pointer",
-                minHeight: "280px",
-                height: "280px",
-              }}
-              onClick={() => handleShowDetailModal(product)} // Abre el modal de detalles al hacer clic en la tarjeta
+              style={{ cursor: "pointer", minHeight: "280px", height: "280px" }}
+              onClick={() => handleShowDetailModal(product)}
             >
               <Card.Body>
                 <div className="d-flex justify-content-center align-items-center mb-3">
@@ -415,69 +363,58 @@ function ProductList() {
                   <span>
                     <strong>Categoría: </strong>
                     {Array.isArray(product.category) && product.category.length > 0
-                      ? product.category
-                        .map((cat) => cat.replace(/[\[\]"]/g, ""))
-                        .join(", ") // Elimina corchetes y comillas y une con comas
+                      ? product.category.map((cat) => (cat || "").replace(/[\[\]"]/g, "")).join(", ")
                       : typeof product.category === "string"
-                        ? product.category.replace(/[\[\]"]/g, "") // Elimina corchetes y comillas si es un string
+                        ? product.category.replace(/[\[\]"]/g, "")
                         : "Sin categoría"}
                   </span>
                 </div>
                 <div className="mt-2">
                   <BsDropletHalf className="text-info me-2" />
-                  <span>
-                    <strong>Conc:</strong> {product.dose || "No especificada"}
-                  </span>
+                  <span><strong>Conc:</strong> {product.dose || "No especificada"}</span>
                 </div>
                 <div className="mt-2">
                   <BsClockHistory className="text-success me-2" />
-                  <span>
-                    <strong>Reingreso en horas:</strong> {product.residual_duration || "No especificada"}
-                  </span>
+                  <span><strong>Reingreso en horas:</strong> {product.residual_duration || "No especificada"}</span>
                 </div>
               </Card.Body>
-              <Card.Footer
-                className="text-center position-relative"
-                style={{ background: "#f9f9f9", cursor: "pointer" }}
-                onClick={(e) => {
-                  e.stopPropagation(); // Evita abrir el modal de detalles
-                  toggleActions(product.id);
-                }}
-              >
-                <small className="text-success">
-                  {expandedCardId === product.id ? "Cerrar Acciones" : "Acciones"}
-                </small>
-                {expandedCardId === product.id && (
-                  <div className={`menu-actions ${expandedCardId === product.id ? "expand" : "collapse"}`}>
-                    <button
-                      className="btn d-block"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleShowModal(product);
-                      }}
-                    >
-                      <BsPencilSquare size={18} className="me-2" />
-                      Editar
-                    </button>
-                    <button
-                      className="btn d-block"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteProduct(product.id); // ✅ Ahora realmente llama a la función eliminar
-                      }}
-                    >
-                      <BsTrash size={18} className="me-2" />
-                      Eliminar
-                    </button>
-                  </div>
-                )}
-              </Card.Footer>
+
+              {/* ───── Footer de Acciones solo si hay permisos ───── */}
+              {CAN_MANAGE && (
+                <Card.Footer
+                  className="text-center position-relative"
+                  style={{ background: "#f9f9f9", cursor: "pointer" }}
+                  onClick={(e) => { e.stopPropagation(); toggleActions(product.id); }}
+                >
+                  <small className="text-success">
+                    {expandedCardId === product.id ? "Cerrar Acciones" : "Acciones"}
+                  </small>
+                  {expandedCardId === product.id && (
+                    <div className={`menu-actions ${expandedCardId === product.id ? "expand" : "collapse"}`}>
+                      <button
+                        className="btn d-block"
+                        onClick={(e) => { e.stopPropagation(); handleShowModal(product); }}
+                      >
+                        <BsPencilSquare size={18} className="me-2" />
+                        Editar
+                      </button>
+                      <button
+                        className="btn d-block"
+                        onClick={(e) => { e.stopPropagation(); deleteProduct(product.id); }}
+                      >
+                        <BsTrash size={18} className="me-2" />
+                        Eliminar
+                      </button>
+                    </div>
+                  )}
+                </Card.Footer>
+              )}
             </Card>
           </div>
         ))}
       </div>
 
-      {/* Modal para agregar/editar producto */}
+      {/* Modal agregar/editar producto (solo se abre si CAN_MANAGE) */}
       <Modal show={showModal} onHide={handleCloseModal}>
         <Modal.Header closeButton>
           <Modal.Title>{editingProduct ? "Editar Producto" : "Agregar Producto"}</Modal.Title>
@@ -492,6 +429,7 @@ function ProductList() {
               <Form.Label>Descripción</Form.Label>
               <Form.Control type="text" name="description_type" value={newProduct.description_type} onChange={handleInputChange} />
             </Form.Group>
+
             <Form.Group className="mt-3">
               <Form.Label style={{ fontWeight: "bold" }}>Categoría</Form.Label>
               <div className="d-flex flex-wrap">
@@ -501,7 +439,7 @@ function ProductList() {
                       type="checkbox"
                       label={<span style={{ fontSize: "0.8rem" }}>{option}</span>}
                       value={option}
-                      checked={newProduct.category.includes(option)} // ✅ Se marca correctamente
+                      checked={newProduct.category.includes(option)}
                       onChange={handleCategoryChange}
                     />
                   </div>
@@ -511,44 +449,23 @@ function ProductList() {
 
             <Form.Group controlId="formActiveIngredient" className="mb-3">
               <Form.Label>Ingrediente Activo</Form.Label>
-              <Form.Control
-                type="text"
-                name="active_ingredient"
-                value={newProduct.active_ingredient}
-                onChange={handleInputChange}
-              />
+              <Form.Control type="text" name="active_ingredient" value={newProduct.active_ingredient} onChange={handleInputChange} />
             </Form.Group>
 
             <Form.Group controlId="formHealthRecord" className="mb-3">
               <Form.Label>Registro Sanitario</Form.Label>
-              <Form.Control
-                type="text"
-                name="health_record"
-                value={newProduct.health_record}
-                onChange={handleInputChange}
-              />
+              <Form.Control type="text" name="health_record" value={newProduct.health_record} onChange={handleInputChange} />
             </Form.Group>
 
             <Form.Group controlId="formDose" className="mb-3">
               <Form.Label>Concentración</Form.Label>
               <div className="d-flex">
-                <Form.Control
-                  type="text"
-                  name="dose"
-                  value={newProduct.dose}
-                  onChange={handleInputChange}
-                  className="me-3"
-                />
+                <Form.Control type="text" name="dose" value={newProduct.dose} onChange={handleInputChange} className="me-3" />
               </div>
 
-              {/* Nueva estructura para la unidad */}
               <Form.Group controlId="formUnity" className="mt-2">
                 <Form.Label>Unidad del producto</Form.Label>
-                <Form.Select
-                  name="unity"
-                  value={newProduct.unity}
-                  onChange={handleInputChange}
-                >
+                <Form.Select name="unity" value={newProduct.unity} onChange={handleInputChange}>
                   <option value="">Seleccionar unidad</option>
                   <option value="ml">ml</option>
                   <option value="L">L</option>
@@ -565,33 +482,27 @@ function ProductList() {
               <Form.Control type="text" name="residual_duration" value={newProduct.residual_duration} onChange={handleInputChange} />
             </Form.Group>
 
-            {/* Nuevo campo Lote */}
             <Form.Group className="mb-3">
               <Form.Label>Lote</Form.Label>
               <Form.Control type="text" name="batch" value={newProduct.batch} onChange={handleInputChange} />
             </Form.Group>
 
-            {/* Nuevo campo Fecha de Vencimiento */}
             <Form.Group className="mb-3">
               <Form.Label>Fecha de Vencimiento</Form.Label>
-              <Form.Control
-                type="date"
-                name="expiration_date"
-                value={newProduct.expiration_date}
-                onChange={handleInputChange}
-              />
+              <Form.Control type="date" name="expiration_date" value={newProduct.expiration_date} onChange={handleInputChange} />
             </Form.Group>
+
+            {/* Archivos */}
             <Form.Group controlId="formSafetyDataSheet" className="mb-3 d-flex align-items-center flex-column">
               <div className="d-flex w-100 align-items-center">
                 <Form.Label className="me-2">Hoja de Datos de Seguridad</Form.Label>
                 <div className="ms-auto d-flex justify-content-end">
-                  {/* Botón para cargar archivo */}
                   <input
                     type="file"
                     accept=".pdf,.doc,.docx"
                     onChange={(e) => {
                       setSafetyDataSheetFile(e.target.files[0]);
-                      setNewProduct({ ...newProduct, safety_data_sheet: e.target.files[0]?.name || '' });
+                      setNewProduct(prev => ({ ...prev, safety_data_sheet: e.target.files[0]?.name || '' }));
                     }}
                     style={{ display: 'none' }}
                     id="safetyDataSheetFileInput"
@@ -599,27 +510,22 @@ function ProductList() {
                   <Button variant="link" size="sm" onClick={() => document.getElementById('safetyDataSheetFileInput').click()}>
                     <BsPencilSquare style={{ color: 'green', fontSize: '1.2em' }} />
                   </Button>
-                  {/* Botón para ver el archivo */}
                   <Button
                     variant="link"
                     size="sm"
                     onClick={() => {
-                      if (newProduct.safety_data_sheet) {
-                        window.open(newProduct.safety_data_sheet, '_blank');
-                      } else {
-                        alert("No hay Hoja de Datos de Seguridad disponible.");
-                      }
+                      if (newProduct.safety_data_sheet) window.open(newProduct.safety_data_sheet, '_blank');
+                      else alert("No hay Hoja de Datos de Seguridad disponible.");
                     }}
                   >
                     <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
                   </Button>
-                  {/* Botón para eliminar el archivo */}
                   <Button
                     variant="link"
                     size="sm"
                     onClick={() => {
                       setSafetyDataSheetFile(null);
-                      setNewProduct({ ...newProduct, safety_data_sheet: '' });
+                      setNewProduct(prev => ({ ...prev, safety_data_sheet: '' }));
                       alert("Hoja de Datos de Seguridad eliminada.");
                     }}
                   >
@@ -627,7 +533,6 @@ function ProductList() {
                   </Button>
                 </div>
               </div>
-              {/* Mostrar nombre del archivo si existe */}
               <small className="text-muted mt-1">
                 {newProduct.safety_data_sheet || 'Sin archivo seleccionado'}
               </small>
@@ -642,7 +547,7 @@ function ProductList() {
                     accept=".pdf,.doc,.docx"
                     onChange={(e) => {
                       setTechnicalSheetFile(e.target.files[0]);
-                      setNewProduct({ ...newProduct, technical_sheet: e.target.files[0]?.name || '' });
+                      setNewProduct(prev => ({ ...prev, technical_sheet: e.target.files[0]?.name || '' }));
                     }}
                     style={{ display: 'none' }}
                     id="technicalSheetFileInput"
@@ -653,10 +558,7 @@ function ProductList() {
                   <Button variant="link" size="sm" onClick={() => newProduct.technical_sheet && window.open(newProduct.technical_sheet, '_blank')}>
                     <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
                   </Button>
-                  <Button variant="link" size="sm" onClick={() => {
-                    setTechnicalSheetFile(null);
-                    setNewProduct({ ...newProduct, technical_sheet: '' });
-                  }}>
+                  <Button variant="link" size="sm" onClick={() => { setTechnicalSheetFile(null); setNewProduct(prev => ({ ...prev, technical_sheet: '' })); }}>
                     <BsTrash style={{ color: 'red', fontSize: '1.2em' }} />
                   </Button>
                 </div>
@@ -673,7 +575,7 @@ function ProductList() {
                     accept=".pdf,.doc,.docx"
                     onChange={(e) => {
                       setHealthRegistrationFile(e.target.files[0]);
-                      setNewProduct({ ...newProduct, health_registration: e.target.files[0]?.name || '' });
+                      setNewProduct(prev => ({ ...prev, health_registration: e.target.files[0]?.name || '' }));
                     }}
                     style={{ display: 'none' }}
                     id="healthRegistrationFileInput"
@@ -684,10 +586,7 @@ function ProductList() {
                   <Button variant="link" size="sm" onClick={() => newProduct.health_registration && window.open(newProduct.health_registration, '_blank')}>
                     <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
                   </Button>
-                  <Button variant="link" size="sm" onClick={() => {
-                    setHealthRegistrationFile(null);
-                    setNewProduct({ ...newProduct, health_registration: '' });
-                  }}>
+                  <Button variant="link" size="sm" onClick={() => { setHealthRegistrationFile(null); setNewProduct(prev => ({ ...prev, health_registration: '' })); }}>
                     <BsTrash style={{ color: 'red', fontSize: '1.2em' }} />
                   </Button>
                 </div>
@@ -704,7 +603,7 @@ function ProductList() {
                     accept=".pdf,.doc,.docx"
                     onChange={(e) => {
                       setEmergencyCardFile(e.target.files[0]);
-                      setNewProduct({ ...newProduct, emergency_card: e.target.files[0]?.name || '' });
+                      setNewProduct(prev => ({ ...prev, emergency_card: e.target.files[0]?.name || '' }));
                     }}
                     style={{ display: 'none' }}
                     id="emergencyCardFileInput"
@@ -715,206 +614,100 @@ function ProductList() {
                   <Button variant="link" size="sm" onClick={() => newProduct.emergency_card && window.open(newProduct.emergency_card, '_blank')}>
                     <BsEye style={{ color: 'orange', fontSize: '1.2em' }} />
                   </Button>
-                  <Button variant="link" size="sm" onClick={() => {
-                    setEmergencyCardFile(null);
-                    setNewProduct({ ...newProduct, emergency_card: '' });
-                  }}>
+                  <Button variant="link" size="sm" onClick={() => { setEmergencyCardFile(null); setNewProduct(prev => ({ ...prev, emergency_card: '' })); }}>
                     <BsTrash style={{ color: 'red', fontSize: '1.2em' }} />
                   </Button>
                 </div>
               </div>
               <small className="text-muted mt-1">{newProduct.emergency_card || 'Sin archivo seleccionado'}</small>
             </Form.Group>
-
           </Form>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>Cancelar</Button>
-          <Button
-            variant="primary"
-            onClick={() => setShowConfirmationModal(true)}
-          >
+          <Button variant="success" onClick={() => setShowConfirmationModal(true)}>
             {editingProduct ? "Guardar Cambios" : "Registrar Producto"}
           </Button>
         </Modal.Footer>
       </Modal>
-      {/* Modal para ver detalles del producto */}
+
+      {/* Modal Detalles (todos los roles pueden verlo) */}
       <Modal show={showDetailModal} onHide={handleCloseDetailModal}>
         <Modal.Header closeButton>
           <Modal.Title>Detalles del Producto</Modal.Title>
         </Modal.Header>
-
         <Modal.Body>
           {selectedProduct && (
             <>
-              <p>
-                <strong>
-                  <i className="text-primary">
-                    <BsBodyText className="text-center me-2" />
-                  </i>
-                  Nombre:
-                </strong>{" "}
-                {selectedProduct.name}
-              </p>
-
-              <p>
-                <strong>
-                  <BsGrid className="text-warning me-2" />
-                  Categoría:
-                </strong>{" "}
-                {Array.isArray(selectedProduct.category) && selectedProduct.category.length > 0
-                  ? selectedProduct.category.join(", ")
-                  : "Sin categoría"}
-              </p>
-
-              <p>
-                <strong>
-                  <BsDropletHalf className="text-info me-2" />
-                  Concentración:
-                </strong>{" "}
-                {selectedProduct.dose}
-              </p>
-
+              <p><strong><i className="text-success"><BsBodyText className="text-center me-2" /></i>Nombre:</strong> {selectedProduct.name}</p>
+              <p><strong><BsGrid className="text-warning me-2" />Categoría:</strong> {Array.isArray(selectedProduct.category) && selectedProduct.category.length > 0 ? selectedProduct.category.join(", ") : "Sin categoría"}</p>
+              <p><strong><BsDropletHalf className="text-info me-2" />Concentración:</strong> {selectedProduct.dose}</p>
               <p><BsClockHistory className="me-2" /> <strong>Tiempo de reingreso:</strong> {selectedProduct.residual_duration}</p>
-
               <p><BsGrid className="me-2" /> <strong>Lote:</strong> {selectedProduct.batch || 'No especificado'}</p>
-
               <p><BsCalendar className="me-2" /> <strong>Fecha de Vencimiento:</strong> {selectedProduct.expiration_date || 'No especificada'}</p>
-
-              <p>
-                <strong>Ingrediente Activo:</strong> {selectedProduct.active_ingredient || 'No especificado'}
-              </p>
+              <p><strong>Ingrediente Activo:</strong> {selectedProduct.active_ingredient || 'No especificado'}</p>
 
               <div className="d-flex justify-content-between align-items-center">
-                <p>
-                  <strong>
-                    <BsBookHalf className="text-secondary me-2" />
-                    Hoja de Datos de Seguridad:
-                  </strong>
-                </p>
-                {selectedProduct.safety_data_sheet ? (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => {
-                      if (selectedProduct.safety_data_sheet) {
-                        verArchivoPrefirmado(selectedProduct.safety_data_sheet);
-                      } else {
-                        alert("No hay Hoja de Datos de Seguridad disponible.");
-                      }
-                    }}
-                  >
+                <p><strong><BsBookHalf className="text-secondary me-2" />Hoja de Datos de Seguridad:</strong></p>
+                {selectedProduct.safety_data_sheet && (
+                  <Button variant="link" size="sm" onClick={() => verArchivoPrefirmado(selectedProduct.safety_data_sheet)}>
                     <BsEye style={{ color: "orange", fontSize: "1.2em" }} />
                   </Button>
-                ) : null}
+                )}
               </div>
 
               <div className="d-flex justify-content-between align-items-center">
-                <p>
-                  <strong>
-                    <BsBookHalf className="text-secondary me-2" />
-                    Ficha Técnica:
-                  </strong>
-                </p>
-                {selectedProduct.technical_sheet ? (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => {
-                      if (selectedProduct.technical_sheet) {
-                        verArchivoPrefirmado(selectedProduct.technical_sheet);
-                      } else {
-                        alert("No hay Ficha Técnica disponible.");
-                      }
-                    }}
-                  >
+                <p><strong><BsBookHalf className="text-secondary me-2" />Ficha Técnica:</strong></p>
+                {selectedProduct.technical_sheet && (
+                  <Button variant="link" size="sm" onClick={() => verArchivoPrefirmado(selectedProduct.technical_sheet)}>
                     <BsEye style={{ color: "orange", fontSize: "1.2em" }} />
                   </Button>
-                ) : null}
+                )}
               </div>
 
               <div className="d-flex justify-content-between align-items-center">
-                <p>
-                  <strong>
-                    <BsBookHalf className="text-secondary me-2" />
-                    Registro Sanitario:
-                  </strong>
-                </p>
-                {selectedProduct.health_registration ? (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => {
-                      if (selectedProduct.health_registration) {
-                        verArchivoPrefirmado(selectedProduct.health_registration);
-                      } else {
-                        alert("No hay Registro Sanitario disponible.");
-                      }
-                    }}
-                  >
+                <p><strong><BsBookHalf className="text-secondary me-2" />Registro Sanitario:</strong></p>
+                {selectedProduct.health_registration && (
+                  <Button variant="link" size="sm" onClick={() => verArchivoPrefirmado(selectedProduct.health_registration)}>
                     <BsEye style={{ color: "orange", fontSize: "1.2em" }} />
                   </Button>
-                ) : null}
+                )}
               </div>
 
               <div className="d-flex justify-content-between align-items-center">
-                <p>
-                  <strong>
-                    <BsBookHalf className="text-secondary me-2" />
-                    Tarjeta de Emergencia:
-                  </strong>
-                </p>
-                {selectedProduct.emergency_card ? (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => {
-                      if (selectedProduct.emergency_card) {
-                        verArchivoPrefirmado(selectedProduct.emergency_card);
-                      } else {
-                        alert("No hay Tarjeta de Emergencia disponible.");
-                      }
-                    }}
-                  >
+                <p><strong><BsBookHalf className="text-secondary me-2" />Tarjeta de Emergencia:</strong></p>
+                {selectedProduct.emergency_card && (
+                  <Button variant="link" size="sm" onClick={() => verArchivoPrefirmado(selectedProduct.emergency_card)}>
                     <BsEye style={{ color: "orange", fontSize: "1.2em" }} />
                   </Button>
-                ) : null}
+                )}
               </div>
             </>
           )}
         </Modal.Body>
-
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseDetailModal}>
-            Cerrar
-          </Button>
+          <Button variant="secondary" onClick={handleCloseDetailModal}>Cerrar</Button>
         </Modal.Footer>
       </Modal>
-      {/* Modal para confirmar el registro del producto */}
+
+      {/* Confirmación (solo se alcanza si CAN_MANAGE) */}
       <Modal show={showConfirmationModal} onHide={() => setShowConfirmationModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Confirmación</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          ¿Estás seguro de que quieres registrar este producto?
-        </Modal.Body>
+        <Modal.Header closeButton><Modal.Title>Confirmación</Modal.Title></Modal.Header>
+        <Modal.Body>¿Estás seguro de que quieres registrar este producto?</Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowConfirmationModal(false)}>
-            Cancelar
-          </Button>
+          <Button variant="secondary" onClick={() => setShowConfirmationModal(false)}>Cancelar</Button>
           <Button
-            variant="primary"
+            variant="success"
             onClick={() => {
-              handleAddOrEditProduct(); // Llama a la función de registro
-              setShowConfirmationModal(false); // Cierra el modal de confirmación
-              handleCloseModal(); // Cierra el modal principal
+              handleAddOrEditProduct();
+              setShowConfirmationModal(false);
+              handleCloseModal();
             }}
           >
             Confirmar
           </Button>
         </Modal.Footer>
       </Modal>
-
     </div>
   );
 }
