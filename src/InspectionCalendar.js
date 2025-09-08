@@ -519,6 +519,12 @@ const InspectionCalendar = () => {
         }
     };
 
+    const handleInspectionClick = (inspection) => {
+        console.log("Clicked inspection:", inspection);
+        // Redirigir a la página de Detalles de Inspección con el ID seleccionado
+        navigate(`/inspection/${inspection.id}`);
+    };
+
     const handleEditEventClick = (event) => {
         console.log("Evento recibido para edición:", event);
 
@@ -786,7 +792,7 @@ const InspectionCalendar = () => {
 
             const formattedInspections = filteredInspections.map((inspection) => ({
                 ...inspection,
-                date: moment(inspection.date).format('DD/MM/YYYY'),
+                date: moment.utc(inspection.date).format("DD/MM/YYYY"),
                 time: inspection.time ? moment(inspection.time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
                 exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm:ss').format('HH:mm') : '--',
                 observations: inspection.observations || 'Sin observaciones',
@@ -1361,53 +1367,83 @@ const InspectionCalendar = () => {
             /* ──────────── 1.  Grabar en backend y recoger el ID real ──────────── */
             const savedEvents = [];
 
+            // Enviar eventos al backend con "optimistic update"
             for (const payload of uniqueEvents) {
+                // 1) Pintar de inmediato con un ID temporal
+                const tmpId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                const svc = services.find(s => s.id === payload.service_id) || {};
+                const respUser = users.find(u => u.id === svc.responsible) || {};
+                const optimisticEvent = {
+                    id: tmpId,
+                    service_id: payload.service_id,
+                    title: payload.service_id,
+                    start: moment(`${payload.date}T${payload.start_time}`).toISOString(),
+                    end: moment(`${payload.date}T${payload.end_time}`).toISOString(),
+                    serviceType: svc.service_type || 'Sin tipo',
+                    description: svc.description || 'Sin descripción',
+                    category: svc.category || 'Sin categoría',
+                    quantyPerMonth: svc.quantity_per_month || null,
+                    pestToControl: svc.pest_to_control,
+                    interventionAreas: svc.intervention_areas,
+                    clientName: svc.clientName || 'Sin empresa',
+                    clientId: svc.client_id,
+                    responsibleId: [svc.responsible],
+                    responsibleName: `${(respUser.name || '')} ${(respUser.lastname || '')}`.trim(),
+                    color: respUser.color || '#fdd835',
+                    backgroundColor: respUser.color || '#fdd835',
+                    allDay: false,
+                };
+
+                // pinta ya y guarda en caché del mes y en "ALL"
+                setAllEvents(prev => {
+                    const merged = mergeById(prev, [optimisticEvent]);
+                    filterEvents(merged);
+                    setCachedMonth(mesComp, merged);
+                    setCachedMonth('ALL', merged);
+                    return merged;
+                });
+
                 try {
+                    // 2) Llamada real al backend
                     const res = await fetch(`${process.env.REACT_APP_API_URL}/api/service-schedule`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),
                     });
                     if (!res.ok) throw new Error('Error programando el evento');
+                    const saved = await res.json();
+                    const realId = String(saved.data.id);
 
-                    const saved = await res.json();        // tu backend devuelve {data:{id,…}, …}
-                    const realId = String(saved.data.id);   // ← id definitivo (¡a string!)
-
-                    /* construimos AHORA el objeto que FullCalendar espera */
-                    const svc = services.find(s => s.id === payload.service_id) || {};
-                    const respUser = users.find(u => u.id === svc.responsible) || {};
-
-                    const newFcEvent = {
-                        id: realId,
-                        service_id: payload.service_id,
-                        title: payload.service_id,
-                        start: moment(`${payload.date}T${payload.start_time}`).toISOString(),
-                        end: moment(`${payload.date}T${payload.end_time}`).toISOString(),
-                        /* extendedProps ↓ */
-                        serviceType: svc.service_type || 'Sin tipo',
-                        description: svc.description || 'Sin descripción',
-                        category: svc.category || 'Sin categoría',
-                        quantyPerMonth: svc.quantity_per_month || null,
-                        pestToControl: svc.pest_to_control,
-                        interventionAreas: svc.intervention_areas,
-                        clientName: svc.clientName || 'Sin empresa',
-                        clientId: svc.client_id,
-                        responsibleId: [svc.responsible],
-                        responsibleName: `${respUser.name || ''} ${respUser.lastname || ''}`.trim(),
-                        color: respUser.color || '#fdd835',
-                        backgroundColor: respUser.color || '#fdd835',
-                        allDay: false,
+                    const realEvent = {
+                        ...optimisticEvent,
+                        id: realId, // sustituimos el id temporal por el real
                     };
 
-                    /* actualiza estado y caché con ese único evento */
+                    // 3) Reconciliar: quitar el tmp (misma “ranura”) y meter el real
                     setAllEvents(prev => {
-                        const merged = mergeById(prev, [newFcEvent]);
+                        const withoutTmp = prev.filter(e =>
+                            !(String(e.id).startsWith('tmp-') && (
+                                e.service_id === realEvent.service_id &&
+                                moment(e.start).isSame(realEvent.start) &&
+                                moment(e.end).isSame(realEvent.end)
+                            ))
+                        );
+                        const merged = mergeById(withoutTmp, [realEvent]);
                         filterEvents(merged);
                         setCachedMonth(mesComp, merged);
+                        setCachedMonth('ALL', merged);
                         return merged;
                     });
-                } catch (error) {
-                    console.error(`Error programando el evento en ${payload.date}:`, error);
+                } catch (err) {
+                    // 4) Si falla el POST, retiramos el optimista
+                    console.error(`Error programando el evento en ${payload.date}:`, err);
+                    setAllEvents(prev => {
+                        const cleaned = prev.filter(e => e.id !== tmpId);
+                        filterEvents(cleaned);
+                        setCachedMonth(mesComp, cleaned);
+                        setCachedMonth('ALL', cleaned);
+                        return cleaned;
+                    });
                 }
             }
 
@@ -1918,26 +1954,48 @@ const InspectionCalendar = () => {
                                 </h5>
                                 {inspections.length > 0 ? (
                                     <div className="custom-table-container">
-                                        <table className="custom-table">
+                                        <table className="custom-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+                                            <colgroup>
+                                                <col style={{ width: '6rem' }} />   {/* ID */}
+                                                <col style={{ width: '8rem' }} />   {/* Fecha */}
+                                                <col style={{ width: '18rem' }} />  {/* Tipo */}
+                                                <col style={{ width: '14rem' }} />  {/* Creado por */}
+                                                <col style={{ width: '7rem' }} />   {/* Inicio */}
+                                                <col style={{ width: '9rem' }} />   {/* Finalización */}
+                                                <col style={{ width: '28rem' }} />  {/* Observaciones */}
+                                            </colgroup>
+
                                             <thead>
                                                 <tr>
                                                     <th>ID</th>
                                                     <th>Fecha</th>
+                                                    <th>Tipo</th>
+                                                    <th>Creado por</th>
                                                     <th>Inicio</th>
                                                     <th>Finalización</th>
                                                     <th>Observaciones</th>
                                                 </tr>
                                             </thead>
+
                                             <tbody>
-                                                {inspections.map((inspection) => (
-                                                    <tr key={inspection.id} onClick={() => navigate(`/inspection/${inspection.id}`)}>
-                                                        <td>{inspection.id}</td>
-                                                        <td>{inspection.date}</td>
-                                                        <td>{inspection.time}</td>
-                                                        <td>{inspection.exit_time}</td>
-                                                        <td>{inspection.observations}</td>
-                                                    </tr>
-                                                ))}
+                                                {inspections
+                                                    ?.slice()
+                                                    .sort((a, b) => {
+                                                        const dateTimeA = new Date(`${a.date.split('/').reverse().join('-')}T${a.time}`);
+                                                        const dateTimeB = new Date(`${b.date.split('/').reverse().join('-')}T${b.time}`);
+                                                        return dateTimeB - dateTimeA;
+                                                    })
+                                                    .map((inspection) => (
+                                                        <tr key={inspection.id} onClick={() => handleInspectionClick(inspection)}>
+                                                            <td>{inspection.id}</td>
+                                                            <td>{inspection.date}</td>
+                                                            <td>{inspection.inspection_type}</td>
+                                                            <td>{inspection.created_by || "No asignado"}</td>
+                                                            <td>{inspection.time}</td>
+                                                            <td>{inspection.exit_time}</td>
+                                                            <td>{inspection.observations}</td>
+                                                        </tr>
+                                                    ))}
                                             </tbody>
                                         </table>
                                     </div>

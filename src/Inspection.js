@@ -852,6 +852,9 @@ function Inspection() {
             category: productData.category || 'No especificado',
             residualDuration: productData.residualDuration || 'No especificado',
             expirationDate: productData.expirationDate || 'No especificado',
+            toxicologicalCategory: productData.toxicologicalCategory || 'No especificado',
+            targetSpecies: productData.targetSpecies || 'No especificado',
+            antidote: productData.antidote || 'No especificado',
             tipo: baseType,
             process: procedureMatch?.application ? JSON.parse(procedureMatch.application).join(', ') : 'No especificado',
 
@@ -1124,6 +1127,9 @@ function Inspection() {
         updatedProduct.unity = selectedProduct?.unity || 'No especificado';
         updatedProduct.category = selectedProduct?.category || 'No especificado';
         updatedProduct.residualDuration = selectedProduct?.residual_duration || 'No especificado';
+        updatedProduct.toxicologicalCategory = selectedProduct?.toxicological_category || 'No especificado';
+        updatedProduct.targetSpecies = selectedProduct?.target_species || 'No especificado';
+        updatedProduct.antidote = selectedProduct?.antidote || 'No especificado';
         updatedProduct.tipo = baseType;
         updatedProduct.process = procedureMatch?.application ? JSON.parse(procedureMatch.application).join(', ') : 'No especificado'; // ✅ Aplicación del formato legible
       } else {
@@ -2529,6 +2535,9 @@ function Inspection() {
                                   batch: selectedProduct.batch || 'No especificado',
                                   category: selectedProduct.category || 'No especificado',
                                   residualDuration: selectedProduct.residual_duration || 'No especificado',
+                                  toxicologicalCategory: selectedProduct.toxicological_category || 'No especificado',
+                                  targetSpecies: selectedProduct.target_species || 'No especificado',
+                                  antidote: selectedProduct.antidote || 'No especificado',
                                   tipo: baseType,
                                   process: procedureMatch?.application ? JSON.parse(procedureMatch.application).join(', ') : 'No especificado', // ✅ Formato legible aplicado aquí
                                 },
@@ -2635,7 +2644,7 @@ function Inspection() {
                       const readableProcess = procedureMatch?.application ? JSON.parse(procedureMatch.application).join(', ') : 'No especificado';
                       setProductsByType((prevProducts) => ({
                         ...prevProducts,
-                        [`${type}${newIndex}`]: { expirationDate: '', residualDuration: '', batch: '', activeIngredient: '', product: '', dosage: '', date: '', unity: '', id: null, tipo: baseType, process: readableProcess, },
+                        [`${type}${newIndex}`]: { expirationDate: '', residualDuration: '', toxicologicalCategory: '', targetSpecies: '', antidote: '', batch: '', activeIngredient: '', product: '', dosage: '', date: '', unity: '', id: null, tipo: baseType, process: readableProcess, },
                       }));
                     }}
                   >

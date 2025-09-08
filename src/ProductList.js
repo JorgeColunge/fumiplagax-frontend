@@ -39,7 +39,10 @@ function ProductList() {
     emergency_card: '',
     health_record: '',
     active_ingredient: '',
-    category: []
+    category: [],
+    toxicological_category: '',
+    target_species: '',
+    antidote: ''
   });
 
   const categoryOptions = [
@@ -176,7 +179,10 @@ function ProductList() {
           ? product.category
           : typeof product.category === 'string'
             ? JSON.parse(product.category.replace(/\\/g, ''))
-            : []
+            : [],
+        toxicological_category: product.toxicological_category || '',
+        target_species: product.target_species || '',
+        antidote: product.antidote || ''
       });
     } else {
       setEditingProduct(null);
@@ -194,7 +200,10 @@ function ProductList() {
         emergency_card: '',
         health_record: '',
         active_ingredient: '',
-        category: []
+        category: [],
+        toxicological_category: '',
+        target_species: '',
+        antidote: ''
       });
     }
     setShowModal(true);
@@ -230,6 +239,19 @@ function ProductList() {
       return;
     }
 
+    if (!newProduct.toxicological_category?.trim()) {
+      alert('El campo "Categoría toxicológica" es obligatorio.');
+      return;
+    }
+    if (!newProduct.target_species?.trim()) {
+      alert('El campo "Especie a controlar" es obligatorio.');
+      return;
+    }
+    if (!newProduct.antidote?.trim()) {
+      alert('El campo "Antídoto" es obligatorio.');
+      return;
+    }
+
     try {
       const formData = new FormData();
       formData.append('name', newProduct.name);
@@ -241,6 +263,9 @@ function ProductList() {
       formData.append('unity', newProduct.unity);
       formData.append('active_ingredient', newProduct.active_ingredient);
       formData.append('category', JSON.stringify(newProduct.category));
+      formData.append('toxicological_category', newProduct.toxicological_category);
+      formData.append('target_species', newProduct.target_species);
+      formData.append('antidote', newProduct.antidote);
 
       if (safetyDataSheetFile) formData.append('safety_data_sheet', safetyDataSheetFile);
       if (technicalSheetFile) formData.append('technical_sheet', technicalSheetFile);
@@ -262,6 +287,9 @@ function ProductList() {
                   : typeof response.data.product.category === 'string'
                     ? JSON.parse(response.data.product.category)
                     : [],
+                toxicological_category: response.data.product.toxicological_category || '',
+                target_species: response.data.product.target_species || '',
+                antidote: response.data.product.antidote || ''
               }
               : product
           )
@@ -277,6 +305,9 @@ function ProductList() {
               : [],
           dose: response.data.product.dose || 'No especificada',
           residual_duration: response.data.product.residual_duration || 'No especificada',
+          toxicological_category: response.data.product.toxicological_category || '',
+          target_species: response.data.product.target_species || '',
+          antidote: response.data.product.antidote || ''
         };
 
         // Inserta ARRIBA para que sea visible inmediatamente
@@ -492,6 +523,47 @@ function ProductList() {
               <Form.Control type="date" name="expiration_date" value={newProduct.expiration_date} onChange={handleInputChange} />
             </Form.Group>
 
+            <Form.Group controlId="formToxicologicalCategory" className="mb-3">
+              <Form.Label>Categoría toxicológica <span className="text-danger">*</span></Form.Label>
+              <Form.Select
+                name="toxicological_category"
+                value={newProduct.toxicological_category}
+                onChange={handleInputChange}
+                required
+              >
+                <option value="">Seleccionar</option>
+                <option value="I">I (Extremadamente peligroso)</option>
+                <option value="II">II (Altamente peligroso)</option>
+                <option value="III">III (Moderadamente peligroso)</option>
+                <option value="IV">IV (Ligeramente peligroso)</option>
+              </Form.Select>
+            </Form.Group>
+            <Form.Group controlId="formTargetSpecies" className="mb-3">
+              <Form.Label>Especie a controlar <span className="text-danger">*</span></Form.Label>
+              <Form.Control
+                type="text"
+                name="target_species"
+                placeholder="Ej: cucarachas, roedores, mosquitos"
+                value={newProduct.target_species}
+                onChange={handleInputChange}
+                required
+              />
+              <Form.Text className="text-muted">
+                Puedes separar múltiples especies con comas.
+              </Form.Text>
+            </Form.Group>
+            <Form.Group controlId="formAntidote" className="mb-3">
+              <Form.Label>Antídoto <span className="text-danger">*</span></Form.Label>
+              <Form.Control
+                type="text"
+                name="antidote"
+                placeholder="Ej: Sulfato de atropina 1 mg/mL, etc."
+                value={newProduct.antidote}
+                onChange={handleInputChange}
+                required
+              />
+            </Form.Group>
+
             {/* Archivos */}
             <Form.Group controlId="formSafetyDataSheet" className="mb-3 d-flex align-items-center flex-column">
               <div className="d-flex w-100 align-items-center">
@@ -646,6 +718,9 @@ function ProductList() {
               <p><BsGrid className="me-2" /> <strong>Lote:</strong> {selectedProduct.batch || 'No especificado'}</p>
               <p><BsCalendar className="me-2" /> <strong>Fecha de Vencimiento:</strong> {selectedProduct.expiration_date || 'No especificada'}</p>
               <p><strong>Ingrediente Activo:</strong> {selectedProduct.active_ingredient || 'No especificado'}</p>
+              <p><strong>Categoría toxicológica:</strong> {selectedProduct.toxicological_category || 'No especificada'}</p>
+              <p><strong>Especie a controlar:</strong> {selectedProduct.target_species || 'No especificada'}</p>
+              <p><strong>Antídoto:</strong> {selectedProduct.antidote || 'No especificado'}</p>
 
               <div className="d-flex justify-content-between align-items-center">
                 <p><strong><BsBookHalf className="text-secondary me-2" />Hoja de Datos de Seguridad:</strong></p>

@@ -1924,11 +1924,21 @@ function ServiceList() {
                 </h5>
                 {inspections.length > 0 ? (
                   <div className="custom-table-container" style={{ maxHeight: "300px", overflowY: "auto" }}>
-                    <table className="custom-table">
+                    <table className="custom-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+                      <colgroup>
+                        <col /> {/* ID */}
+                        <col /> {/* Fecha */}
+                        <col style={{ width: '180px' }} /> {/* Tipo */}
+                        <col /> {/* Creado por */}
+                        <col /> {/* Inicio */}
+                        <col /> {/* Finalización */}
+                        <col /> {/* Observaciones */}
+                      </colgroup>
                       <thead>
                         <tr>
                           <th>ID</th>
                           <th>Fecha</th>
+                          <th>Tipo</th>
                           <th>Creado por</th>
                           <th>Inicio</th>
                           <th>Finalización</th>
@@ -1937,16 +1947,17 @@ function ServiceList() {
                       </thead>
                       <tbody>
                         {inspections
-                          .slice() // Clonamos para no mutar el estado original
+                          .slice()
                           .sort((a, b) => {
                             const dateTimeA = new Date(`${a.date.split('/').reverse().join('-')}T${a.time}`);
                             const dateTimeB = new Date(`${b.date.split('/').reverse().join('-')}T${b.time}`);
-                            return dateTimeB - dateTimeA; // Orden descendente (más recientes primero)
+                            return dateTimeB - dateTimeA;
                           })
                           .map((inspection) => (
                             <tr key={inspection.id} onClick={() => handleInspectionClick(inspection)}>
                               <td>{inspection.id}</td>
                               <td>{inspection.date}</td>
+                              <td>{inspection.inspection_type}</td>
                               <td>{technicians.find((tech) => tech.id === inspection.created_by)?.name || "No asignado"}</td>
                               <td>{inspection.time}</td>
                               <td>{inspection.exit_time}</td>

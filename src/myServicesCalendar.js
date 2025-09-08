@@ -304,6 +304,12 @@ const MyServicesCalendar = () => {
         setSelectedClientId(null);
     };
 
+    const handleInspectionClick = (inspection) => {
+        console.log("Clicked inspection:", inspection);
+        // Redirigir a la página de Detalles de Inspección con el ID seleccionado
+        navigate(`/inspection/${inspection.id}`);
+    };
+
     const handleEditServiceClick = (serviceId) => {
         navigate('/myServices', { state: { serviceId } });
     };
@@ -326,7 +332,7 @@ const MyServicesCalendar = () => {
 
             const formattedInspections = filteredInspections.map((inspection) => ({
                 ...inspection,
-                date: moment(inspection.date).format('DD/MM/YYYY'),
+                date: moment.utc(inspection.date).format("DD/MM/YYYY"),
                 time: inspection.time ? moment(inspection.time, 'HH:mm:ss').format('HH:mm') : 'No disponible',
                 exit_time: inspection.exit_time ? moment(inspection.exit_time, 'HH:mm:ss').format('HH:mm') : '--',
                 observations: inspection.observations || 'Sin observaciones',
@@ -685,26 +691,47 @@ const MyServicesCalendar = () => {
                                 </h5>
                                 {inspections.length > 0 ? (
                                     <div className="custom-table-container">
-                                        <table className="custom-table">
+                                        <table className="custom-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+                                            <colgroup>
+                                                <col style={{ width: '6rem' }} />   {/* ID */}
+                                                <col style={{ width: '8rem' }} />   {/* Fecha */}
+                                                <col style={{ width: '18rem' }} />  {/* Tipo */}
+                                                <col style={{ width: '14rem' }} />  {/* Creado por */}
+                                                <col style={{ width: '7rem' }} />   {/* Inicio */}
+                                                <col style={{ width: '9rem' }} />   {/* Finalización */}
+                                                <col style={{ width: '28rem' }} />  {/* Observaciones */}
+                                            </colgroup>
                                             <thead>
                                                 <tr>
                                                     <th>ID</th>
                                                     <th>Fecha</th>
+                                                    <th>Tipo</th>
+                                                    <th>Creado por</th>
                                                     <th>Inicio</th>
                                                     <th>Finalización</th>
                                                     <th>Observaciones</th>
                                                 </tr>
                                             </thead>
+
                                             <tbody>
-                                                {inspections.map((inspection) => (
-                                                    <tr key={inspection.id} onClick={() => navigate(`/inspection/${inspection.id}`)}>
-                                                        <td>{inspection.id}</td>
-                                                        <td>{inspection.date}</td>
-                                                        <td>{inspection.time}</td>
-                                                        <td>{inspection.exit_time}</td>
-                                                        <td>{inspection.observations}</td>
-                                                    </tr>
-                                                ))}
+                                                {inspections
+                                                    ?.slice()
+                                                    .sort((a, b) => {
+                                                        const dateTimeA = new Date(`${a.date.split('/').reverse().join('-')}T${a.time}`);
+                                                        const dateTimeB = new Date(`${b.date.split('/').reverse().join('-')}T${b.time}`);
+                                                        return dateTimeB - dateTimeA;
+                                                    })
+                                                    .map((inspection) => (
+                                                        <tr key={inspection.id} onClick={() => handleInspectionClick(inspection)}>
+                                                            <td>{inspection.id}</td>
+                                                            <td>{inspection.date}</td>
+                                                            <td>{inspection.inspection_type}</td>
+                                                            <td>{inspection.created_by || "No asignado"}</td>
+                                                            <td>{inspection.time}</td>
+                                                            <td>{inspection.exit_time}</td>
+                                                            <td>{inspection.observations}</td>
+                                                        </tr>
+                                                    ))}
                                             </tbody>
                                         </table>
                                     </div>

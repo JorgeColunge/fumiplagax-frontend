@@ -1379,7 +1379,10 @@ function ClientList() {
           <Button variant="secondary" onClick={showAddAirStationModal ? handleCloseAddAirStationModal : handleCloseEditStationModal}>
             Cancelar
           </Button>
-          <Button variant="success" onClick={handleSaveStation}>
+          <Button
+            variant="success"
+            onClick={editingStation ? handleSaveStation : handleSaveNewAirStation}
+          >
             {editingStation ? "Guardar Cambios" : "Guardar"}
           </Button>
         </Modal.Footer>
