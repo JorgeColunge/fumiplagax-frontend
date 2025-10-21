@@ -13,7 +13,6 @@ import QrScannerComponent from './QrScannerComponent';
 import { compressImage } from './imageHelpers';
 import moment from 'moment';
 import { useSocket } from './SocketContext';
-import { isMobile } from "react-device-detect";
 
 function Inspection() {
   const storedUserInfo = JSON.parse(localStorage.getItem("user_info"));
@@ -109,6 +108,50 @@ function Inspection() {
   const socket = useSocket(); // Obtenemos el socket
 
   const sigImage = useRef(null);
+
+  // util de normalización (puedes ponerlo arriba del componente o junto a los hooks)
+  const normalizeCompany = (s) =>
+    (s ?? "").toString().trim().toLowerCase();
+
+  const actionsForCompany = useMemo(() => {
+    const svc = normalizeCompany(serviceData?.company);
+
+    return actions.filter((a) => {
+      const act = normalizeCompany(a?.company);
+
+      // Acciones "globales" (sin empresa) → visibles siempre
+      if (!act) return true;
+
+      // Si la inspección no tiene empresa definida, no mostramos acciones específicas
+      if (!svc) return false;
+
+      // Coincidencia estricta normalizada
+      return act === svc;
+    });
+  }, [actions, serviceData?.company]);
+
+  useEffect(() => {
+    const svc = normalizeCompany(serviceData?.company);
+    if (!actions.length) return;
+
+    console.groupCollapsed('[ACCIONES] Validación de company');
+    console.log('service.company (norm):', svc || '(vacío)');
+
+    let matches = 0;
+    actions.forEach((a, i) => {
+      const act = normalizeCompany(a?.company);
+      const ok = !act ? true : (svc ? act === svc : false); // mismas reglas del filtro
+      if (ok) matches++;
+      console.log(
+        `#${i} id:${a?.configuration_id ?? '-'} name:${a?.action_name ?? '-'} | action.company:"${a?.company ?? ''}" (norm:"${act || '(global)'}") =>`,
+        ok ? 'MOSTRAR' : 'OCULTAR'
+      );
+    });
+
+    console.log(`Resumen: ${matches}/${actions.length} acciones visibles`);
+    console.groupEnd();
+  }, [actions, serviceData?.company]);
+
 
   useEffect(() => {
     const onResize = () => {
@@ -1695,9 +1738,9 @@ function Inspection() {
               {/* Mostrar las acciones debajo de los documentos */}
               <div className="mt-3">
                 <h5>Acciones</h5>
-                {actions.length > 0 ? (
+                {actionsForCompany.length > 0 ? (
                   <div className="row" style={{ minHeight: 0, height: 'auto' }}>
-                    {actions.map((action, index) => {
+                    {actionsForCompany.map((action, index) => {
                       // Determinar el ícono y color según el action_type
                       let IconComponent;
                       let color;

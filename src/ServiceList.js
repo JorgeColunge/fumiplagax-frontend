@@ -532,14 +532,31 @@ function ServiceList() {
 
     let filtered = preprocessedServices;
 
+    const normalize = (v: unknown) =>
+      (v ?? '')
+        .toString()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .trim()
+        .toLowerCase();
+
     if (searchServiceText) {
-      filtered = filtered.filter((service) =>
-        service.id.toString().includes(searchServiceText) ||
-        (clients.find((client) => client.id === service.client_id)?.name || "").toLowerCase().includes(searchServiceText.toLowerCase()) ||
-        (technicians.find((tech) => tech.id === service.responsible)?.name || "").toLowerCase().includes(searchServiceText.toLowerCase()) ||
-        service.service_type_cleaned.includes(searchServiceText) ||
-        service.company.toLowerCase().includes(searchServiceText)
-      );
+      const q = normalize(searchServiceText);
+      filtered = filtered.filter((service) => {
+        const svcId = service?.id?.toString() ?? '';
+        const clientName = normalize(clients.find((c) => c.id === service.client_id)?.name);
+        const techName = normalize(technicians.find((t) => t.id === service.responsible)?.name);
+        const types = normalize(service.service_type_cleaned);
+        const company = normalize(service.company);
+
+        return (
+          svcId.includes(q) ||
+          clientName.includes(q) ||
+          techName.includes(q) ||
+          types.includes(q) ||
+          company.includes(q)
+        );
+      });
     }
 
     if (selectedClient) {

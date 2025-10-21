@@ -144,7 +144,7 @@ const Consumption = () => {
         }
 
         data.forEach((item) => {
-            const day = moment.utc(item.query_day).local().date();
+            const day = moment(item.query_day, 'YYYY-MM-DD').date();
             const model = item.model;
             models.add(model);
             if (!consumptionPerDay[day][model]) consumptionPerDay[day][model] = 0;
